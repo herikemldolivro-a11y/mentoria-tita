@@ -15,6 +15,7 @@ export interface FocusContest {
 export interface Profile {
   id: string;
   email: string | null;
+  username?: string | null;
   nome: string | null;
   role: UserRole;
   concurso: string | null;
@@ -47,7 +48,7 @@ export async function requireAuthenticatedUser(): Promise<AuthenticatedUser> {
 
   const extendedProfileQuery = await supabase
     .from("profiles")
-    .select("id,email,nome,role,concurso,teste_inicio,teste_fim,ativo,focus_contest_id,focus_contest:contests(id,nome,sigla,slug,logo_path)")
+    .select("id,email,username,nome,role,concurso,teste_inicio,teste_fim,ativo,focus_contest_id,focus_contest:contests(id,nome,sigla,slug,logo_path)")
     .eq("id", data.user.id)
     .maybeSingle();
 
