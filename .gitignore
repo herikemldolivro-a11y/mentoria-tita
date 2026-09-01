@@ -6,4 +6,5 @@
 *.pem
 *-debug.log*
 .env*
+!.env.example
 *.tsbuildinfo
