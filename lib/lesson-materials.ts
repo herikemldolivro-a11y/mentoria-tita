@@ -16,6 +16,7 @@ export type LessonMaterial = {
   is_active: boolean;
   allow_download: boolean;
   created_at: string;
+  source?: "storage" | "static";
 };
 
 type ActivePlan = {
@@ -36,17 +37,26 @@ async function getActivePlan(): Promise<ActivePlan> {
 
   let activeStudyPlanId = profile?.active_study_plan_id as string | null | undefined;
 
-  if (!activeStudyPlanId && profile?.focus_contest_id) {
-    const { data: plan, error: planError } = await supabase
+  if (profile?.focus_contest_id) {
+    const { data: activePlan, error: activePlanError } = await supabase
       .from("study_plans")
-      .select("id")
-      .eq("contest_id", profile.focus_contest_id)
-      .eq("is_default", true)
-      .eq("active", true)
-      .limit(1)
+      .select("id,contest_id")
+      .eq("id", activeStudyPlanId ?? "00000000-0000-0000-0000-000000000000")
       .maybeSingle();
-    if (planError) throw planError;
-    activeStudyPlanId = plan?.id as string | undefined;
+    if (activePlanError) throw activePlanError;
+
+    if (!activePlan || activePlan.contest_id !== profile.focus_contest_id) {
+      const { data: plan, error: planError } = await supabase
+        .from("study_plans")
+        .select("id")
+        .eq("contest_id", profile.focus_contest_id)
+        .eq("is_default", true)
+        .eq("active", true)
+        .limit(1)
+        .maybeSingle();
+      if (planError) throw planError;
+      activeStudyPlanId = plan?.id as string | undefined;
+    }
   }
 
   if (!activeStudyPlanId) throw new Error("Nenhum cronograma ativo foi atribuído à sua conta.");
@@ -59,11 +69,12 @@ export async function loadActiveLessonMaterial(subjectSlug: string, lessonSlug: 
 
   const { data: lesson, error: lessonError } = await supabase
     .from("study_lesson_catalog")
-    .select("lesson_id")
+    .select("lesson_id,lesson_title,pdf_path")
     .eq("plan_id", activeStudyPlanId)
     .eq("subject_slug", subjectSlug)
     .eq("lesson_slug", lessonSlug)
     .maybeSingle();
+
   if (lessonError) throw lessonError;
   if (!lesson?.lesson_id) return null;
 
@@ -74,26 +85,66 @@ export async function loadActiveLessonMaterial(subjectSlug: string, lessonSlug: 
     .eq("material_type", "theory")
     .eq("is_active", true)
     .maybeSingle();
+
   if (materialError) throw materialError;
 
-  return (material ?? null) as LessonMaterial | null;
+  if (material) return { ...(material as LessonMaterial), source: "storage" as const };
+
+  if (lesson.pdf_path) {
+    const fileName = String(lesson.pdf_path).split("/").filter(Boolean).at(-1) ?? "material.pdf";
+    return {
+      id: `static-${lesson.lesson_id}`,
+      lesson_id: lesson.lesson_id,
+      title: lesson.lesson_title || fileName,
+      file_name: fileName,
+      storage_path: lesson.pdf_path,
+      mime_type: "application/pdf",
+      file_size: 0,
+      version: 1,
+      is_active: true,
+      allow_download: true,
+      created_at: new Date(0).toISOString(),
+      source: "static" as const,
+    } satisfies LessonMaterial;
+  }
+
+  return null;
 }
 
 export async function createLessonMaterialSignedUrl(storagePath: string, expiresIn = 3600) {
+  if (storagePath.startsWith("/")) return storagePath;
+
   const supabase = createClient();
   const { data, error } = await supabase.storage
     .from(LESSON_MATERIALS_BUCKET)
     .createSignedUrl(storagePath, expiresIn);
+
   if (error) throw error;
   if (!data?.signedUrl) throw new Error("Não foi possível abrir o material.");
   return data.signedUrl;
 }
 
 export async function downloadLessonMaterial(material: LessonMaterial) {
+  if (material.storage_path.startsWith("/")) {
+    const response = await fetch(material.storage_path);
+    if (!response.ok) throw new Error("Não foi possível baixar o material.");
+    const data = await response.blob();
+    const url = URL.createObjectURL(data);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = material.file_name || "material.pdf";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1200);
+    return;
+  }
+
   const supabase = createClient();
   const { data, error } = await supabase.storage
     .from(LESSON_MATERIALS_BUCKET)
     .download(material.storage_path);
+
   if (error) throw error;
 
   const url = URL.createObjectURL(data);

@@ -142,7 +142,6 @@ async function resolveWeek(context: DbContext, weekNumber = 1) {
     .from("study_weeks")
     .select("id")
     .eq("plan_id", context.activePlanId)
-    .eq("week_number", weekNumber)
     .maybeSingle();
   if (error) throw error;
   if (!data?.id) throw new Error(`Semana ${weekNumber} não encontrada no cronograma ativo.`);
@@ -173,7 +172,6 @@ async function resolveLesson(
       "plan_id,week_id,week_number,subject_id,subject_slug,subject_short_name,subject_name,lesson_id,lesson_slug,lesson_title,lesson_position,question_count",
     )
     .eq("plan_id", context.activePlanId)
-    .eq("week_number", weekNumber)
     .eq("subject_slug", subjectSlug)
     .eq("lesson_slug", lessonSlug)
     .maybeSingle();
@@ -265,7 +263,6 @@ export async function loadSubjectLessonStates(subjectSlug: string) {
     .from("study_lesson_catalog")
     .select("lesson_id,lesson_slug,lesson_position")
     .eq("plan_id", context.activePlanId)
-    .eq("week_number", 1)
     .eq("subject_slug", subjectSlug)
     .order("lesson_position", { ascending: true });
   if (lessonsError) throw lessonsError;
@@ -302,8 +299,7 @@ async function buildProgressSummary(subjectSlug?: string): Promise<SubjectProgre
   let query = context.supabase
     .from("study_lesson_catalog")
     .select("lesson_id,subject_slug")
-    .eq("plan_id", context.activePlanId)
-    .eq("week_number", 1);
+    .eq("plan_id", context.activePlanId);
 
   if (subjectSlug) query = query.eq("subject_slug", subjectSlug);
   const { data: lessons, error: lessonError } = await query;

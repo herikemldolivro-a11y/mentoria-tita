@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ChangeEvent, type DragEvent, type FormEvent, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
+import { loadLevelingCalendar, type LevelingCalendarRow } from "@/lib/leveling-calendar-system";
 import { prfSubjects } from "@/lib/prf-week-one";
 import {
   formatDatePtBr,
@@ -327,18 +328,21 @@ export function RevisionCalendar() {
   const router = useRouter();
   const [referenceMonth, setReferenceMonth] = useState(() => new Date());
   const [events, setEvents] = useState<RevisionEvent[]>([]);
+  const [levelingEvents, setLevelingEvents] = useState<LevelingCalendarRow[]>([]);
   const [drafts, setDrafts] = useState<RevisionDraft[]>([]);
   const [focusedDraftId, setFocusedDraftId] = useState<string | null>(null);
   const [modalDate, setModalDate] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
   async function refresh() {
-    const [nextEvents, nextDrafts] = await Promise.all([
+    const [nextEvents, nextDrafts, levelingPayload] = await Promise.all([
       loadRevisionEvents(),
       loadRevisionDrafts(),
+      loadLevelingCalendar().catch(() => ({ events: [] as LevelingCalendarRow[] })),
     ]);
     setEvents(nextEvents);
     setDrafts(nextDrafts);
+    setLevelingEvents(levelingPayload.events ?? []);
     return { nextEvents, nextDrafts };
   }
 
@@ -408,6 +412,10 @@ export function RevisionCalendar() {
 
   function open(event: RevisionEvent) {
     router.push(`/revisoes/${event.id}`);
+  }
+
+  function openLeveling(_event: LevelingCalendarRow) {
+    router.push("/nivelamentos");
   }
 
   return (
@@ -525,6 +533,7 @@ export function RevisionCalendar() {
                 const dayEvents = events
                   .filter((event) => event.date === key)
                   .sort((a, b) => a.revisionNumber - b.revisionNumber);
+                const dayLevelings = levelingEvents.filter((event) => (event.scheduled_for ?? event.recommended_for) === key);
 
                 return (
                   <div
@@ -573,6 +582,12 @@ export function RevisionCalendar() {
                       {dayEvents.length > 3 ? (
                         <span className="block px-2 text-[8px] font-bold text-[var(--muted)]">+ {dayEvents.length - 3} revisão(ões)</span>
                       ) : null}
+                      {dayLevelings.slice(0, 2).map((leveling) => (
+                        <button key={leveling.id} type="button" data-mt-leveling-inline="v18" onClick={() => openLeveling(leveling)} className="w-full rounded-xl border border-violet-400/25 bg-violet-400/[.075] px-2.5 py-2 text-left transition hover:border-violet-300/45">
+                          <span className="block truncate text-[8px] font-black tracking-[.08em] text-violet-300">NIVELAMENTO ${leveling.leveling_number}</span>
+                          <span className="mt-1 block truncate text-[8px] text-[var(--muted)]">${leveling.subject_name} · ${leveling.status === "completed" ? "concluído" : leveling.status === "draft" ? "agendar" : "programado"}</span>
+                        </button>
+                      ))}
                     </div>
                   </div>
                 );

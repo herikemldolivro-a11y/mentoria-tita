@@ -2,15 +2,14 @@ import { BookmarkCheck } from "lucide-react";
 import { BackButton } from "@/components/back-button";
 import { PageShell } from "@/components/page-shell";
 import { QuestionBank } from "@/components/question-bank";
-import { RevisionCalendar } from "@/components/revision-calendar";
-
+import { PrincipalCalendar } from "@/components/principal-calendar";
 export default function RevisoesPage() {
   return (
     <PageShell>
       <div className="mx-auto w-full max-w-[1260px] px-4 pt-7 sm:px-6 sm:pt-9">
         <BackButton fallback="/" label="Voltar ao painel" />
       </div>
-      <RevisionCalendar />
+      <PrincipalCalendar compact />
       <section className="mx-auto w-full max-w-[1260px] px-4 pb-24 sm:px-6">
         <header className="mb-6 border-t border-[var(--border)] pt-9">
           <span className="inline-flex items-center gap-2 text-[10px] font-black tracking-[.2em] text-[var(--gold-bright)]"><BookmarkCheck size={16} /> QUESTÕES SALVAS</span>

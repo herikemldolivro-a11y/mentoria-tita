@@ -2,14 +2,10 @@ import Image from "next/image";
 
 export function Brand({ compact = false }: { compact?: boolean }) {
   return (
-    <div className="flex items-center gap-3" aria-label="Mentoria Titã — Foco 95+">
-      <div
-        className={`relative shrink-0 overflow-hidden rounded-2xl border border-[#8f6a2c]/70 bg-black shadow-[0_8px_24px_rgba(0,0,0,.25)] ${
-          compact ? "h-14 w-14 sm:h-16 sm:w-16" : "h-16 w-16 sm:h-[72px] sm:w-[72px]"
-        }`}
-      >
+    <div className="mt-brand-clean flex items-center gap-3" aria-label="Mentoria Titã — Foco 95+">
+      <div className={`relative shrink-0 overflow-visible bg-transparent ${compact ? "h-14 w-14 sm:h-16 sm:w-16" : "h-16 w-16 sm:h-[72px] sm:w-[72px]"}`}>
         <Image
-          src="/logo-tita.png"
+          src="/logo-tita-clean.png"
           alt="Logo Mentoria Titã"
           fill
           sizes={compact ? "64px" : "72px"}

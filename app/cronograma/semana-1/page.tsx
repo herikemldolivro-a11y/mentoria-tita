@@ -1,19 +1,8 @@
-import { redirect } from "next/navigation";
-import { BackButton } from "@/components/back-button";
 import { PageShell } from "@/components/page-shell";
-import { PrfWeekOneMap } from "@/components/prf-week-one-schedule";
-import { requireAuthenticatedUser } from "@/lib/auth";
+import { ScheduleWeekScreen } from "@/components/schedule-week-screen";
 
-export default async function SemanaUmPage() {
-  const { focusContest } = await requireAuthenticatedUser();
-  if (focusContest?.slug !== "prf") redirect("/cronograma");
+export const dynamic = "force-dynamic";
 
-  return (
-    <PageShell>
-      <div className="mx-auto w-full max-w-6xl px-4 pt-7 sm:px-6 sm:pt-9">
-        <BackButton fallback="/" label="Voltar ao painel" />
-      </div>
-      <PrfWeekOneMap />
-    </PageShell>
-  );
+export default function Semana1Page() {
+  return <PageShell><ScheduleWeekScreen weekNumber={1} /></PageShell>;
 }

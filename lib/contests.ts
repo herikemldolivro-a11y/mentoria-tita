@@ -3,10 +3,17 @@ export interface ContestOption {
   sigla: string;
   nome: string;
   instituicao: string;
-  logoPath: string;
+  logoPath: string | null;
 }
 
 export const contestOptions: ContestOption[] = [
+  {
+    slug: "pprn",
+    sigla: "PPRN",
+    nome: "Polícia Penal RN 2026",
+    instituicao: "Polícia Penal do Rio Grande do Norte",
+    logoPath: null,
+  },
   {
     slug: "pcal",
     sigla: "PCAL",

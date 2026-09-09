@@ -8,7 +8,7 @@ export type LevelingAttempt = {
 
 export type RevisionEvent = {
   id: string;
-  subjectSlug: "contabilidade" | "raciocinio-logico";
+  subjectSlug: string;
   subjectName: string;
   lessonSlug: string;
   lessonTitle: string;

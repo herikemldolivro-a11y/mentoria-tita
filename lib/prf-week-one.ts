@@ -7,10 +7,11 @@ export interface MatrixLesson {
   topics: string[];
   priority: Priority;
   weekOne: boolean;
+  questionCount?: number;
 }
 
 export interface PrfSubject {
-  slug: "contabilidade" | "raciocinio-logico";
+  slug: string;
   shortName: string;
   name: string;
   description: string;

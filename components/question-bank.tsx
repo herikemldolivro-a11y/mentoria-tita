@@ -67,10 +67,7 @@ export function QuestionBank({ initialStatus = "all" }: { initialStatus?: Questi
         if (active) setLoading(false);
       });
     }, 0);
-    return () => {
-      active = false;
-      window.clearTimeout(timer);
-    };
+    return () => { active = false; window.clearTimeout(timer); };
   }, [status, subjectId, lessonId, level, appliedKeyword, page]);
 
   const rangeLabel = useMemo(() => {
@@ -92,10 +89,7 @@ export function QuestionBank({ initialStatus = "all" }: { initialStatus?: Questi
 
   async function toggleQuestionMark(questionId: string, mark: "starred" | "review", value: boolean) {
     const next = await setQuestionMark(questionId, mark, value);
-    setData((current) => ({
-      ...current,
-      items: current.items.map((item) => item.id === questionId ? { ...item, ...next } : item),
-    }));
+    setData((current) => ({ ...current, items: current.items.map((item) => item.id === questionId ? { ...item, ...next } : item) }));
     return next;
   }
 
@@ -108,18 +102,10 @@ export function QuestionBank({ initialStatus = "all" }: { initialStatus?: Questi
         </button>
 
         <div className={`${filtersOpen ? "block" : "hidden"} space-y-5 p-4 sm:block sm:p-5`}>
-          <div className="flex flex-wrap gap-2">
-            {statusChips.map((chip) => (
-              <button key={chip.value} type="button" onClick={() => { setStatus(chip.value); setPage(1); }} className="rounded-full border px-3.5 py-2 text-[9px] font-black tracking-[.1em] transition" style={{ borderColor: status === chip.value ? "rgba(210,166,78,.55)" : "var(--border)", background: status === chip.value ? "rgba(210,166,78,.1)" : "var(--background)", color: status === chip.value ? "var(--gold-bright)" : "var(--muted)" }}>{chip.label}</button>
-            ))}
-          </div>
+          <div className="flex flex-wrap gap-2">{statusChips.map((chip) => <button key={chip.value} type="button" onClick={() => { setStatus(chip.value); setPage(1); }} className="rounded-full border px-3.5 py-2 text-[9px] font-black tracking-[.1em]" style={{ borderColor: status === chip.value ? "rgba(210,166,78,.55)" : "var(--border)", background: status === chip.value ? "rgba(210,166,78,.1)" : "var(--background)", color: status === chip.value ? "var(--gold-bright)" : "var(--muted)" }}>{chip.label}</button>)}</div>
 
           <form onSubmit={(event) => { event.preventDefault(); setAppliedKeyword(keyword); setPage(1); }} className="flex gap-2">
-            <label className="relative min-w-0 flex-1">
-              <span className="sr-only">Palavra-chave</span>
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={16} />
-              <input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="Palavra-chave no enunciado" className="min-h-12 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] pl-10 pr-3 text-sm text-[var(--ink)] outline-none focus:border-[var(--border-strong)]" />
-            </label>
+            <label className="relative min-w-0 flex-1"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={16} /><input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="Palavra-chave no enunciado" className="min-h-12 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] pl-10 pr-3 text-sm text-[var(--ink)] outline-none" /></label>
             <button className="min-h-12 rounded-xl bg-[var(--gold)] px-5 text-[10px] font-black tracking-[.1em] text-[#111]">BUSCAR</button>
           </form>
 
@@ -129,29 +115,33 @@ export function QuestionBank({ initialStatus = "all" }: { initialStatus?: Questi
             <FilterSelect label="NÍVEL" value={level} onChange={(value) => { setLevel(value); setPage(1); }} options={[1,2,3,4].map((value) => ({ value: String(value), label: `Nível ${value}` }))} empty="Todos os níveis" />
           </div>
 
-          <button type="button" onClick={resetFilters} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-[var(--border)] px-3.5 text-[9px] font-black tracking-[.1em] text-[var(--muted)] transition hover:border-[var(--border-strong)] hover:text-[var(--gold-bright)]"><RotateCcw size={14} /> LIMPAR FILTROS</button>
+          <button type="button" onClick={resetFilters} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-[var(--border)] px-3.5 text-[9px] font-black tracking-[.1em] text-[var(--muted)]"><RotateCcw size={14} /> LIMPAR FILTROS</button>
         </div>
       </section>
 
       <div className="flex items-center justify-between gap-3 px-1 text-[10px] font-bold text-[var(--muted)]"><span>{rangeLabel}</span>{loading ? <span className="inline-flex items-center gap-2"><LoaderCircle className="animate-spin" size={14} /> CARREGANDO</span> : null}</div>
-
       {errorMessage ? <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-xs text-red-400">{errorMessage}</div> : null}
 
-      {!loading && data.items.length === 0 ? (
-        <section className="rounded-[26px] border border-dashed border-[var(--border-strong)] bg-[var(--surface)] px-6 py-16 text-center"><strong className="font-serif text-2xl text-[var(--ink)]">Nenhuma questão encontrada.</strong><p className="mt-2 text-xs leading-6 text-[var(--muted)]">Ajuste os filtros ou aguarde o administrador publicar questões para o seu plano.</p></section>
-      ) : null}
+      {!loading && data.items.length === 0 ? <section className="rounded-[26px] border border-dashed border-[var(--border-strong)] bg-[var(--surface)] px-6 py-16 text-center"><strong className="font-serif text-2xl text-[var(--ink)]">Nenhuma questão encontrada.</strong></section> : null}
 
       <div className="space-y-4">
         {data.items.map((question, index) => (
-          <QuestionCard key={question.id} question={question} number={(data.page - 1) * data.page_size + index + 1} onAnswer={(answer) => submitBankAnswer(question.id, answer)} onToggleMark={(mark, value) => toggleQuestionMark(question.id, mark, value)} />
+          <QuestionCard
+            key={question.id}
+            question={question}
+            number={(data.page - 1) * data.page_size + index + 1}
+            onAnswer={(answer) => submitBankAnswer(question.id, answer)}
+            onToggleMark={(mark, value) => toggleQuestionMark(question.id, mark, value)}
+            hidePreviousResolution
+          />
         ))}
       </div>
 
       {data.total > data.page_size ? (
-        <nav className="flex items-center justify-center gap-3 pt-3" aria-label="Paginação das questões">
-          <button type="button" disabled={page <= 1 || loading} onClick={() => { setPage((value) => Math.max(1, value - 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--border)] px-4 text-[10px] font-black tracking-[.08em] text-[var(--muted)] disabled:opacity-40"><ChevronLeft size={15} /> ANTERIOR</button>
-          <span className="text-[10px] font-black tracking-[.1em] text-[var(--gold-bright)]">{page} / {totalPages}</span>
-          <button type="button" disabled={page >= totalPages || loading} onClick={() => { setPage((value) => Math.min(totalPages, value + 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--border)] px-4 text-[10px] font-black tracking-[.08em] text-[var(--muted)] disabled:opacity-40">PRÓXIMA <ChevronRight size={15} /></button>
+        <nav className="flex items-center justify-center gap-3 pt-3">
+          <button type="button" disabled={page <= 1 || loading} onClick={() => setPage((value) => Math.max(1, value - 1))} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--border)] px-4 text-[10px] font-black text-[var(--muted)] disabled:opacity-40"><ChevronLeft size={15} /> ANTERIOR</button>
+          <span className="text-[10px] font-black text-[var(--gold-bright)]">{page} / {totalPages}</span>
+          <button type="button" disabled={page >= totalPages || loading} onClick={() => setPage((value) => Math.min(totalPages, value + 1))} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--border)] px-4 text-[10px] font-black text-[var(--muted)] disabled:opacity-40">PRÓXIMA <ChevronRight size={15} /></button>
         </nav>
       ) : null}
     </div>
@@ -159,5 +149,5 @@ export function QuestionBank({ initialStatus = "all" }: { initialStatus?: Questi
 }
 
 function FilterSelect({ label, value, onChange, options, empty, disabled = false }: { label: string; value: string; onChange: (value: string) => void; options: Array<{ value: string; label: string }>; empty: string; disabled?: boolean }) {
-  return <label className="text-[9px] font-black tracking-[.13em] text-[var(--muted)]">{label}<select disabled={disabled} value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 min-h-12 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 text-sm font-semibold tracking-normal text-[var(--ink)] outline-none focus:border-[var(--border-strong)] disabled:opacity-50"><option value="">{empty}</option>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>;
+  return <label className="text-[9px] font-black tracking-[.13em] text-[var(--muted)]">{label}<select disabled={disabled} value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 min-h-12 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 text-sm font-semibold tracking-normal text-[var(--ink)] outline-none disabled:opacity-50"><option value="">{empty}</option>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>;
 }

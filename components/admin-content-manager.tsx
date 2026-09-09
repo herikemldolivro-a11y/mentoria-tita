@@ -61,13 +61,16 @@ function formatBytes(value: number) {
 export function AdminContentManager({
   lessons,
   initialMaterials,
+  initialLessonId = null,
 }: {
   lessons: AdminLesson[];
   initialMaterials: AdminMaterial[];
+  initialLessonId?: string | null;
 }) {
-  const [selectedLessonId, setSelectedLessonId] = useState(lessons[0]?.lesson_id ?? "");
+  const initialSelectedLesson = lessons.find((lesson) => lesson.lesson_id === initialLessonId) ?? lessons[0] ?? null;
+  const [selectedLessonId, setSelectedLessonId] = useState(initialSelectedLesson?.lesson_id ?? "");
   const [file, setFile] = useState<File | null>(null);
-  const [title, setTitle] = useState(lessons[0]?.lesson_title ?? "");
+  const [title, setTitle] = useState(initialSelectedLesson?.lesson_title ?? "");
   const [allowDownload, setAllowDownload] = useState(true);
   const [materials, setMaterials] = useState(initialMaterials);
   const [uploading, setUploading] = useState(false);
@@ -236,7 +239,7 @@ export function AdminContentManager({
           <select value={selectedLessonId} onChange={(event) => chooseLesson(event.target.value)} className="mt-2 min-h-12 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 text-sm font-semibold text-[var(--ink)] outline-none focus:border-[var(--border-strong)]">
             {lessons.map((lesson) => (
               <option key={lesson.lesson_id} value={lesson.lesson_id}>
-                PRF · S{lesson.week_number} · {lesson.subject_short_name} · {lesson.lesson_position}. {lesson.lesson_title}
+                {lesson.plan_slug.toUpperCase()} · S{lesson.week_number} · {lesson.subject_short_name} · {lesson.lesson_position}. {lesson.lesson_title}
               </option>
             ))}
           </select>

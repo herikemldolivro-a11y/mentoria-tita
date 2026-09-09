@@ -3,9 +3,8 @@
 import { createClient } from "@/lib/supabase/client";
 
 export type QuestionType = "true_false" | "multiple_choice";
-export type QuestionOrigin = "bank" | "lesson_list" | "leveling";
+export type QuestionOrigin = "bank" | "lesson_list" | "leveling" | "list_review";
 export type QuestionStatusFilter = "all" | "resolved" | "unresolved" | "correct" | "incorrect" | "starred" | "review";
-
 export type QuestionChoiceMap = Record<string, string>;
 
 export type BankQuestion = {
@@ -59,6 +58,8 @@ export type LessonQuestionStatus = {
   required_count: number;
   attempt_id: string | null;
   attempt_status: "in_progress" | "completed" | null;
+  can_skip?: boolean;
+  reason?: string | null;
 };
 
 export type AttemptQuestion = Omit<BankQuestion, "id" | "subject_id" | "lesson_id" | "subject_name" | "lesson_title" | "source_code" | "answered_at"> & {
@@ -69,28 +70,42 @@ export type AttemptQuestion = Omit<BankQuestion, "id" | "subject_id" | "lesson_i
 export type QuestionAttemptPayload = {
   attempt: {
     id: string;
-    kind: "lesson_list" | "leveling";
+    kind: "lesson_list" | "leveling" | "list_review";
     status: "in_progress" | "completed";
     total: number;
     score: number | null;
+    required_correct: number | null;
+    revision_id: string | null;
     lesson_id: string | null;
     lesson_title: string | null;
+    lesson_slug: string | null;
     subject_name: string | null;
+    subject_slug: string | null;
     started_at: string;
     completed_at: string | null;
   };
   items: AttemptQuestion[];
 };
 
+export type LevelingRule = {
+  revision_id: string;
+  lesson_id: string;
+  question_count: number;
+  required_correct: number;
+  available_questions: number;
+};
+
 async function getActivePlanId() {
   const supabase = createClient();
   const { data: authData, error: authError } = await supabase.auth.getUser();
   if (authError || !authData.user) throw new Error("Usuário não autenticado.");
+
   const { data: profile, error } = await supabase
     .from("profiles")
     .select("active_study_plan_id")
     .eq("id", authData.user.id)
     .maybeSingle();
+
   if (error) throw error;
   if (!profile?.active_study_plan_id) throw new Error("Nenhum plano ativo atribuído.");
   return profile.active_study_plan_id as string;
@@ -105,6 +120,7 @@ export async function loadStudyTaxonomy(): Promise<StudyTaxonomy> {
     .eq("plan_id", planId)
     .order("subject_name", { ascending: true })
     .order("lesson_position", { ascending: true });
+
   if (error) throw error;
 
   const subjectMap = new Map<string, StudyTaxonomy["subjects"][number]>();
@@ -118,6 +134,7 @@ export async function loadStudyTaxonomy(): Promise<StudyTaxonomy> {
       subject.lessons.push({ id: row.lesson_id, title: row.lesson_title, slug: row.lesson_slug });
     }
   }
+
   return { planId, subjects: Array.from(subjectMap.values()) };
 }
 
@@ -175,6 +192,7 @@ async function resolveLessonId(subjectSlug: string, lessonSlug: string) {
     .eq("subject_slug", subjectSlug)
     .eq("lesson_slug", lessonSlug)
     .maybeSingle();
+
   if (error) throw error;
   if (!data?.lesson_id) throw new Error("Aula não encontrada no plano ativo.");
   return data.lesson_id as string;
@@ -194,6 +212,14 @@ export async function startLessonQuestionAttempt(subjectSlug: string, lessonSlug
   const { data, error } = await supabase.rpc("start_lesson_question_attempt", { p_lesson_id: lessonId });
   if (error) throw error;
   return data as { ok: boolean; attempt_id?: string; continued?: boolean; available_count?: number; required_count?: number };
+}
+
+export async function skipPprnLesson(subjectSlug: string, lessonSlug: string) {
+  const supabase = createClient();
+  const lessonId = await resolveLessonId(subjectSlug, lessonSlug);
+  const { data, error } = await supabase.rpc("skip_pprn_lesson", { p_lesson_id: lessonId });
+  if (error) throw error;
+  return data as { ok: boolean; skipped: boolean; usable_questions: number; required_count: number };
 }
 
 export async function loadQuestionAttempt(attemptId: string) {
@@ -219,4 +245,46 @@ export async function finalizeQuestionAttempt(attemptId: string) {
   const { data, error } = await supabase.rpc("finalize_question_attempt", { p_attempt_id: attemptId });
   if (error) throw error;
   return data as { score: number; total: number; percentage: number };
+}
+
+export async function completeLessonListEarly(attemptId: string) {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("complete_lesson_list_early", { p_attempt_id: attemptId });
+  if (error) throw error;
+  return data as { score: number; answered: number; total: number; percentage: number };
+}
+
+export async function loadLevelingRule(revisionId: string) {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("get_leveling_rule", { p_revision_id: revisionId });
+  if (error) throw error;
+  return data as LevelingRule;
+}
+
+export async function startLevelingAttempt(revisionId: string) {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("start_leveling_question_attempt", { p_revision_id: revisionId });
+  if (error) throw error;
+  return data as {
+    ok: boolean;
+    attempt_id?: string;
+    continued?: boolean;
+    available_count?: number;
+    required_count?: number;
+    required_correct?: number;
+  };
+}
+
+export async function finalizeLevelingAttempt(attemptId: string) {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("finalize_leveling_attempt", { p_attempt_id: attemptId });
+  if (error) throw error;
+  return data as {
+    score: number;
+    total: number;
+    required_correct: number;
+    passed: boolean;
+    round: number;
+    percentage: number;
+  };
 }

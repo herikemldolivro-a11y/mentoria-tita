@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prebuild": "node scripts/repair-mojibake.mjs . && node scripts/check-mojibake.mjs .",
+    "predev": "node scripts/repair-mojibake.mjs . && node scripts/check-mojibake.mjs ."
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",

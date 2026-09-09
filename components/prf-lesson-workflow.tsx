@@ -19,13 +19,16 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { LessonMaterialReader } from "@/components/lesson-material-reader";
+import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import type { MatrixLesson, PrfSubject } from "@/lib/prf-week-one";
 import {
+  completeLessonListEarly,
   loadLessonQuestionStatus,
   startLessonQuestionAttempt,
   type LessonQuestionStatus,
+  skipPprnLesson,
 } from "@/lib/question-bank";
 import {
   addDaysToDateKey,
@@ -64,12 +67,26 @@ export function PrfLessonWorkflow({ subject, lesson }: { subject: PrfSubject; le
   const [hydrated, setHydrated] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [pprnOpenAccess, setPprnOpenAccess] = useState(false); // MT_PPRN_LIST_ALWAYS_AVAILABLE_V13
   const [review1, setReview1] = useState<RevisionEvent | null>(null);
   const [review2, setReview2] = useState<RevisionEvent | null>(null);
   const [questionStatus, setQuestionStatus] = useState<LessonQuestionStatus | null>(null);
 
   const refreshAll = useCallback(async () => {
     try {
+      try {
+        const supabase = createClient();
+        const { data: auth } = await supabase.auth.getUser();
+        if (auth.user) {
+          const { data: profile } = await supabase.from("profiles").select("active_study_plan_id").eq("id", auth.user.id).maybeSingle();
+          if (profile?.active_study_plan_id) {
+            const { data: activePlan } = await supabase.from("study_plans").select("slug").eq("id", profile.active_study_plan_id).maybeSingle();
+            setPprnOpenAccess(activePlan?.slug === "pprn-reta-final-2026");
+          }
+        }
+      } catch {
+        setPprnOpenAccess(false);
+      }
       const [lessonState, firstReview, secondReview, nextQuestionStatus] = await Promise.all([
         loadLessonProgress(subject.slug, lesson.slug),
         loadLessonRevision(subject.slug, lesson.slug, 1),
@@ -96,6 +113,14 @@ export function PrfLessonWorkflow({ subject, lesson }: { subject: PrfSubject; le
       unlisten();
     };
   }, [refreshAll]);
+
+  useEffect(() => {
+    if (!hydrated || typeof window === "undefined" || window.location.hash !== "#revisao") return;
+    const timer = window.setTimeout(() => {
+      document.getElementById("revisao")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [hydrated]); // MT_SCROLL_REVISION_V1
 
   async function updateState(next: LocalLessonState) {
     const previous = state;
@@ -132,12 +157,16 @@ export function PrfLessonWorkflow({ subject, lesson }: { subject: PrfSubject; le
         const available = attempt.available_count ?? questionStatus?.available_count ?? 0;
         setQuestionStatus((current) => ({
           available_count: available,
-          required_count: attempt.required_count ?? current?.required_count ?? 35,
+          required_count: attempt.required_count ?? current?.required_count ?? questionCount,
           attempt_id: current?.attempt_id ?? null,
           attempt_status: current?.attempt_status ?? null,
         }));
         return;
       }
+      window.sessionStorage.setItem(
+        "mentoria-tita:list-return",
+        (window.location.pathname.startsWith("/cronograma/pprn/") ? `${window.location.pathname}?lista=concluida#revisao` : `/cronograma/semana-1/${subject.slug}/${lesson.slug}?lista=concluida#revisao`),
+      ); // MT_LIST_RETURN_TO_REVISION_V1
       router.push(`/questoes/lista/${attempt.attempt_id}`);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Não foi possível iniciar a lista.");
@@ -145,6 +174,34 @@ export function PrfLessonWorkflow({ subject, lesson }: { subject: PrfSubject; le
       setSaving(false);
     }
   }
+
+  async function completeInProgressList() {
+    if (!questionStatus?.attempt_id) return;
+    setSaving(true);
+    setErrorMessage(null);
+    try {
+      await completeLessonListEarly(questionStatus.attempt_id);
+      await refreshAll();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Não foi possível concluir a lista.");
+    } finally {
+      setSaving(false);
+    }
+  }
+  async function skipCurrentLesson() {
+    setSaving(true);
+    setErrorMessage(null);
+    try {
+      const result = await skipPprnLesson(subject.slug, lesson.slug);
+      if (!result?.ok) throw new Error("Nao foi possivel pular esta aula.");
+      router.push(`/cronograma/semana-1/${subject.slug}`);
+      router.refresh();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Nao foi possivel pular esta aula.");
+    } finally {
+      setSaving(false);
+    }
+  } // MT_PPRN_SKIP_SHORT_LIST_V14_FN
 
   async function openReviewCalendar() {
     setSaving(true);
@@ -166,7 +223,8 @@ export function PrfLessonWorkflow({ subject, lesson }: { subject: PrfSubject; le
     }
   }
 
-  const listAvailable = state.theoryCompleted;
+  const questionCount = lesson.questionCount ?? 35;
+  const listAvailable = pprnOpenAccess || state.theoryCompleted;
   const lessonCompleted = state.theoryCompleted && state.listCompleted;
   const recommendedReviewDate = addDaysToDateKey(todayKey(), 2);
   const review1Due = review1 ? isRevisionDue(review1) : false;
@@ -251,8 +309,14 @@ export function PrfLessonWorkflow({ subject, lesson }: { subject: PrfSubject; le
             ) : state.listCompleted ? (
               <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/[.06] p-4"><strong className="inline-flex items-center gap-2 text-sm text-emerald-400"><Check size={17} /> LISTA CONCLUÍDA</strong><p className="mt-2 text-xs leading-6 text-[var(--muted)]">Seu resultado está salvo e a próxima etapa da trilha foi liberada.</p></div>
             ) : questionStatus?.attempt_id && questionStatus.attempt_status === "in_progress" ? (
-              <Link href={`/questoes/lista/${questionStatus.attempt_id}`} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[var(--gold)] px-6 text-xs font-black tracking-[0.12em] text-[#111]">CONTINUAR LISTA <ArrowRight size={17} /></Link>
-            ) : questionStatus && questionStatus.available_count < questionStatus.required_count ? (
+              <div className="flex flex-wrap gap-3"><Link href={`/questoes/lista/${questionStatus.attempt_id}`} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[var(--gold)] px-6 text-xs font-black tracking-[0.12em] text-[#111]">CONTINUAR LISTA <ArrowRight size={17} /></Link><button type="button" disabled={saving} onClick={completeInProgressList} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[var(--border-strong)] px-5 text-[10px] font-black tracking-[.1em] text-[var(--gold-bright)]"><Check size={16} /> MARCAR LISTA COMO CONCLUÍDA</button></div>
+            ) : questionStatus?.can_skip ? (
+              <div className="rounded-2xl border border-amber-400/30 bg-amber-400/[.07] p-4 sm:p-5">
+                <span className="text-[9px] font-black tracking-[.15em] text-amber-300">LISTA SEM 35 QUESTOES VALIDAS</span>
+                <p className="mt-2 text-xs leading-6 text-[var(--muted)]">Esta aula tem {questionStatus.available_count} questoes utilizaveis de {questionStatus.required_count} exigidas. Na Reta Final PPRN voce pode pular esta aula e ela sera marcada como concluida.</p>
+                <button type="button" disabled={saving} onClick={skipCurrentLesson} className="mt-4 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-amber-300/35 bg-amber-300/10 px-5 text-[10px] font-black tracking-[.1em] text-amber-200 disabled:cursor-wait disabled:opacity-60"><Check size={16} /> PULAR AULA E MARCAR CONCLUIDA</button>
+              </div>
+            ) : questionStatus && questionStatus.available_count < questionStatus.required_count ? ( /* MT_PPRN_SKIP_SHORT_LIST_V14_UI */
               <div className="rounded-2xl border border-[var(--border-strong)] bg-[color-mix(in_srgb,var(--gold)_6%,var(--background))] p-4 sm:p-5"><span className="text-[9px] font-black tracking-[.15em] text-[var(--gold-bright)]">BANCO AINDA INCOMPLETO</span><strong className="mt-2 block font-serif text-2xl text-[var(--ink)]">{questionStatus.available_count} / {questionStatus.required_count} questões disponíveis</strong><p className="mt-2 text-xs leading-6 text-[var(--muted)]">Esta lista será liberada quando houver pelo menos 35 questões cadastradas para esta aula.</p></div>
             ) : (
               <button type="button" disabled={saving} onClick={openQuestionList} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[var(--gold)] px-6 text-xs font-black tracking-[0.12em] text-[#111] disabled:cursor-wait disabled:opacity-60">{saving ? <LoaderCircle className="animate-spin" size={16} /> : null} INICIAR LISTA — 35 QUESTÕES <ArrowRight size={17} /></button>
@@ -260,7 +324,7 @@ export function PrfLessonWorkflow({ subject, lesson }: { subject: PrfSubject; le
           </div>
         </section>
 
-        <section className="rounded-[26px] border p-5 sm:p-7" style={{ borderColor: review1 ? "rgba(49,199,101,.28)" : lessonCompleted ? "rgba(210,166,78,.4)" : "var(--border)", background: "var(--surface)", opacity: lessonCompleted ? 1 : 0.55 }}>
+        <section id="revisao" className="rounded-[26px] border p-5 sm:p-7" style={{ borderColor: review1 ? "rgba(49,199,101,.28)" : lessonCompleted ? "rgba(210,166,78,.4)" : "var(--border)", background: "var(--surface)", opacity: lessonCompleted ? 1 : 0.55 }}>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <span className="text-[10px] font-black tracking-[.2em]" style={{ color: review1 ? green : lessonCompleted ? gold : "var(--muted)" }}>ETAPA 03 · AGENDAR REVISÃO</span>
@@ -354,3 +418,5 @@ function FlowStep({
     </div>
   );
 }
+
+

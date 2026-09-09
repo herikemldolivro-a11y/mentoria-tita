@@ -4,21 +4,40 @@ import {
   CalendarClock,
   CalendarDays,
   FileText,
-  NotebookPen,
+  Target,
+  Languages,
 } from "lucide-react";
 
 export const navigationItems = [
   {
-    href: "/cronograma/semana-1",
-    title: "Cronograma — Semana 1",
+    href: "/cronograma",
+    title: "Cronograma",
     description: "Escolha a matéria e siga a sequência da Semana 1.",
     icon: CalendarDays,
   },
   {
+    href: "/ingles",
+    title: "Inglês — Reading Lab",
+    description: "12 textos por semana, tradução no hover e vocabulário pessoal.",
+    icon: Languages,
+  },
+    {
+    href: "/calendario",
+    title: "Calendário Principal",
+    description: "Revisões e nivelamentos em uma agenda conectada.",
+    icon: CalendarDays,
+  },
+{
     href: "/revisoes",
-    title: "Revisões",
-    description: "Organize sua agenda, mova revisões e acompanhe os nivelamentos.",
+    title: "Calendário de Revisões",
+    description: "Veja o que precisa revisar e organize sua agenda.",
     icon: CalendarClock,
+  },
+  {
+    href: "/nivelamentos",
+    title: "Nivelamentos",
+    description: "Acompanhe as metas de domínio ligadas às suas revisões.",
+    icon: Target,
   },
   {
     href: "/questoes",
@@ -37,12 +56,6 @@ export const navigationItems = [
     title: "Desempenho",
     description: "Acompanhe sua evolução e seus pontos prioritários.",
     icon: BarChart3,
-  },
-  {
-    href: "/erros",
-    title: "Caderno de Erros",
-    description: "Transforme seus erros em pontos na prova.",
-    icon: NotebookPen,
   },
 ] as const;
 

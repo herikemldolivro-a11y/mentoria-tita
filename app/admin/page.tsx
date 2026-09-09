@@ -1,4 +1,4 @@
-import { BookOpenCheck, FileText, ShieldCheck } from "lucide-react";
+import { BookOpenCheck, CalendarRange, FileText, ShieldCheck, Target, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageShell } from "@/components/page-shell";
@@ -11,8 +11,11 @@ export default async function AdminPage() {
   if (!isAdmin) redirect("/");
 
   const cards = [
+    { href: "/admin/alunos", title: "Alunos", description: "Mentorados, nomes, concurso foco e cronogramas atribuídos.", icon: UsersRound },
+    { href: "/admin/cronograma", title: "Cronograma e Semanas", description: "Criar semanas, matérias, aulas, tópicos e importar matrizes semanais.", icon: CalendarRange },
     { href: "/admin/conteudos", title: "Conteúdos", description: "Gerenciar PDFs e materiais das aulas.", icon: FileText },
     { href: "/admin/questoes", title: "Questões", description: "Adicionar, importar e administrar o banco de questões.", icon: BookOpenCheck },
+    { href: "/admin/nivelamentos", title: "Nivelamentos", description: "Definir quantidade de questões e meta de aprovação por aula.", icon: Target },
   ];
 
   return (
@@ -21,7 +24,7 @@ export default async function AdminPage() {
         <header className="border-b border-[var(--border)] pb-8">
           <span className="inline-flex items-center gap-2 text-[10px] font-black tracking-[.2em] text-[var(--gold-bright)]"><ShieldCheck size={16} /> ACESSO ADMINISTRATIVO</span>
           <h1 className="mt-3 font-serif text-4xl tracking-[-.04em] text-[var(--ink)] sm:text-6xl">Central Administrativa.</h1>
-          <p className="mt-4 max-w-2xl text-sm leading-7 text-[var(--muted)]">Gerencie os conteúdos acadêmicos da plataforma sem alterar o código.</p>
+          <p className="mt-4 max-w-2xl text-sm leading-7 text-[var(--muted)]">Gerencie a estrutura inteira da mentoria sem precisar alterar código.</p>
         </header>
 
         <div className="mt-8 grid gap-4 md:grid-cols-2">

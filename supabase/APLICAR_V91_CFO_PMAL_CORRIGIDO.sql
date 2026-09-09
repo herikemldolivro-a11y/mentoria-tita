@@ -1,0 +1,2248 @@
+-- V9.1 CORRIGIDA — CFO PMAL 2026
+-- Corrige o erro 42P16 da view study_lesson_catalog.
+
+-- Mentoria Titã — experiência por usuário, diretório de alunos e nivelamento configurável.
+-- Esta migration é aditiva e foi desenhada para rodar depois das migrations 002, 003, 004 e 006.
+
+alter table public.profiles
+  add column if not exists username text;
+
+create table if not exists public.lesson_leveling_settings (
+  lesson_id uuid primary key references public.study_lessons(id) on delete cascade,
+  question_count integer not null default 10 check (question_count between 1 and 50),
+  required_correct integer not null default 9 check (required_correct >= 1),
+  active boolean not null default true,
+  updated_by uuid references auth.users(id) on delete set null,
+  updated_at timestamptz not null default now(),
+  constraint lesson_leveling_settings_required_check check (required_correct <= question_count)
+);
+
+insert into public.lesson_leveling_settings (lesson_id, question_count, required_correct, active)
+select id, 10, 9, true
+from public.study_lessons
+on conflict (lesson_id) do nothing;
+
+alter table public.lesson_leveling_settings enable row level security;
+
+drop policy if exists "Authenticated users read leveling rules" on public.lesson_leveling_settings;
+create policy "Authenticated users read leveling rules"
+on public.lesson_leveling_settings
+for select to authenticated
+using (true);
+
+drop policy if exists "Admins insert leveling rules" on public.lesson_leveling_settings;
+create policy "Admins insert leveling rules"
+on public.lesson_leveling_settings
+for insert to authenticated
+with check (public.is_admin());
+
+drop policy if exists "Admins update leveling rules" on public.lesson_leveling_settings;
+create policy "Admins update leveling rules"
+on public.lesson_leveling_settings
+for update to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
+grant select, insert, update on public.lesson_leveling_settings to authenticated;
+
+alter table public.user_leveling_attempts
+  add column if not exists total_questions integer not null default 10,
+  add column if not exists required_correct integer not null default 9;
+
+alter table public.user_leveling_attempts
+  drop constraint if exists user_leveling_attempts_score_check;
+
+alter table public.user_leveling_attempts
+  drop constraint if exists user_leveling_attempts_dynamic_score_check;
+
+alter table public.user_leveling_attempts
+  add constraint user_leveling_attempts_dynamic_score_check
+  check (
+    total_questions > 0
+    and required_correct between 1 and total_questions
+    and score between 0 and total_questions
+  );
+
+alter table public.question_attempts
+  add column if not exists revision_id uuid references public.user_revisions(id) on delete cascade,
+  add column if not exists required_correct integer;
+
+create unique index if not exists question_attempts_one_open_revision_leveling_idx
+  on public.question_attempts(user_id, revision_id)
+  where status = 'in_progress'
+    and kind = 'leveling'
+    and revision_id is not null;
+
+create or replace function public.set_my_display_name(p_name text)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_name text := trim(coalesce(p_name, ''));
+begin
+  if v_user_id is null then
+    raise exception 'Usuário não autenticado';
+  end if;
+
+  if length(v_name) < 2 or length(v_name) > 80 then
+    raise exception 'Informe um nome entre 2 e 80 caracteres';
+  end if;
+
+  update public.profiles
+  set nome = v_name
+  where id = v_user_id;
+
+  if not found then
+    raise exception 'Perfil não encontrado';
+  end if;
+
+  return v_name;
+end;
+$$;
+
+revoke all on function public.set_my_display_name(text) from public;
+grant execute on function public.set_my_display_name(text) to authenticated;
+
+create or replace function public.admin_students_catalog()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_students jsonb;
+  v_plans jsonb;
+begin
+  if auth.uid() is null or not public.is_admin() then
+    raise exception 'Acesso restrito ao administrador';
+  end if;
+
+  select coalesce(jsonb_agg(to_jsonb(x) order by lower(coalesce(x.nome, x.username, x.email))), '[]'::jsonb)
+  into v_students
+  from (
+    select
+      p.id,
+      p.nome,
+      p.username,
+      p.email,
+      p.ativo,
+      p.focus_contest_id,
+      c.nome as contest_name,
+      c.sigla as contest_sigla,
+      p.active_study_plan_id,
+      sp.name as plan_name,
+      coalesce((
+        select count(*)
+        from public.user_lesson_progress ulp
+        where ulp.user_id = p.id
+          and ulp.theory_completed_at is not null
+          and ulp.list_completed_at is not null
+      ), 0) as completed_lessons,
+      coalesce((
+        select count(*)
+        from public.user_revisions ur
+        where ur.user_id = p.id
+          and ur.status = 'scheduled'
+      ), 0) as scheduled_revisions
+    from public.profiles p
+    left join public.contests c on c.id = p.focus_contest_id
+    left join public.study_plans sp on sp.id = p.active_study_plan_id
+    where p.role = 'student'
+  ) x;
+
+  select coalesce(jsonb_agg(to_jsonb(p) order by p.name), '[]'::jsonb)
+  into v_plans
+  from (
+    select id, name, slug, contest_id, active
+    from public.study_plans
+    where active = true
+  ) p;
+
+  return jsonb_build_object('students', v_students, 'plans', v_plans);
+end;
+$$;
+
+revoke all on function public.admin_students_catalog() from public;
+grant execute on function public.admin_students_catalog() to authenticated;
+
+create or replace function public.admin_update_student_assignment(
+  p_user_id uuid,
+  p_plan_id uuid,
+  p_active boolean default true
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_contest_id uuid;
+begin
+  if auth.uid() is null or not public.is_admin() then
+    raise exception 'Acesso restrito ao administrador';
+  end if;
+
+  if p_plan_id is not null then
+    select contest_id into v_contest_id
+    from public.study_plans
+    where id = p_plan_id and active = true;
+
+    if v_contest_id is null then
+      raise exception 'Plano inválido';
+    end if;
+  end if;
+
+  update public.profiles
+  set active_study_plan_id = p_plan_id,
+      focus_contest_id = coalesce(v_contest_id, focus_contest_id),
+      ativo = coalesce(p_active, ativo)
+  where id = p_user_id
+    and role = 'student';
+
+  if not found then
+    raise exception 'Aluno não encontrado';
+  end if;
+end;
+$$;
+
+revoke all on function public.admin_update_student_assignment(uuid, uuid, boolean) from public;
+grant execute on function public.admin_update_student_assignment(uuid, uuid, boolean) to authenticated;
+
+create or replace function public.admin_leveling_catalog()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null or not public.is_admin() then
+    raise exception 'Acesso restrito ao administrador';
+  end if;
+
+  return (
+    select coalesce(jsonb_agg(to_jsonb(x) order by x.plan_name, x.subject_position, x.lesson_position), '[]'::jsonb)
+    from (
+      select
+        p.id as plan_id,
+        p.name as plan_name,
+        s.id as subject_id,
+        s.name as subject_name,
+        s.position as subject_position,
+        l.id as lesson_id,
+        l.title as lesson_title,
+        l.position as lesson_position,
+        coalesce(ls.question_count, 10) as question_count,
+        coalesce(ls.required_correct, 9) as required_correct,
+        coalesce(ls.active, true) as active,
+        count(q.id) filter (where q.active) as available_questions
+      from public.study_lessons l
+      join public.study_subjects s on s.id = l.subject_id
+      join public.study_plans p on p.id = s.plan_id
+      left join public.lesson_leveling_settings ls on ls.lesson_id = l.id
+      left join public.questions q on q.lesson_id = l.id
+      where p.active = true
+      group by p.id, p.name, s.id, s.name, s.position, l.id, l.title, l.position,
+               ls.question_count, ls.required_correct, ls.active
+    ) x
+  );
+end;
+$$;
+
+revoke all on function public.admin_leveling_catalog() from public;
+grant execute on function public.admin_leveling_catalog() to authenticated;
+
+create or replace function public.admin_upsert_leveling_setting(
+  p_lesson_id uuid,
+  p_question_count integer,
+  p_required_correct integer,
+  p_active boolean default true
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null or not public.is_admin() then
+    raise exception 'Acesso restrito ao administrador';
+  end if;
+
+  if p_question_count not between 1 and 50 then
+    raise exception 'Quantidade deve ficar entre 1 e 50';
+  end if;
+
+  if p_required_correct < 1 or p_required_correct > p_question_count then
+    raise exception 'Meta de acertos inválida';
+  end if;
+
+  insert into public.lesson_leveling_settings (
+    lesson_id, question_count, required_correct, active, updated_by, updated_at
+  )
+  values (
+    p_lesson_id, p_question_count, p_required_correct, p_active, auth.uid(), now()
+  )
+  on conflict (lesson_id) do update
+  set question_count = excluded.question_count,
+      required_correct = excluded.required_correct,
+      active = excluded.active,
+      updated_by = excluded.updated_by,
+      updated_at = now();
+end;
+$$;
+
+revoke all on function public.admin_upsert_leveling_setting(uuid, integer, integer, boolean) from public;
+grant execute on function public.admin_upsert_leveling_setting(uuid, integer, integer, boolean) to authenticated;
+
+create or replace function public.get_my_leveling_overview()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_plan_id uuid;
+begin
+  if v_user_id is null then
+    raise exception 'Usuário não autenticado';
+  end if;
+
+  select active_study_plan_id into v_plan_id
+  from public.profiles
+  where id = v_user_id;
+
+  if v_plan_id is null then
+    raise exception 'Nenhum plano ativo atribuído';
+  end if;
+
+  return (
+    select coalesce(jsonb_agg(to_jsonb(x) order by x.subject_position, x.lesson_position), '[]'::jsonb)
+    from (
+      select
+        s.id as subject_id,
+        s.name as subject_name,
+        s.position as subject_position,
+        l.id as lesson_id,
+        l.title as lesson_title,
+        l.position as lesson_position,
+        coalesce(ls.question_count, 10) as question_count,
+        coalesce(ls.required_correct, 9) as required_correct,
+        count(q.id) filter (where q.active) as available_questions,
+        r.id as revision_id,
+        r.revision_number,
+        r.status as revision_status,
+        r.scheduled_for,
+        r.reread_confirmed_at,
+        r.completed_at
+      from public.study_subjects s
+      join public.study_lessons l on l.subject_id = s.id
+      left join public.lesson_leveling_settings ls on ls.lesson_id = l.id
+      left join public.questions q on q.lesson_id = l.id
+      left join lateral (
+        select ur.*
+        from public.user_revisions ur
+        where ur.user_id = v_user_id and ur.lesson_id = l.id
+        order by ur.revision_number desc
+        limit 1
+      ) r on true
+      where s.plan_id = v_plan_id
+      group by s.id, s.name, s.position, l.id, l.title, l.position,
+               ls.question_count, ls.required_correct,
+               r.id, r.revision_number, r.status, r.scheduled_for,
+               r.reread_confirmed_at, r.completed_at
+    ) x
+  );
+end;
+$$;
+
+revoke all on function public.get_my_leveling_overview() from public;
+grant execute on function public.get_my_leveling_overview() to authenticated;
+
+create or replace function public.get_leveling_rule(p_revision_id uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_revision public.user_revisions%rowtype;
+  v_count integer;
+  v_required integer;
+  v_available integer;
+begin
+  if v_user_id is null then
+    raise exception 'Usuário não autenticado';
+  end if;
+
+  select * into v_revision
+  from public.user_revisions
+  where id = p_revision_id
+    and user_id = v_user_id;
+
+  if v_revision.id is null then
+    raise exception 'Revisão não encontrada';
+  end if;
+
+  select coalesce(question_count, 10), coalesce(required_correct, 9)
+  into v_count, v_required
+  from public.lesson_leveling_settings
+  where lesson_id = v_revision.lesson_id;
+
+  if v_count is null then v_count := 10; end if;
+  if v_required is null then v_required := least(9, v_count); end if;
+
+  select count(*) into v_available
+  from public.questions
+  where lesson_id = v_revision.lesson_id
+    and active = true;
+
+  return jsonb_build_object(
+    'revision_id', v_revision.id,
+    'lesson_id', v_revision.lesson_id,
+    'question_count', v_count,
+    'required_correct', v_required,
+    'available_questions', v_available
+  );
+end;
+$$;
+
+revoke all on function public.get_leveling_rule(uuid) from public;
+grant execute on function public.get_leveling_rule(uuid) to authenticated;
+
+create or replace function public.start_leveling_question_attempt(p_revision_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_revision public.user_revisions%rowtype;
+  v_count integer;
+  v_required integer;
+  v_available integer;
+  v_attempt_id uuid;
+  v_ids uuid[];
+begin
+  if v_user_id is null then
+    raise exception 'Usuário não autenticado';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtext(v_user_id::text || ':leveling:' || p_revision_id::text));
+
+  select * into v_revision
+  from public.user_revisions
+  where id = p_revision_id
+    and user_id = v_user_id;
+
+  if v_revision.id is null then
+    raise exception 'Revisão não encontrada';
+  end if;
+
+  if v_revision.status = 'completed' then
+    raise exception 'Esta revisão já foi concluída';
+  end if;
+
+  if v_revision.scheduled_for is null or v_revision.scheduled_for > current_date then
+    raise exception 'O nivelamento só fica disponível na data da revisão';
+  end if;
+
+  if v_revision.reread_confirmed_at is null then
+    raise exception 'Confirme a releitura antes de iniciar o nivelamento';
+  end if;
+
+  select coalesce(question_count, 10), coalesce(required_correct, 9)
+  into v_count, v_required
+  from public.lesson_leveling_settings
+  where lesson_id = v_revision.lesson_id;
+
+  if v_count is null then v_count := 10; end if;
+  if v_required is null then v_required := least(9, v_count); end if;
+
+  select count(*) into v_available
+  from public.questions
+  where lesson_id = v_revision.lesson_id
+    and active = true;
+
+  if v_available < v_count then
+    return jsonb_build_object(
+      'ok', false,
+      'available_count', v_available,
+      'required_count', v_count,
+      'required_correct', v_required
+    );
+  end if;
+
+  select id into v_attempt_id
+  from public.question_attempts
+  where user_id = v_user_id
+    and revision_id = p_revision_id
+    and kind = 'leveling'
+    and status = 'in_progress'
+  order by started_at desc
+  limit 1;
+
+  if v_attempt_id is not null then
+    return jsonb_build_object(
+      'ok', true,
+      'attempt_id', v_attempt_id,
+      'continued', true,
+      'required_count', v_count,
+      'required_correct', v_required
+    );
+  end if;
+
+  insert into public.question_attempts (
+    user_id, lesson_id, revision_id, kind, status, total, required_correct
+  )
+  values (
+    v_user_id, v_revision.lesson_id, p_revision_id, 'leveling', 'in_progress', v_count, v_required
+  )
+  returning id into v_attempt_id;
+
+  select array_agg(candidate.id) into v_ids
+  from (
+    select q.id
+    from public.questions q
+    where q.lesson_id = v_revision.lesson_id
+      and q.active = true
+    order by
+      case when exists (
+        select 1
+        from public.question_attempts olda
+        join public.question_attempt_items oldi on oldi.attempt_id = olda.id
+        where olda.user_id = v_user_id
+          and olda.revision_id = p_revision_id
+          and olda.status = 'completed'
+          and oldi.question_id = q.id
+      ) then 1 else 0 end,
+      case when exists (
+        select 1
+        from public.user_question_answers ua
+        where ua.user_id = v_user_id
+          and ua.question_id = q.id
+          and ua.is_correct = false
+      ) then 0
+      when not exists (
+        select 1
+        from public.user_question_answers ua
+        where ua.user_id = v_user_id
+          and ua.question_id = q.id
+      ) then 1
+      else 2 end,
+      q.level desc,
+      random()
+    limit v_count
+  ) candidate;
+
+  insert into public.question_attempt_items(attempt_id, question_id, position)
+  select v_attempt_id, x.question_id, x.position::integer
+  from unnest(v_ids) with ordinality as x(question_id, position);
+
+  return jsonb_build_object(
+    'ok', true,
+    'attempt_id', v_attempt_id,
+    'continued', false,
+    'required_count', v_count,
+    'required_correct', v_required
+  );
+end;
+$$;
+
+revoke all on function public.start_leveling_question_attempt(uuid) from public;
+grant execute on function public.start_leveling_question_attempt(uuid) to authenticated;
+
+create or replace function public.finalize_leveling_attempt(p_attempt_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_attempt public.question_attempts%rowtype;
+  v_answered integer;
+  v_score integer;
+  v_required integer;
+  v_round integer;
+  v_passed boolean;
+begin
+  if v_user_id is null then
+    raise exception 'Usuário não autenticado';
+  end if;
+
+  select * into v_attempt
+  from public.question_attempts
+  where id = p_attempt_id
+    and user_id = v_user_id
+    and kind = 'leveling';
+
+  if v_attempt.id is null then
+    raise exception 'Nivelamento não encontrado';
+  end if;
+
+  v_required := coalesce(v_attempt.required_correct, least(9, v_attempt.total));
+
+  if v_attempt.status = 'completed' then
+    return jsonb_build_object(
+      'score', v_attempt.score,
+      'total', v_attempt.total,
+      'required_correct', v_required,
+      'passed', v_attempt.score >= v_required,
+      'percentage', round(v_attempt.score::numeric * 100 / v_attempt.total, 1)
+    );
+  end if;
+
+  select count(*), count(*) filter (where is_correct)
+  into v_answered, v_score
+  from public.question_attempt_items
+  where attempt_id = p_attempt_id
+    and selected_answer is not null;
+
+  if v_answered < v_attempt.total then
+    raise exception 'Responda todas as % questões antes de finalizar', v_attempt.total;
+  end if;
+
+  v_passed := v_score >= v_required;
+
+  update public.question_attempts
+  set status = 'completed',
+      score = v_score,
+      completed_at = now(),
+      updated_at = now()
+  where id = p_attempt_id;
+
+  select coalesce(max(round), 0) + 1
+  into v_round
+  from public.user_leveling_attempts
+  where revision_id = v_attempt.revision_id;
+
+  insert into public.user_leveling_attempts (
+    user_id, revision_id, round, score, passed, total_questions, required_correct
+  )
+  values (
+    v_user_id, v_attempt.revision_id, v_round, v_score, v_passed, v_attempt.total, v_required
+  );
+
+  if v_passed then
+    update public.user_revisions
+    set status = 'completed',
+        completed_at = now(),
+        updated_at = now()
+    where id = v_attempt.revision_id
+      and user_id = v_user_id;
+  end if;
+
+  return jsonb_build_object(
+    'score', v_score,
+    'total', v_attempt.total,
+    'required_correct', v_required,
+    'passed', v_passed,
+    'round', v_round,
+    'percentage', round(v_score::numeric * 100 / v_attempt.total, 1)
+  );
+end;
+$$;
+
+revoke all on function public.finalize_leveling_attempt(uuid) from public;
+grant execute on function public.finalize_leveling_attempt(uuid) to authenticated;
+
+create or replace function public.complete_lesson_list_early(p_attempt_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_attempt public.question_attempts%rowtype;
+  v_answered integer;
+  v_score integer;
+  v_mode text;
+begin
+  if v_user_id is null then
+    raise exception 'Usuário não autenticado';
+  end if;
+
+  select * into v_attempt
+  from public.question_attempts
+  where id = p_attempt_id
+    and user_id = v_user_id
+    and kind = 'lesson_list';
+
+  if v_attempt.id is null then
+    raise exception 'Lista não encontrada';
+  end if;
+
+  if v_attempt.status = 'completed' then
+    return jsonb_build_object(
+      'score', v_attempt.score,
+      'answered', v_attempt.total,
+      'total', v_attempt.total,
+      'percentage', round(v_attempt.score::numeric * 100 / v_attempt.total, 1)
+    );
+  end if;
+
+  select count(*), count(*) filter (where is_correct)
+  into v_answered, v_score
+  from public.question_attempt_items
+  where attempt_id = p_attempt_id
+    and selected_answer is not null;
+
+  if v_answered = 0 then
+    raise exception 'Responda pelo menos uma questão antes de marcar a lista como concluída';
+  end if;
+
+  update public.question_attempts
+  set status = 'completed',
+      score = v_score,
+      completed_at = now(),
+      updated_at = now()
+  where id = p_attempt_id;
+
+  select theory_mode into v_mode
+  from public.user_lesson_progress
+  where user_id = v_user_id
+    and lesson_id = v_attempt.lesson_id;
+
+  perform public.save_lesson_progress(
+    v_attempt.lesson_id,
+    true,
+    true,
+    v_mode,
+    true,
+    true
+  );
+
+  return jsonb_build_object(
+    'score', v_score,
+    'answered', v_answered,
+    'total', v_attempt.total,
+    'percentage', round(v_score::numeric * 100 / v_attempt.total, 1)
+  );
+end;
+$$;
+
+revoke all on function public.complete_lesson_list_early(uuid) from public;
+grant execute on function public.complete_lesson_list_early(uuid) to authenticated;
+
+-- Amplia o payload da tentativa para permitir retorno à aula e conexão do nivelamento com a revisão.
+create or replace function public.get_question_attempt(p_attempt_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_attempt jsonb;
+  v_items jsonb;
+begin
+  if v_user_id is null then
+    raise exception 'Usuário não autenticado';
+  end if;
+
+  select jsonb_build_object(
+    'id', a.id,
+    'kind', a.kind,
+    'status', a.status,
+    'total', a.total,
+    'score', a.score,
+    'required_correct', a.required_correct,
+    'revision_id', a.revision_id,
+    'started_at', a.started_at,
+    'completed_at', a.completed_at,
+    'lesson_id', l.id,
+    'lesson_title', l.title,
+    'lesson_slug', l.slug,
+    'subject_name', s.name,
+    'subject_slug', s.slug
+  )
+  into v_attempt
+  from public.question_attempts a
+  left join public.study_lessons l on l.id = a.lesson_id
+  left join public.study_subjects s on s.id = l.subject_id
+  where a.id = p_attempt_id
+    and a.user_id = v_user_id;
+
+  if v_attempt is null then
+    raise exception 'Tentativa não encontrada';
+  end if;
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'question_id', q.id,
+    'position', i.position,
+    'statement', q.statement,
+    'question_type', q.question_type,
+    'choices', q.choices,
+    'level', q.level,
+    'banca', q.banca,
+    'ano', q.ano,
+    'exam_name', q.exam_name,
+    'selected_answer', i.selected_answer,
+    'is_correct', i.is_correct,
+    'correct_answer', case when i.selected_answer is not null then k.correct_answer else null end,
+    'explanation', case when i.selected_answer is not null then k.explanation else null end
+  ) order by i.position), '[]'::jsonb)
+  into v_items
+  from public.question_attempt_items i
+  join public.questions q on q.id = i.question_id
+  join public.question_keys k on k.question_id = q.id
+  join public.question_attempts a on a.id = i.attempt_id
+  where i.attempt_id = p_attempt_id
+    and a.user_id = v_user_id;
+
+  return jsonb_build_object('attempt', v_attempt, 'items', v_items);
+end;
+$$;
+
+revoke all on function public.get_question_attempt(uuid) from public;
+grant execute on function public.get_question_attempt(uuid) to authenticated;
+
+
+-- Mentoria Tita - Admin de cronograma, semanas, materias e matriz semanal.
+-- Tambem repara mojibake existente e normaliza novas gravacoes.
+-- Migration aditiva/idempotente.
+
+create or replace function public.mt_fix_text(p_value text)
+returns text
+language plpgsql
+immutable
+as $$
+declare
+  v text := p_value;
+  v_next text;
+  i integer;
+begin
+  if v is null then return null; end if;
+
+  for i in 1..3 loop
+    if strpos(v, chr(195)) = 0
+       and strpos(v, chr(194)) = 0
+       and strpos(v, chr(226)) = 0 then
+      exit;
+    end if;
+
+    begin
+      v_next := convert_from(convert_to(v, 'WIN1252'), 'UTF8');
+      if v_next = v then exit; end if;
+      v := v_next;
+    exception when others then
+      exit;
+    end;
+  end loop;
+
+  return v;
+end;
+$$;
+
+update public.contests
+set nome = public.mt_fix_text(nome),
+    sigla = public.mt_fix_text(sigla);
+
+update public.study_plans set name = public.mt_fix_text(name);
+update public.study_weeks set title = public.mt_fix_text(title);
+
+update public.study_subjects
+set short_name = public.mt_fix_text(short_name),
+    name = public.mt_fix_text(name),
+    description = public.mt_fix_text(description);
+
+update public.study_lessons
+set title = public.mt_fix_text(title),
+    priority = public.mt_fix_text(priority);
+
+update public.study_lesson_topics set topic = public.mt_fix_text(topic);
+
+update public.questions
+set statement = public.mt_fix_text(statement),
+    banca = public.mt_fix_text(banca),
+    exam_name = public.mt_fix_text(exam_name),
+    source_code = public.mt_fix_text(source_code);
+
+update public.question_keys set explanation = public.mt_fix_text(explanation);
+
+update public.user_revisions
+set subject_name = public.mt_fix_text(subject_name),
+    lesson_title = public.mt_fix_text(lesson_title);
+
+update public.lesson_materials
+set title = public.mt_fix_text(title),
+    file_name = public.mt_fix_text(file_name);
+
+update public.profiles
+set nome = public.mt_fix_text(nome)
+where nome is not null;
+
+update public.contests
+set nome = 'Polícia Rodoviária Federal',
+    sigla = 'PRF'
+where slug = 'prf';
+
+update public.study_plans
+set name = 'PRF — Foco 95+'
+where slug = 'prf-foco95';
+
+update public.study_weeks w
+set title = 'Semana 1'
+from public.study_plans p
+where w.plan_id = p.id
+  and p.slug = 'prf-foco95'
+  and w.week_number = 1;
+
+update public.study_subjects s
+set short_name = case s.slug
+      when 'contabilidade' then 'CONTABILIDADE'
+      when 'raciocinio-logico' then 'RLM'
+      else s.short_name
+    end,
+    name = case s.slug
+      when 'contabilidade' then 'Contabilidade'
+      when 'raciocinio-logico' then 'Raciocínio Lógico-Matemático'
+      else s.name
+    end,
+    description = case s.slug
+      when 'contabilidade' then 'Base patrimonial, fatos contábeis e estrutura fundamental da disciplina.'
+      when 'raciocinio-logico' then 'Fundamentos matemáticos aplicados ao perfil de cobrança da PRF.'
+      else s.description
+    end
+from public.study_plans p
+where s.plan_id = p.id
+  and p.slug = 'prf-foco95'
+  and s.slug in ('contabilidade', 'raciocinio-logico');
+
+update public.study_lessons l
+set title = case l.slug
+      when 'fundamentos-da-contabilidade' then 'Fundamentos da Contabilidade'
+      when 'patrimonio-e-situacao-liquida' then 'Patrimônio e Situação Líquida'
+      when 'atos-e-fatos-administrativos' then 'Atos e Fatos Administrativos'
+      when 'razao-e-proporcao' then 'Razão e Proporção'
+      when 'regra-de-tres' then 'Regra de Três'
+      else public.mt_fix_text(regexp_replace(l.title, '^\s*#+\s*', ''))
+    end
+from public.study_subjects s
+join public.study_plans p on p.id = s.plan_id
+where l.subject_id = s.id
+  and p.slug = 'prf-foco95';
+
+create or replace function public.mt_normalize_contest_text()
+returns trigger language plpgsql set search_path = public as $$
+begin
+  new.nome := public.mt_fix_text(new.nome);
+  new.sigla := public.mt_fix_text(new.sigla);
+  return new;
+end;
+$$;
+drop trigger if exists mt_normalize_contest_text_trigger on public.contests;
+create trigger mt_normalize_contest_text_trigger
+before insert or update on public.contests
+for each row execute function public.mt_normalize_contest_text();
+
+create or replace function public.mt_normalize_plan_text()
+returns trigger language plpgsql set search_path = public as $$
+begin new.name := public.mt_fix_text(new.name); return new; end;
+$$;
+drop trigger if exists mt_normalize_plan_text_trigger on public.study_plans;
+create trigger mt_normalize_plan_text_trigger before insert or update on public.study_plans
+for each row execute function public.mt_normalize_plan_text();
+
+create or replace function public.mt_normalize_week_text()
+returns trigger language plpgsql set search_path = public as $$
+begin new.title := public.mt_fix_text(new.title); return new; end;
+$$;
+drop trigger if exists mt_normalize_week_text_trigger on public.study_weeks;
+create trigger mt_normalize_week_text_trigger before insert or update on public.study_weeks
+for each row execute function public.mt_normalize_week_text();
+
+create or replace function public.mt_normalize_subject_text()
+returns trigger language plpgsql set search_path = public as $$
+begin
+  new.short_name := public.mt_fix_text(new.short_name);
+  new.name := public.mt_fix_text(new.name);
+  new.description := public.mt_fix_text(new.description);
+  return new;
+end;
+$$;
+drop trigger if exists mt_normalize_subject_text_trigger on public.study_subjects;
+create trigger mt_normalize_subject_text_trigger before insert or update on public.study_subjects
+for each row execute function public.mt_normalize_subject_text();
+
+create or replace function public.mt_normalize_lesson_text()
+returns trigger language plpgsql set search_path = public as $$
+begin
+  new.title := public.mt_fix_text(regexp_replace(new.title, '^\s*#+\s*', ''));
+  new.priority := public.mt_fix_text(new.priority);
+  return new;
+end;
+$$;
+drop trigger if exists mt_normalize_lesson_text_trigger on public.study_lessons;
+create trigger mt_normalize_lesson_text_trigger before insert or update on public.study_lessons
+for each row execute function public.mt_normalize_lesson_text();
+
+create or replace function public.mt_normalize_topic_text()
+returns trigger language plpgsql set search_path = public as $$
+begin new.topic := public.mt_fix_text(new.topic); return new; end;
+$$;
+drop trigger if exists mt_normalize_topic_text_trigger on public.study_lesson_topics;
+create trigger mt_normalize_topic_text_trigger before insert or update on public.study_lesson_topics
+for each row execute function public.mt_normalize_topic_text();
+
+create or replace function public.mt_normalize_question_text()
+returns trigger language plpgsql set search_path = public as $$
+begin
+  new.statement := public.mt_fix_text(new.statement);
+  new.banca := public.mt_fix_text(new.banca);
+  new.exam_name := public.mt_fix_text(new.exam_name);
+  new.source_code := public.mt_fix_text(new.source_code);
+  return new;
+end;
+$$;
+drop trigger if exists mt_normalize_question_text_trigger on public.questions;
+create trigger mt_normalize_question_text_trigger before insert or update on public.questions
+for each row execute function public.mt_normalize_question_text();
+
+create or replace function public.mt_normalize_key_text()
+returns trigger language plpgsql set search_path = public as $$
+begin new.explanation := public.mt_fix_text(new.explanation); return new; end;
+$$;
+drop trigger if exists mt_normalize_key_text_trigger on public.question_keys;
+create trigger mt_normalize_key_text_trigger before insert or update on public.question_keys
+for each row execute function public.mt_normalize_key_text();
+
+alter table public.study_weeks add column if not exists active boolean not null default true;
+alter table public.study_subjects add column if not exists active boolean not null default true;
+alter table public.study_lessons add column if not exists active boolean not null default true;
+
+create or replace view public.study_lesson_catalog
+with (security_invoker = true)
+as
+select
+  -- IMPORTANTE: as colunas antigas permanecem exatamente na mesma ordem.
+  -- PostgreSQL permite acrescentar novas colunas ao final de CREATE OR REPLACE VIEW,
+  -- mas não permite deslocar/renomear colunas já existentes.
+  p.id as plan_id,
+  p.slug as plan_slug,
+  p.contest_id,
+  w.id as week_id,
+  w.week_number,
+  s.id as subject_id,
+  s.slug as subject_slug,
+  s.short_name as subject_short_name,
+  s.name as subject_name,
+  s.description as subject_description,
+  l.id as lesson_id,
+  l.slug as lesson_slug,
+  l.title as lesson_title,
+  l.priority,
+  l.position as lesson_position,
+  l.question_count,
+  l.pdf_path,
+
+  -- Novas colunas da V8/V9: sempre adicionadas ao FINAL da view.
+  p.name as plan_name,
+  w.title as week_title,
+  w.position as week_position,
+  s.position as subject_position
+from public.study_plans p
+join public.study_weeks w on w.plan_id = p.id
+join public.study_subjects s on s.plan_id = p.id
+join public.study_lessons l on l.subject_id = s.id and l.week_id = w.id
+where p.active = true
+  and w.active = true
+  and s.active = true
+  and l.active = true;
+
+create or replace function public.admin_upsert_study_week(
+  p_plan_id uuid,
+  p_week_number integer,
+  p_title text,
+  p_position integer default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare v_id uuid;
+begin
+  if auth.uid() is null or not public.is_admin() then raise exception 'Acesso restrito ao administrador'; end if;
+  if p_week_number < 1 or p_week_number > 52 then raise exception 'Semana deve ficar entre 1 e 52'; end if;
+  if not exists(select 1 from public.study_plans where id = p_plan_id and active) then raise exception 'Plano inválido'; end if;
+
+  insert into public.study_weeks(plan_id, week_number, title, position, active)
+  values (p_plan_id, p_week_number, coalesce(nullif(trim(p_title), ''), 'Semana ' || p_week_number), coalesce(p_position, p_week_number), true)
+  on conflict(plan_id, week_number) do update
+  set title = excluded.title, position = excluded.position, active = true
+  returning id into v_id;
+
+  return v_id;
+end;
+$$;
+revoke all on function public.admin_upsert_study_week(uuid, integer, text, integer) from public;
+grant execute on function public.admin_upsert_study_week(uuid, integer, text, integer) to authenticated;
+
+create or replace function public.admin_upsert_study_subject(
+  p_plan_id uuid,
+  p_slug text,
+  p_short_name text,
+  p_name text,
+  p_description text default null,
+  p_position integer default 1
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare v_id uuid;
+begin
+  if auth.uid() is null or not public.is_admin() then raise exception 'Acesso restrito ao administrador'; end if;
+  if trim(coalesce(p_slug,'')) = '' or trim(coalesce(p_name,'')) = '' then raise exception 'Slug e nome são obrigatórios'; end if;
+
+  insert into public.study_subjects(plan_id, slug, short_name, name, description, position, active)
+  values (
+    p_plan_id,
+    lower(trim(p_slug)),
+    coalesce(nullif(trim(p_short_name), ''), upper(trim(p_name))),
+    trim(p_name),
+    nullif(trim(p_description), ''),
+    greatest(coalesce(p_position,1),1),
+    true
+  )
+  on conflict(plan_id, slug) do update
+  set short_name = excluded.short_name,
+      name = excluded.name,
+      description = excluded.description,
+      position = excluded.position,
+      active = true
+  returning id into v_id;
+
+  return v_id;
+end;
+$$;
+revoke all on function public.admin_upsert_study_subject(uuid, text, text, text, text, integer) from public;
+grant execute on function public.admin_upsert_study_subject(uuid, text, text, text, text, integer) to authenticated;
+
+create or replace function public.admin_upsert_study_lesson(
+  p_subject_id uuid,
+  p_week_id uuid,
+  p_slug text,
+  p_title text,
+  p_priority text,
+  p_position integer,
+  p_question_count integer,
+  p_topics jsonb default '[]'::jsonb
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_id uuid;
+  v_plan_subject uuid;
+  v_plan_week uuid;
+  v_topic text;
+  v_pos integer := 0;
+begin
+  if auth.uid() is null or not public.is_admin() then raise exception 'Acesso restrito ao administrador'; end if;
+  if p_question_count < 1 or p_question_count > 200 then raise exception 'A lista deve ter entre 1 e 200 questões'; end if;
+  if trim(coalesce(p_slug,'')) = '' or trim(coalesce(p_title,'')) = '' then raise exception 'Slug e título da aula são obrigatórios'; end if;
+
+  select plan_id into v_plan_subject from public.study_subjects where id = p_subject_id;
+  select plan_id into v_plan_week from public.study_weeks where id = p_week_id;
+  if v_plan_subject is null or v_plan_week is null or v_plan_subject <> v_plan_week then
+    raise exception 'Matéria e semana precisam pertencer ao mesmo plano';
+  end if;
+
+  insert into public.study_lessons(subject_id, week_id, slug, title, priority, position, question_count, active)
+  values(p_subject_id, p_week_id, lower(trim(p_slug)), trim(p_title), nullif(trim(p_priority), ''), greatest(coalesce(p_position,1),1), p_question_count, true)
+  on conflict(subject_id, slug) do update
+  set week_id = excluded.week_id,
+      title = excluded.title,
+      priority = excluded.priority,
+      position = excluded.position,
+      question_count = excluded.question_count,
+      active = true
+  returning id into v_id;
+
+  delete from public.study_lesson_topics where lesson_id = v_id;
+
+  if jsonb_typeof(coalesce(p_topics,'[]'::jsonb)) = 'array' then
+    for v_topic in select trim(value #>> '{}') from jsonb_array_elements(coalesce(p_topics,'[]'::jsonb))
+    loop
+      if v_topic <> '' then
+        v_pos := v_pos + 1;
+        insert into public.study_lesson_topics(lesson_id, topic, position)
+        values(v_id, v_topic, v_pos);
+      end if;
+    end loop;
+  end if;
+
+  return v_id;
+end;
+$$;
+revoke all on function public.admin_upsert_study_lesson(uuid, uuid, text, text, text, integer, integer, jsonb) from public;
+grant execute on function public.admin_upsert_study_lesson(uuid, uuid, text, text, text, integer, integer, jsonb) to authenticated;
+
+create or replace function public.admin_curriculum_catalog()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_plans jsonb;
+  v_weeks jsonb;
+  v_subjects jsonb;
+  v_lessons jsonb;
+begin
+  if auth.uid() is null or not public.is_admin() then raise exception 'Acesso restrito ao administrador'; end if;
+
+  select coalesce(jsonb_agg(to_jsonb(x) order by x.name), '[]'::jsonb)
+  into v_plans
+  from (
+    select p.id, p.slug, p.name, p.contest_id, c.sigla as contest_sigla
+    from public.study_plans p
+    left join public.contests c on c.id = p.contest_id
+    where p.active
+  ) x;
+
+  select coalesce(jsonb_agg(to_jsonb(x) order by x.plan_id, x.week_number), '[]'::jsonb)
+  into v_weeks
+  from (
+    select id, plan_id, week_number, title, position, active
+    from public.study_weeks
+  ) x;
+
+  select coalesce(jsonb_agg(to_jsonb(x) order by x.plan_id, x.position), '[]'::jsonb)
+  into v_subjects
+  from (
+    select id, plan_id, slug, short_name, name, description, position, active
+    from public.study_subjects
+  ) x;
+
+  select coalesce(jsonb_agg(to_jsonb(x) order by x.week_id, x.subject_id, x.position), '[]'::jsonb)
+  into v_lessons
+  from (
+    select
+      l.id, l.subject_id, l.week_id, l.slug, l.title, l.priority, l.position,
+      l.question_count, l.active,
+      coalesce((select jsonb_agg(t.topic order by t.position) from public.study_lesson_topics t where t.lesson_id = l.id), '[]'::jsonb) as topics,
+      exists(select 1 from public.lesson_materials lm where lm.lesson_id = l.id and lm.is_active) as has_material,
+      coalesce((select count(*) from public.questions q where q.lesson_id = l.id and q.active),0) as active_questions
+    from public.study_lessons l
+  ) x;
+
+  return jsonb_build_object('plans', v_plans, 'weeks', v_weeks, 'subjects', v_subjects, 'lessons', v_lessons);
+end;
+$$;
+revoke all on function public.admin_curriculum_catalog() from public;
+grant execute on function public.admin_curriculum_catalog() to authenticated;
+
+create or replace function public.admin_import_week_matrix(
+  p_plan_id uuid,
+  p_matrix jsonb
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_week_number integer;
+  v_week_title text;
+  v_week_id uuid;
+  v_subject jsonb;
+  v_lesson jsonb;
+  v_subject_id uuid;
+  v_subject_count integer := 0;
+  v_lesson_count integer := 0;
+  v_lesson_position integer;
+begin
+  if auth.uid() is null or not public.is_admin() then raise exception 'Acesso restrito ao administrador'; end if;
+  if jsonb_typeof(p_matrix) <> 'object' then raise exception 'A matriz deve ser um objeto JSON'; end if;
+
+  v_week_number := nullif(p_matrix->>'semana','')::integer;
+  if v_week_number is null or v_week_number not between 1 and 52 then raise exception 'Informe "semana" entre 1 e 52'; end if;
+
+  v_week_title := coalesce(nullif(trim(p_matrix->>'titulo'),''), 'Semana ' || v_week_number);
+  v_week_id := public.admin_upsert_study_week(p_plan_id, v_week_number, v_week_title, v_week_number);
+
+  if jsonb_typeof(p_matrix->'materias') <> 'array' then raise exception 'A matriz deve conter "materias" como lista'; end if;
+
+  for v_subject in select value from jsonb_array_elements(p_matrix->'materias')
+  loop
+    v_subject_count := v_subject_count + 1;
+    v_subject_id := public.admin_upsert_study_subject(
+      p_plan_id,
+      v_subject->>'slug',
+      coalesce(v_subject->>'sigla', v_subject->>'nome'),
+      v_subject->>'nome',
+      v_subject->>'descricao',
+      coalesce(nullif(v_subject->>'posicao','')::integer, v_subject_count)
+    );
+
+    if jsonb_typeof(v_subject->'aulas') <> 'array' then raise exception 'Matéria % precisa conter "aulas"', v_subject_count; end if;
+    v_lesson_position := 0;
+
+    for v_lesson in select value from jsonb_array_elements(v_subject->'aulas')
+    loop
+      v_lesson_position := v_lesson_position + 1;
+      v_lesson_count := v_lesson_count + 1;
+      perform public.admin_upsert_study_lesson(
+        v_subject_id,
+        v_week_id,
+        v_lesson->>'slug',
+        v_lesson->>'titulo',
+        v_lesson->>'prioridade',
+        coalesce(nullif(v_lesson->>'posicao','')::integer, v_lesson_position),
+        coalesce(nullif(v_lesson->>'questoes_lista','')::integer, 35),
+        coalesce(v_lesson->'topicos', '[]'::jsonb)
+      );
+    end loop;
+  end loop;
+
+  return jsonb_build_object('week_id', v_week_id, 'week_number', v_week_number, 'subjects', v_subject_count, 'lessons', v_lesson_count);
+end;
+$$;
+revoke all on function public.admin_import_week_matrix(uuid, jsonb) from public;
+grant execute on function public.admin_import_week_matrix(uuid, jsonb) to authenticated;
+
+create or replace function public.get_lesson_question_status(p_lesson_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_plan_id uuid;
+  v_count integer;
+  v_required integer;
+  v_attempt public.question_attempts%rowtype;
+begin
+  if v_user_id is null then raise exception 'Usuário não autenticado'; end if;
+  select active_study_plan_id into v_plan_id from public.profiles where id = v_user_id;
+
+  select l.question_count into v_required
+  from public.study_lessons l
+  join public.study_subjects s on s.id = l.subject_id
+  where l.id = p_lesson_id and s.plan_id = v_plan_id and l.active and s.active;
+
+  if v_required is null then raise exception 'Aula fora do plano ativo'; end if;
+
+  select count(*) into v_count from public.questions
+  where lesson_id = p_lesson_id and plan_id = v_plan_id and active = true;
+
+  select * into v_attempt from public.question_attempts
+  where user_id = v_user_id and lesson_id = p_lesson_id and kind = 'lesson_list'
+  order by started_at desc limit 1;
+
+  return jsonb_build_object(
+    'available_count', v_count,
+    'required_count', v_required,
+    'attempt_id', v_attempt.id,
+    'attempt_status', v_attempt.status
+  );
+end;
+$$;
+revoke all on function public.get_lesson_question_status(uuid) from public;
+grant execute on function public.get_lesson_question_status(uuid) to authenticated;
+
+create or replace function public.start_lesson_question_attempt(p_lesson_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_plan_id uuid;
+  v_available integer;
+  v_required integer;
+  v_attempt_id uuid;
+  v_selected uuid[] := array[]::uuid[];
+  v_level_counts integer[] := array[0,0,0,0];
+  v_level integer;
+  v_question_id uuid;
+  v_selected_count integer := 0;
+  v_best_weight double precision;
+  v_weight double precision;
+  v_remaining integer;
+  v_i integer;
+  v_j integer;
+  v_swap uuid;
+begin
+  if v_user_id is null then raise exception 'Usuário não autenticado'; end if;
+  select active_study_plan_id into v_plan_id from public.profiles where id = v_user_id;
+  if v_plan_id is null then raise exception 'Nenhum plano ativo atribuído'; end if;
+
+  perform pg_advisory_xact_lock(hashtext(v_user_id::text || ':' || p_lesson_id::text));
+
+  select id into v_attempt_id from public.question_attempts
+  where user_id = v_user_id and lesson_id = p_lesson_id and kind = 'lesson_list' and status = 'in_progress'
+  order by started_at desc limit 1;
+
+  if v_attempt_id is not null then
+    return jsonb_build_object('ok', true, 'attempt_id', v_attempt_id, 'continued', true);
+  end if;
+
+  select l.question_count into v_required
+  from public.study_lessons l
+  join public.study_subjects s on s.id = l.subject_id
+  join public.user_lesson_progress lp on lp.lesson_id = l.id and lp.user_id = v_user_id
+  where l.id = p_lesson_id
+    and s.plan_id = v_plan_id
+    and l.active and s.active
+    and lp.theory_completed_at is not null;
+
+  if v_required is null then raise exception 'Conclua a teoria antes de iniciar a lista'; end if;
+
+  select count(*) into v_available from public.questions
+  where plan_id = v_plan_id and lesson_id = p_lesson_id and active = true;
+
+  if v_available < v_required then
+    return jsonb_build_object('ok', false, 'available_count', v_available, 'required_count', v_required);
+  end if;
+
+  insert into public.question_attempts(user_id, lesson_id, kind, status, total)
+  values (v_user_id, p_lesson_id, 'lesson_list', 'in_progress', v_required)
+  returning id into v_attempt_id;
+
+  if (select count(distinct level) from public.questions where plan_id = v_plan_id and lesson_id = p_lesson_id and active) = 4
+     and v_required >= 4 then
+    for v_level in 1..4 loop
+      select q.id into v_question_id
+      from public.questions q
+      where q.plan_id = v_plan_id and q.lesson_id = p_lesson_id and q.active and q.level = v_level
+      order by exists (select 1 from public.user_question_answers a where a.user_id = v_user_id and a.question_id = q.id), random()
+      limit 1;
+      if v_question_id is not null then
+        v_selected := array_append(v_selected, v_question_id);
+        v_level_counts[v_level] := v_level_counts[v_level] + 1;
+        v_selected_count := v_selected_count + 1;
+      end if;
+    end loop;
+  end if;
+
+  while v_selected_count < v_required loop
+    v_level := null;
+    v_best_weight := -1;
+    for v_i in 1..4 loop
+      select count(*) into v_remaining
+      from public.questions q
+      where q.plan_id = v_plan_id and q.lesson_id = p_lesson_id and q.active
+        and q.level = v_i and not (q.id = any(v_selected));
+
+      if v_remaining > 0 then
+        v_weight := sqrt(v_remaining::double precision) / (1 + v_level_counts[v_i] * 0.35) * (0.85 + random() * 0.30);
+        if v_weight > v_best_weight then v_best_weight := v_weight; v_level := v_i; end if;
+      end if;
+    end loop;
+
+    if v_level is null then raise exception 'Não foi possível compor a lista sem repetição'; end if;
+
+    select q.id into v_question_id
+    from public.questions q
+    where q.plan_id = v_plan_id and q.lesson_id = p_lesson_id and q.active
+      and q.level = v_level and not (q.id = any(v_selected))
+    order by exists (select 1 from public.user_question_answers a where a.user_id = v_user_id and a.question_id = q.id), random()
+    limit 1;
+
+    v_selected := array_append(v_selected, v_question_id);
+    v_level_counts[v_level] := v_level_counts[v_level] + 1;
+    v_selected_count := v_selected_count + 1;
+  end loop;
+
+  if array_length(v_selected, 1) > 1 then
+    for v_i in reverse array_length(v_selected, 1)..2 loop
+      v_j := floor(random() * v_i + 1)::integer;
+      v_swap := v_selected[v_i];
+      v_selected[v_i] := v_selected[v_j];
+      v_selected[v_j] := v_swap;
+    end loop;
+  end if;
+
+  for v_i in 1..array_length(v_selected, 1) loop
+    insert into public.question_attempt_items(attempt_id, question_id, position)
+    values (v_attempt_id, v_selected[v_i], v_i);
+  end loop;
+
+  update public.user_lesson_progress
+  set list_started_at = coalesce(list_started_at, now()), updated_at = now()
+  where user_id = v_user_id and lesson_id = p_lesson_id;
+
+  return jsonb_build_object('ok', true, 'attempt_id', v_attempt_id, 'continued', false);
+end;
+$$;
+revoke all on function public.start_lesson_question_attempt(uuid) from public;
+grant execute on function public.start_lesson_question_attempt(uuid) to authenticated;
+
+create or replace function public.admin_question_overview()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select case when public.is_admin() then coalesce(jsonb_agg(to_jsonb(rows)), '[]'::jsonb) else '[]'::jsonb end
+  from (
+    select
+      p.id as plan_id,
+      p.name as plan_name,
+      s.id as subject_id,
+      s.name as subject_name,
+      l.id as lesson_id,
+      l.title as lesson_title,
+      l.question_count as required_count,
+      count(q.id) filter (where q.active) as active_count,
+      count(q.id) as total_count
+    from public.study_lessons l
+    join public.study_subjects s on s.id = l.subject_id
+    join public.study_plans p on p.id = s.plan_id
+    left join public.questions q on q.lesson_id = l.id
+    where l.active and s.active and p.active
+    group by p.id, p.name, s.id, s.name, l.id, l.title, l.position, l.question_count
+    order by p.name, s.name, l.position
+  ) rows;
+$$;
+revoke all on function public.admin_question_overview() from public;
+grant execute on function public.admin_question_overview() to authenticated;
+
+
+-- Mentoria Titã — CFO PMAL 2026 / Semana 1
+-- 02/09/2026 a 09/09/2026 | 35 aulas-mãe
+-- Português: lista 15; nivelamentos 1–4 com 4/5.
+-- Demais matérias: lista 35; nivelamentos 1–4 com 9/10.
+-- Revisões e nivelamentos NÃO entram como obrigação do cronograma semanal.
+
+alter table public.study_weeks add column if not exists starts_on date;
+alter table public.study_weeks add column if not exists ends_on date;
+
+create table if not exists public.study_schedule_blocks (
+  id uuid primary key default gen_random_uuid(),
+  week_id uuid not null references public.study_weeks(id) on delete cascade,
+  study_date date not null,
+  daypart text not null check (daypart in ('morning','afternoon','evening')),
+  start_time time,
+  end_time time,
+  title text not null,
+  optional boolean not null default false,
+  notes text,
+  position integer not null default 1,
+  created_at timestamptz not null default now(),
+  unique (week_id, study_date, daypart)
+);
+
+create table if not exists public.study_schedule_block_lessons (
+  block_id uuid not null references public.study_schedule_blocks(id) on delete cascade,
+  lesson_id uuid not null references public.study_lessons(id) on delete cascade,
+  position integer not null default 1,
+  primary key (block_id, lesson_id),
+  unique (block_id, position)
+);
+
+alter table public.study_schedule_blocks enable row level security;
+alter table public.study_schedule_block_lessons enable row level security;
+
+drop policy if exists "Authenticated users read schedule blocks" on public.study_schedule_blocks;
+create policy "Authenticated users read schedule blocks"
+on public.study_schedule_blocks for select to authenticated using (true);
+
+drop policy if exists "Authenticated users read schedule block lessons" on public.study_schedule_block_lessons;
+create policy "Authenticated users read schedule block lessons"
+on public.study_schedule_block_lessons for select to authenticated using (true);
+
+create table if not exists public.lesson_leveling_stages (
+  lesson_id uuid not null references public.study_lessons(id) on delete cascade,
+  stage_number integer not null check (stage_number between 1 and 4),
+  question_count integer not null check (question_count between 1 and 50),
+  required_correct integer not null check (required_correct between 1 and question_count),
+  active boolean not null default true,
+  updated_at timestamptz not null default now(),
+  primary key (lesson_id, stage_number)
+);
+
+alter table public.lesson_leveling_stages enable row level security;
+
+grant select on public.study_schedule_blocks to authenticated;
+grant select on public.study_schedule_block_lessons to authenticated;
+grant select, insert, update, delete on public.lesson_leveling_stages to authenticated;
+
+drop policy if exists "Authenticated users read leveling stages" on public.lesson_leveling_stages;
+create policy "Authenticated users read leveling stages"
+on public.lesson_leveling_stages for select to authenticated using (true);
+
+drop policy if exists "Admins manage leveling stages" on public.lesson_leveling_stages;
+create policy "Admins manage leveling stages"
+on public.lesson_leveling_stages for all to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
+insert into public.contests (slug, nome, sigla, logo_path, ativo)
+values ('cfo-pmal', 'CFO PMAL 2026', 'CFO PMAL', '/concursos/cfo-pmal/logo.png', true)
+on conflict (slug) do update
+set nome = excluded.nome,
+    sigla = excluded.sigla,
+    logo_path = excluded.logo_path,
+    ativo = true;
+
+update public.study_plans
+set is_default = false
+where contest_id = (select id from public.contests where slug = 'cfo-pmal');
+
+insert into public.study_plans (contest_id, slug, name, is_default, active)
+select id, 'cfo-pmal-2026', 'CFO PMAL 2026', true, true
+from public.contests where slug = 'cfo-pmal'
+on conflict (slug) do update
+set contest_id = excluded.contest_id,
+    name = excluded.name,
+    is_default = true,
+    active = true;
+
+insert into public.study_weeks (plan_id, week_number, title, position, starts_on, ends_on, active)
+select id, 1, 'CFO PMAL — Semana 1', 1, date '2026-09-02', date '2026-09-09', true
+from public.study_plans where slug = 'cfo-pmal-2026'
+on conflict (plan_id, week_number) do update
+set title = excluded.title,
+    position = 1,
+    starts_on = excluded.starts_on,
+    ends_on = excluded.ends_on,
+    active = true;
+
+-- Se alguém já estiver com CFO PMAL como foco, aponta imediatamente para o plano novo.
+update public.profiles
+set active_study_plan_id = (select id from public.study_plans where slug = 'cfo-pmal-2026')
+where focus_contest_id = (select id from public.contests where slug = 'cfo-pmal');
+
+with p as (
+  select id from public.study_plans where slug = 'cfo-pmal-2026'
+),
+data(slug, short_name, name, description, position) as (
+  values
+  ('legislacao-pmal', 'LEGISLAÇÃO PMAL', 'Legislação PMAL', 'Lei Estadual nº 5.346/1992 e normas institucionais da PMAL.', 1),
+('processo-penal-militar', 'PPM', 'Processo Penal Militar', 'Fundamentos do processo penal militar e do CPPM.', 2),
+('lingua-portuguesa', 'PORTUGUÊS', 'Língua Portuguesa', 'Conteúdos linguísticos da semana, sem compreensão e interpretação de textos.', 3),
+('informatica', 'INFORMÁTICA', 'Informática', 'Windows, organização da informação e Microsoft Office.', 4),
+('conhecimentos-alagoas', 'ALAGOAS', 'Conhecimentos do Estado de Alagoas', 'História, formação social e geografia do Estado de Alagoas.', 5),
+('direito-penal', 'DIREITO PENAL', 'Direito Penal', 'Parte geral do Direito Penal com foco em teoria do crime.', 6)
+)
+insert into public.study_subjects(plan_id, slug, short_name, name, description, position, active)
+select p.id, d.slug, d.short_name, d.name, d.description, d.position, true
+from p cross join data d
+on conflict (plan_id, slug) do update
+set short_name = excluded.short_name,
+    name = excluded.name,
+    description = excluded.description,
+    position = excluded.position,
+    active = true;
+
+with p as (
+  select id from public.study_plans where slug = 'cfo-pmal-2026'
+),
+w as (
+  select sw.id from public.study_weeks sw join p on p.id = sw.plan_id where sw.week_number = 1
+),
+data(subject_slug, position, lesson_slug, title, question_count) as (
+  values
+  ('legislacao-pmal', 1, 'lei-5346-generalidades-conceituacao', 'Lei Estadual nº 5.346/1992: generalidades e conceituação', 35),
+('legislacao-pmal', 2, 'lei-5346-ingresso-hierarquia-disciplina', 'Lei Estadual nº 5.346/1992: ingresso, hierarquia e disciplina', 35),
+('legislacao-pmal', 3, 'lei-5346-cargo-funcao-comando-subordinacao', 'Lei Estadual nº 5.346/1992: cargo, função, comando e subordinação', 35),
+('legislacao-pmal', 4, 'lei-5346-direitos-prerrogativas', 'Lei Estadual nº 5.346/1992: direitos e prerrogativas', 35),
+('legislacao-pmal', 5, 'lei-5346-deveres-obrigacoes-etica', 'Lei Estadual nº 5.346/1992: deveres, obrigações e ética', 35),
+('legislacao-pmal', 6, 'lei-5346-violacao-deveres-conselhos', 'Lei Estadual nº 5.346/1992: violação de deveres e conselhos', 35),
+('legislacao-pmal', 7, 'lei-5346-ausente-desertor-desaparecido-extraviado', 'Lei Estadual nº 5.346/1992: ausente, desertor, desaparecido e extraviado', 35),
+('processo-penal-militar', 1, 'processo-penal-militar-aplicacao-cppm', 'Processo penal militar e aplicação do CPPM', 35),
+('processo-penal-militar', 2, 'policia-judiciaria-militar', 'Polícia judiciária militar', 35),
+('processo-penal-militar', 3, 'ipm-instauracao-desenvolvimento', 'Inquérito policial militar: instauração e desenvolvimento', 35),
+('processo-penal-militar', 4, 'ipm-encerramento-arquivamento-valor-probatorio', 'IPM: encerramento, arquivamento e valor probatório', 35),
+('processo-penal-militar', 5, 'acao-penal-militar', 'Ação penal militar', 35),
+('processo-penal-militar', 6, 'processo-juiz-auxiliares-partes', 'Processo, juiz, auxiliares e partes', 35),
+('lingua-portuguesa', 2, 'tipologia-generos-textuais', 'Tipologia e gêneros textuais', 15),
+('lingua-portuguesa', 3, 'ortografia-oficial', 'Ortografia oficial', 15),
+('lingua-portuguesa', 4, 'coesao-referenciacao-conectores', 'Coesão textual, referenciação e conectores', 15),
+('lingua-portuguesa', 5, 'verbos-tempos-modos-emprego-texto', 'Verbos: tempos, modos e emprego no texto', 15),
+('informatica', 1, 'windows-ambiente-interface-operacoes-basicas', 'Windows: ambiente, interface e operações básicas', 35),
+('informatica', 2, 'arquivos-pastas-extensoes-organizacao-informacao', 'Arquivos, pastas, extensões e organização da informação', 35),
+('informatica', 3, 'microsoft-word', 'Microsoft Word', 35),
+('informatica', 4, 'microsoft-excel-estrutura-referencias', 'Microsoft Excel: estrutura e referências', 35),
+('informatica', 5, 'microsoft-excel-formulas-funcoes-graficos-analise', 'Microsoft Excel: fórmulas, funções, gráficos e análise', 35),
+('informatica', 6, 'microsoft-powerpoint', 'Microsoft PowerPoint', 35),
+('conhecimentos-alagoas', 1, 'formacao-historica-colonizacao-portuguesa', 'Formação histórica e colonização portuguesa', 35),
+('conhecimentos-alagoas', 2, 'economia-acucareira-formacao-social', 'Economia açucareira e formação social', 35),
+('conhecimentos-alagoas', 3, 'emancipacao-pernambuco-elevacao-provincia', 'Emancipação de Pernambuco e elevação à Província', 35),
+('conhecimentos-alagoas', 4, 'quilombo-palmares', 'Quilombo dos Palmares', 35),
+('conhecimentos-alagoas', 5, 'regionalizacao-litoral-zona-mata-agreste-sertao', 'Regionalização geográfica: litoral, Zona da Mata, Agreste e Sertão', 35),
+('conhecimentos-alagoas', 6, 'rio-sao-francisco-territorio-alagoano', 'Rio São Francisco e território alagoano', 35),
+('direito-penal', 1, 'aplicacao-lei-penal', 'Aplicação da lei penal', 35),
+('direito-penal', 2, 'teoria-crime-fato-tipico-conduta', 'Teoria do crime: fato típico e conduta', 35),
+('direito-penal', 3, 'dolo-culpa-erro-resultado-agravador', 'Dolo, culpa, erro e resultado agravador', 35),
+('direito-penal', 4, 'iter-criminis-tentativa', 'Iter criminis e tentativa', 35),
+('direito-penal', 5, 'ilicitude-excludentes', 'Ilicitude e excludentes', 35),
+('direito-penal', 6, 'imputabilidade-penal', 'Imputabilidade penal', 35)
+)
+insert into public.study_lessons(subject_id, week_id, slug, title, priority, position, question_count, active)
+select s.id, w.id, d.lesson_slug, d.title, null, d.position, d.question_count, true
+from data d
+join public.study_subjects s on s.plan_id = (select id from p) and s.slug = d.subject_slug
+cross join w
+on conflict (subject_id, slug) do update
+set week_id = excluded.week_id,
+    title = excluded.title,
+    position = excluded.position,
+    question_count = excluded.question_count,
+    active = true;
+
+delete from public.study_lesson_topics
+where lesson_id in (
+  select l.id
+  from public.study_lessons l
+  join public.study_subjects s on s.id = l.subject_id
+  join public.study_plans p on p.id = s.plan_id
+  where p.slug = 'cfo-pmal-2026'
+);
+
+with p as (
+  select id from public.study_plans where slug = 'cfo-pmal-2026'
+),
+data(subject_slug, lesson_slug, position, topic) as (
+  values
+  ('legislacao-pmal', 'lei-5346-generalidades-conceituacao', 1, 'Finalidade do Estatuto — art. 1º'),
+('legislacao-pmal', 'lei-5346-generalidades-conceituacao', 2, 'Natureza, missão e subordinação da PMAL — art. 2º'),
+('legislacao-pmal', 'lei-5346-generalidades-conceituacao', 3, 'Policiais militares de carreira e temporários — art. 3º'),
+('legislacao-pmal', 'lei-5346-generalidades-conceituacao', 4, 'Serviço e carreira policial militar — arts. 4º e 5º'),
+('legislacao-pmal', 'lei-5346-generalidades-conceituacao', 5, 'Polícia ostensiva, ordem pública e serviço ativo — art. 6º'),
+('legislacao-pmal', 'lei-5346-generalidades-conceituacao', 6, 'Posto, graduação e precedência — art. 6º'),
+('legislacao-pmal', 'lei-5346-generalidades-conceituacao', 7, 'Cargo e função — art. 6º'),
+('legislacao-pmal', 'lei-5346-generalidades-conceituacao', 8, 'Hierarquia e disciplina — art. 6º'),
+('legislacao-pmal', 'lei-5346-generalidades-conceituacao', 9, 'Matrícula e nomeação — art. 6º'),
+('legislacao-pmal', 'lei-5346-generalidades-conceituacao', 10, 'PM temporário, serviço temporário, comissionado, efetivação e interinidade — art. 6º'),
+('legislacao-pmal', 'lei-5346-generalidades-conceituacao', 11, 'Legislação básica, peculiar e específica — art. 6º'),
+('legislacao-pmal', 'lei-5346-generalidades-conceituacao', 12, 'Ausente, deserção, desaparecido/extraviado e OPM — art. 6º'),
+('legislacao-pmal', 'lei-5346-generalidades-conceituacao', 13, 'Expressões equivalentes de serviço ativo — parágrafo único do art. 6º'),
+('legislacao-pmal', 'lei-5346-ingresso-hierarquia-disciplina', 1, 'Regra geral e condições de ingresso — arts. 7º e 8º'),
+('legislacao-pmal', 'lei-5346-ingresso-hierarquia-disciplina', 2, 'Idade, altura e requisitos do CFO PMAL 2026'),
+('legislacao-pmal', 'lei-5346-ingresso-hierarquia-disciplina', 3, 'Formação, serviço temporário, comissionamento e efetivação — art. 8º'),
+('legislacao-pmal', 'lei-5346-ingresso-hierarquia-disciplina', 4, 'Hierarquia e disciplina — arts. 9º e 10'),
+('legislacao-pmal', 'lei-5346-ingresso-hierarquia-disciplina', 5, 'Círculos e escala hierárquica — art. 11'),
+('legislacao-pmal', 'lei-5346-ingresso-hierarquia-disciplina', 6, 'Praças Especiais — art. 11'),
+('legislacao-pmal', 'lei-5346-ingresso-hierarquia-disciplina', 7, 'Precedência e antiguidade — arts. 12 e 13'),
+('legislacao-pmal', 'lei-5346-ingresso-hierarquia-disciplina', 8, 'Precedência do Aspirante a Oficial e do Cadete — art. 14'),
+('legislacao-pmal', 'lei-5346-cargo-funcao-comando-subordinacao', 1, 'Lei Estadual nº 5.346/1992: cargo, função, comando e subordinação'),
+('legislacao-pmal', 'lei-5346-direitos-prerrogativas', 1, 'Lei Estadual nº 5.346/1992: direitos e prerrogativas'),
+('legislacao-pmal', 'lei-5346-deveres-obrigacoes-etica', 1, 'Lei Estadual nº 5.346/1992: deveres, obrigações e ética'),
+('legislacao-pmal', 'lei-5346-violacao-deveres-conselhos', 1, 'Lei Estadual nº 5.346/1992: violação de deveres e conselhos'),
+('legislacao-pmal', 'lei-5346-ausente-desertor-desaparecido-extraviado', 1, 'Lei Estadual nº 5.346/1992: ausente, desertor, desaparecido e extraviado'),
+('processo-penal-militar', 'processo-penal-militar-aplicacao-cppm', 1, 'Processo penal militar e aplicação do CPPM'),
+('processo-penal-militar', 'policia-judiciaria-militar', 1, 'Polícia judiciária militar'),
+('processo-penal-militar', 'ipm-instauracao-desenvolvimento', 1, 'Inquérito policial militar: instauração e desenvolvimento'),
+('processo-penal-militar', 'ipm-encerramento-arquivamento-valor-probatorio', 1, 'IPM: encerramento, arquivamento e valor probatório'),
+('processo-penal-militar', 'acao-penal-militar', 1, 'Ação penal militar'),
+('processo-penal-militar', 'processo-juiz-auxiliares-partes', 1, 'Processo, juiz, auxiliares e partes'),
+('lingua-portuguesa', 'tipologia-generos-textuais', 1, 'Narração, descrição, exposição, argumentação e injunção'),
+('lingua-portuguesa', 'tipologia-generos-textuais', 2, 'Diferença entre tipo textual e gênero textual'),
+('lingua-portuguesa', 'tipologia-generos-textuais', 3, 'Notícia, reportagem, crônica, artigo de opinião, editorial, entrevista e resenha'),
+('lingua-portuguesa', 'tipologia-generos-textuais', 4, 'Conto, parábola, carta/e-mail, edital, manual, receita, anúncio/publicidade e verbete'),
+('lingua-portuguesa', 'tipologia-generos-textuais', 5, 'Narração x descrição e predominância global'),
+('lingua-portuguesa', 'tipologia-generos-textuais', 6, 'Exposição x argumentação'),
+('lingua-portuguesa', 'tipologia-generos-textuais', 7, 'Parábola, edital e crônica: gênero x tipo'),
+('lingua-portuguesa', 'tipologia-generos-textuais', 8, 'Sequências textuais secundárias dentro do mesmo gênero'),
+('lingua-portuguesa', 'ortografia-oficial', 1, 'Ortografia oficial'),
+('lingua-portuguesa', 'coesao-referenciacao-conectores', 1, 'Coesão textual, referenciação e conectores'),
+('lingua-portuguesa', 'verbos-tempos-modos-emprego-texto', 1, 'Verbos: tempos, modos e emprego no texto'),
+('informatica', 'windows-ambiente-interface-operacoes-basicas', 1, 'Windows: ambiente, interface e operações básicas'),
+('informatica', 'arquivos-pastas-extensoes-organizacao-informacao', 1, 'Arquivos, pastas, extensões e organização da informação'),
+('informatica', 'microsoft-word', 1, 'Microsoft Word'),
+('informatica', 'microsoft-excel-estrutura-referencias', 1, 'Microsoft Excel: estrutura e referências'),
+('informatica', 'microsoft-excel-formulas-funcoes-graficos-analise', 1, 'Microsoft Excel: fórmulas, funções, gráficos e análise'),
+('informatica', 'microsoft-powerpoint', 1, 'Microsoft PowerPoint'),
+('conhecimentos-alagoas', 'formacao-historica-colonizacao-portuguesa', 1, 'Formação histórica e colonização portuguesa'),
+('conhecimentos-alagoas', 'economia-acucareira-formacao-social', 1, 'Economia açucareira e formação social'),
+('conhecimentos-alagoas', 'emancipacao-pernambuco-elevacao-provincia', 1, 'Emancipação de Pernambuco e elevação à Província'),
+('conhecimentos-alagoas', 'quilombo-palmares', 1, 'Quilombo dos Palmares'),
+('conhecimentos-alagoas', 'regionalizacao-litoral-zona-mata-agreste-sertao', 1, 'Regionalização geográfica: litoral, Zona da Mata, Agreste e Sertão'),
+('conhecimentos-alagoas', 'rio-sao-francisco-territorio-alagoano', 1, 'Rio São Francisco e território alagoano'),
+('direito-penal', 'aplicacao-lei-penal', 1, 'Aplicação da lei penal'),
+('direito-penal', 'teoria-crime-fato-tipico-conduta', 1, 'Teoria do crime: fato típico e conduta'),
+('direito-penal', 'dolo-culpa-erro-resultado-agravador', 1, 'Dolo, culpa, erro e resultado agravador'),
+('direito-penal', 'iter-criminis-tentativa', 1, 'Iter criminis e tentativa'),
+('direito-penal', 'ilicitude-excludentes', 1, 'Ilicitude e excludentes'),
+('direito-penal', 'imputabilidade-penal', 1, 'Imputabilidade penal')
+)
+insert into public.study_lesson_topics(lesson_id, topic, position)
+select l.id, d.topic, d.position
+from data d
+join public.study_subjects s on s.plan_id = (select id from p) and s.slug = d.subject_slug
+join public.study_lessons l on l.subject_id = s.id and l.slug = d.lesson_slug;
+
+delete from public.study_schedule_blocks
+where week_id = (
+  select w.id
+  from public.study_weeks w
+  join public.study_plans p on p.id = w.plan_id
+  where p.slug = 'cfo-pmal-2026' and w.week_number = 1
+);
+
+with w as (
+  select sw.id
+  from public.study_weeks sw
+  join public.study_plans p on p.id = sw.plan_id
+  where p.slug = 'cfo-pmal-2026' and sw.week_number = 1
+),
+data(study_date, daypart, start_time, end_time, title, optional, notes, position) as (
+  values
+  ('2026-09-02', 'morning', '09:00', '11:00', 'Trabalho — sem estudo obrigatório', true, 'Manhã reservada ao trabalho. Não conta para a conclusão da semana.', 1),
+('2026-09-02', 'afternoon', '13:30', '17:00', 'Bloco principal — Tarde', false, 'Teoria + lista principal de questões. O objetivo é concluir o conteúdo, sem rigidez artificial de minutos por aula.', 2),
+('2026-09-02', 'evening', '19:00', '22:00', 'Bloco principal — Noite', false, 'Teoria + lista principal de questões. Conteúdos relacionados podem ser estudados em sequência no mesmo bloco.', 3),
+('2026-09-03', 'morning', '09:00', '11:00', 'Bloco opcional — Adiantamento / Pendências', true, 'Pode ser usado para adiantar aulas, finalizar questões, antecipar a primeira aula do dia seguinte ou recuperar atraso. Não conta como obrigatório.', 1),
+('2026-09-03', 'afternoon', '13:30', '17:00', 'Bloco principal — Tarde', false, 'Teoria + lista principal de questões. O objetivo é concluir o conteúdo, sem rigidez artificial de minutos por aula.', 2),
+('2026-09-03', 'evening', '19:00', '22:00', 'Bloco principal — Noite', false, 'Teoria + lista principal de questões. Conteúdos relacionados podem ser estudados em sequência no mesmo bloco.', 3),
+('2026-09-04', 'morning', '09:00', '11:00', 'Bloco opcional — Adiantamento / Pendências', true, 'Pode ser usado para adiantar aulas, finalizar questões, antecipar a primeira aula do dia seguinte ou recuperar atraso. Não conta como obrigatório.', 1),
+('2026-09-04', 'afternoon', '13:30', '17:00', 'Bloco principal — Tarde', false, 'Teoria + lista principal de questões. O objetivo é concluir o conteúdo, sem rigidez artificial de minutos por aula.', 2),
+('2026-09-04', 'evening', '19:00', '22:00', 'Bloco principal — Noite', false, 'Teoria + lista principal de questões. Conteúdos relacionados podem ser estudados em sequência no mesmo bloco.', 3),
+('2026-09-05', 'morning', '09:00', '11:00', 'Bloco opcional — Adiantamento / Pendências', true, 'Pode ser usado para adiantar aulas, finalizar questões, antecipar a primeira aula do dia seguinte ou recuperar atraso. Não conta como obrigatório.', 1),
+('2026-09-05', 'afternoon', '13:30', '17:00', 'Bloco principal — Tarde', false, 'Teoria + lista principal de questões. O objetivo é concluir o conteúdo, sem rigidez artificial de minutos por aula.', 2),
+('2026-09-05', 'evening', '19:00', '22:00', 'Bloco principal — Noite', false, 'Teoria + lista principal de questões. Conteúdos relacionados podem ser estudados em sequência no mesmo bloco.', 3),
+('2026-09-06', 'morning', '09:00', '11:00', 'Bloco opcional — Adiantamento / Pendências', true, 'Pode ser usado para adiantar aulas, finalizar questões, antecipar a primeira aula do dia seguinte ou recuperar atraso. Não conta como obrigatório.', 1),
+('2026-09-06', 'afternoon', '13:30', '17:00', 'Bloco principal — Tarde', false, 'Teoria + lista principal de questões. O objetivo é concluir o conteúdo, sem rigidez artificial de minutos por aula.', 2),
+('2026-09-06', 'evening', '19:00', '22:00', 'Bloco principal — Noite', false, 'Teoria + lista principal de questões. Conteúdos relacionados podem ser estudados em sequência no mesmo bloco.', 3),
+('2026-09-07', 'morning', '09:00', '11:00', 'Bloco opcional — Adiantamento / Pendências', true, 'Pode ser usado para adiantar aulas, finalizar questões, antecipar a primeira aula do dia seguinte ou recuperar atraso. Não conta como obrigatório.', 1),
+('2026-09-07', 'afternoon', '13:30', '17:00', 'Bloco principal — Tarde', false, 'Teoria + lista principal de questões. O objetivo é concluir o conteúdo, sem rigidez artificial de minutos por aula.', 2),
+('2026-09-07', 'evening', '19:00', '22:00', 'Bloco principal — Noite', false, 'Teoria + lista principal de questões. Conteúdos relacionados podem ser estudados em sequência no mesmo bloco.', 3),
+('2026-09-08', 'morning', '09:00', '11:00', 'Bloco opcional — Adiantamento / Pendências', true, 'Pode ser usado para adiantar aulas, finalizar questões, antecipar a primeira aula do dia seguinte ou recuperar atraso. Não conta como obrigatório.', 1),
+('2026-09-08', 'afternoon', '13:30', '17:00', 'Bloco principal — Tarde', false, 'Teoria + lista principal de questões. O objetivo é concluir o conteúdo, sem rigidez artificial de minutos por aula.', 2),
+('2026-09-08', 'evening', '19:00', '22:00', 'Bloco principal — Noite', false, 'Teoria + lista principal de questões. Conteúdos relacionados podem ser estudados em sequência no mesmo bloco.', 3),
+('2026-09-09', 'morning', '09:00', '11:00', 'Bloco opcional — Adiantamento / Pendências', true, 'Pode ser usado para adiantar aulas, finalizar questões, antecipar a primeira aula do dia seguinte ou recuperar atraso. Não conta como obrigatório.', 1),
+('2026-09-09', 'afternoon', '13:30', '17:00', 'Bloco principal — Tarde', false, 'Teoria + lista principal de questões. O objetivo é concluir o conteúdo, sem rigidez artificial de minutos por aula.', 2),
+('2026-09-09', 'evening', '19:00', '22:00', 'Bloco principal — Noite', false, 'Teoria + lista principal de questões. Conteúdos relacionados podem ser estudados em sequência no mesmo bloco.', 3)
+)
+insert into public.study_schedule_blocks(week_id, study_date, daypart, start_time, end_time, title, optional, notes, position)
+select w.id, d.study_date::date, d.daypart, d.start_time::time, d.end_time::time, d.title, d.optional, d.notes, d.position
+from w cross join data d;
+
+with p as (
+  select id from public.study_plans where slug = 'cfo-pmal-2026'
+),
+w as (
+  select sw.id from public.study_weeks sw join p on p.id = sw.plan_id where sw.week_number = 1
+),
+data(study_date, daypart, subject_slug, lesson_slug, position) as (
+  values
+  ('2026-09-02', 'afternoon', 'legislacao-pmal', 'lei-5346-generalidades-conceituacao', 1),
+('2026-09-02', 'afternoon', 'legislacao-pmal', 'lei-5346-ingresso-hierarquia-disciplina', 2),
+('2026-09-02', 'evening', 'lingua-portuguesa', 'tipologia-generos-textuais', 1),
+('2026-09-02', 'evening', 'lingua-portuguesa', 'ortografia-oficial', 2),
+('2026-09-03', 'afternoon', 'processo-penal-militar', 'processo-penal-militar-aplicacao-cppm', 1),
+('2026-09-03', 'afternoon', 'processo-penal-militar', 'policia-judiciaria-militar', 2),
+('2026-09-03', 'evening', 'informatica', 'windows-ambiente-interface-operacoes-basicas', 1),
+('2026-09-03', 'evening', 'informatica', 'arquivos-pastas-extensoes-organizacao-informacao', 2),
+('2026-09-04', 'afternoon', 'direito-penal', 'aplicacao-lei-penal', 1),
+('2026-09-04', 'afternoon', 'direito-penal', 'teoria-crime-fato-tipico-conduta', 2),
+('2026-09-04', 'evening', 'conhecimentos-alagoas', 'formacao-historica-colonizacao-portuguesa', 1),
+('2026-09-04', 'evening', 'conhecimentos-alagoas', 'economia-acucareira-formacao-social', 2),
+('2026-09-05', 'afternoon', 'legislacao-pmal', 'lei-5346-cargo-funcao-comando-subordinacao', 1),
+('2026-09-05', 'afternoon', 'legislacao-pmal', 'lei-5346-direitos-prerrogativas', 2),
+('2026-09-05', 'evening', 'lingua-portuguesa', 'coesao-referenciacao-conectores', 1),
+('2026-09-05', 'evening', 'lingua-portuguesa', 'verbos-tempos-modos-emprego-texto', 2),
+('2026-09-05', 'evening', 'conhecimentos-alagoas', 'emancipacao-pernambuco-elevacao-provincia', 3),
+('2026-09-06', 'afternoon', 'informatica', 'microsoft-word', 1),
+('2026-09-06', 'afternoon', 'informatica', 'microsoft-excel-estrutura-referencias', 2),
+('2026-09-06', 'evening', 'conhecimentos-alagoas', 'quilombo-palmares', 1),
+('2026-09-06', 'evening', 'conhecimentos-alagoas', 'regionalizacao-litoral-zona-mata-agreste-sertao', 2),
+('2026-09-07', 'afternoon', 'processo-penal-militar', 'ipm-instauracao-desenvolvimento', 1),
+('2026-09-07', 'afternoon', 'processo-penal-militar', 'ipm-encerramento-arquivamento-valor-probatorio', 2),
+('2026-09-07', 'evening', 'direito-penal', 'dolo-culpa-erro-resultado-agravador', 1),
+('2026-09-07', 'evening', 'direito-penal', 'iter-criminis-tentativa', 2),
+('2026-09-07', 'evening', 'direito-penal', 'ilicitude-excludentes', 3),
+('2026-09-08', 'afternoon', 'legislacao-pmal', 'lei-5346-deveres-obrigacoes-etica', 1),
+('2026-09-08', 'afternoon', 'legislacao-pmal', 'lei-5346-violacao-deveres-conselhos', 2),
+('2026-09-08', 'afternoon', 'legislacao-pmal', 'lei-5346-ausente-desertor-desaparecido-extraviado', 3),
+('2026-09-08', 'evening', 'informatica', 'microsoft-excel-formulas-funcoes-graficos-analise', 1),
+('2026-09-08', 'evening', 'informatica', 'microsoft-powerpoint', 2),
+('2026-09-09', 'afternoon', 'processo-penal-militar', 'acao-penal-militar', 1),
+('2026-09-09', 'afternoon', 'processo-penal-militar', 'processo-juiz-auxiliares-partes', 2),
+('2026-09-09', 'evening', 'conhecimentos-alagoas', 'rio-sao-francisco-territorio-alagoano', 1),
+('2026-09-09', 'evening', 'direito-penal', 'imputabilidade-penal', 2)
+)
+insert into public.study_schedule_block_lessons(block_id, lesson_id, position)
+select b.id, l.id, d.position
+from data d
+join public.study_schedule_blocks b
+  on b.week_id = (select id from w)
+ and b.study_date = d.study_date::date
+ and b.daypart = d.daypart
+join public.study_subjects s on s.plan_id = (select id from p) and s.slug = d.subject_slug
+join public.study_lessons l on l.subject_id = s.id and l.slug = d.lesson_slug
+on conflict (block_id, lesson_id) do update
+set position = excluded.position;
+
+with p as (
+  select id from public.study_plans where slug = 'cfo-pmal-2026'
+),
+lesson_data as (
+  select l.id as lesson_id, s.slug as subject_slug
+  from public.study_lessons l
+  join public.study_subjects s on s.id = l.subject_id
+  where s.plan_id = (select id from p)
+),
+stages as (
+  select generate_series(1,4) as stage_number
+)
+insert into public.lesson_leveling_stages(lesson_id, stage_number, question_count, required_correct, active)
+select ld.lesson_id,
+       st.stage_number,
+       case when ld.subject_slug = 'lingua-portuguesa' then 5 else 10 end,
+       case when ld.subject_slug = 'lingua-portuguesa' then 4 else 9 end,
+       true
+from lesson_data ld cross join stages st
+on conflict (lesson_id, stage_number) do update
+set question_count = excluded.question_count,
+    required_correct = excluded.required_correct,
+    active = true,
+    updated_at = now();
+
+do $$
+begin
+  if to_regclass('public.lesson_leveling_settings') is not null then
+    execute $sql$
+      insert into public.lesson_leveling_settings(lesson_id, question_count, required_correct, active)
+      select l.id,
+             case when s.slug = 'lingua-portuguesa' then 5 else 10 end,
+             case when s.slug = 'lingua-portuguesa' then 4 else 9 end,
+             true
+      from public.study_lessons l
+      join public.study_subjects s on s.id = l.subject_id
+      join public.study_plans p on p.id = s.plan_id
+      where p.slug = 'cfo-pmal-2026'
+      on conflict (lesson_id) do update
+      set question_count = excluded.question_count,
+          required_correct = excluded.required_correct,
+          active = true
+    $sql$;
+  end if;
+end;
+$$;
+
+create or replace function public.set_focus_contest(p_contest_slug text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_contest_id uuid;
+  v_plan_id uuid;
+begin
+  if v_user_id is null then raise exception 'Usuário não autenticado'; end if;
+
+  select id into v_contest_id
+  from public.contests
+  where slug = p_contest_slug and ativo = true;
+
+  if v_contest_id is null then raise exception 'Concurso inválido ou inativo'; end if;
+
+  select id into v_plan_id
+  from public.study_plans
+  where contest_id = v_contest_id and active = true
+  order by is_default desc, created_at asc
+  limit 1;
+
+  update public.profiles
+  set focus_contest_id = v_contest_id,
+      active_study_plan_id = v_plan_id
+  where id = v_user_id;
+
+  if not found then raise exception 'Perfil não encontrado'; end if;
+end;
+$$;
+
+revoke all on function public.set_focus_contest(text) from public;
+grant execute on function public.set_focus_contest(text) to authenticated;
+
+create or replace function public.admin_leveling_stage_catalog()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null or not public.is_admin() then raise exception 'Acesso restrito ao administrador'; end if;
+
+  return (
+    select coalesce(jsonb_agg(to_jsonb(x) order by x.plan_name, x.subject_position, x.lesson_position, x.stage_number), '[]'::jsonb)
+    from (
+      select
+        p.id as plan_id,
+        p.name as plan_name,
+        s.id as subject_id,
+        s.name as subject_name,
+        s.position as subject_position,
+        l.id as lesson_id,
+        l.title as lesson_title,
+        l.position as lesson_position,
+        st.stage_number,
+        st.question_count,
+        st.required_correct,
+        st.active,
+        count(q.id) filter (where q.active) as available_questions
+      from public.study_lessons l
+      join public.study_subjects s on s.id = l.subject_id
+      join public.study_plans p on p.id = s.plan_id
+      join public.lesson_leveling_stages st on st.lesson_id = l.id
+      left join public.questions q on q.lesson_id = l.id
+      where p.active = true and l.active = true and s.active = true
+      group by p.id,p.name,s.id,s.name,s.position,l.id,l.title,l.position,
+               st.stage_number,st.question_count,st.required_correct,st.active
+    ) x
+  );
+end;
+$$;
+
+revoke all on function public.admin_leveling_stage_catalog() from public;
+grant execute on function public.admin_leveling_stage_catalog() to authenticated;
+
+create or replace function public.admin_upsert_leveling_stage(
+  p_lesson_id uuid,
+  p_stage_number integer,
+  p_question_count integer,
+  p_required_correct integer,
+  p_active boolean default true
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null or not public.is_admin() then raise exception 'Acesso restrito ao administrador'; end if;
+  if p_stage_number not between 1 and 4 then raise exception 'Nivelamento deve ficar entre 1 e 4'; end if;
+  if p_question_count not between 1 and 50 then raise exception 'Quantidade de questões inválida'; end if;
+  if p_required_correct not between 1 and p_question_count then raise exception 'Meta de acertos inválida'; end if;
+
+  insert into public.lesson_leveling_stages(lesson_id, stage_number, question_count, required_correct, active, updated_at)
+  values(p_lesson_id,p_stage_number,p_question_count,p_required_correct,p_active,now())
+  on conflict(lesson_id,stage_number) do update
+  set question_count=excluded.question_count,
+      required_correct=excluded.required_correct,
+      active=excluded.active,
+      updated_at=now();
+end;
+$$;
+
+revoke all on function public.admin_upsert_leveling_stage(uuid,integer,integer,integer,boolean) from public;
+grant execute on function public.admin_upsert_leveling_stage(uuid,integer,integer,integer,boolean) to authenticated;
+
+create or replace function public.get_leveling_rule(p_revision_id uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_revision public.user_revisions%rowtype;
+  v_count integer;
+  v_required integer;
+  v_available integer;
+begin
+  if v_user_id is null then raise exception 'Usuário não autenticado'; end if;
+
+  select * into v_revision
+  from public.user_revisions
+  where id = p_revision_id and user_id = v_user_id;
+
+  if v_revision.id is null then raise exception 'Revisão não encontrada'; end if;
+
+  select question_count, required_correct
+  into v_count, v_required
+  from public.lesson_leveling_stages
+  where lesson_id = v_revision.lesson_id
+    and stage_number = least(greatest(v_revision.revision_number,1),4)
+    and active = true;
+
+  if v_count is null then v_count := 10; end if;
+  if v_required is null then v_required := least(9,v_count); end if;
+
+  select count(*) into v_available
+  from public.questions
+  where lesson_id = v_revision.lesson_id and active = true;
+
+  return jsonb_build_object(
+    'revision_id',v_revision.id,
+    'lesson_id',v_revision.lesson_id,
+    'stage_number',least(greatest(v_revision.revision_number,1),4),
+    'question_count',v_count,
+    'required_correct',v_required,
+    'available_questions',v_available
+  );
+end;
+$$;
+
+revoke all on function public.get_leveling_rule(uuid) from public;
+grant execute on function public.get_leveling_rule(uuid) to authenticated;
+
+-- Motor do nivelamento: usa a regra configurada para o estágio da revisão.
+create or replace function public.start_leveling_question_attempt(p_revision_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_revision public.user_revisions%rowtype;
+  v_stage integer;
+  v_count integer;
+  v_required integer;
+  v_available integer;
+  v_attempt_id uuid;
+  v_ids uuid[];
+begin
+  if v_user_id is null then
+    raise exception 'Usuário não autenticado';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtext(v_user_id::text || ':leveling:' || p_revision_id::text));
+
+  select * into v_revision
+  from public.user_revisions
+  where id = p_revision_id
+    and user_id = v_user_id;
+
+  if v_revision.id is null then
+    raise exception 'Revisão não encontrada';
+  end if;
+
+  if v_revision.status = 'completed' then
+    raise exception 'Esta revisão já foi concluída';
+  end if;
+
+  if v_revision.scheduled_for is null or v_revision.scheduled_for > current_date then
+    raise exception 'O nivelamento só fica disponível na data da revisão';
+  end if;
+
+  if v_revision.reread_confirmed_at is null then
+    raise exception 'Confirme a releitura antes de iniciar o nivelamento';
+  end if;
+
+  v_stage := least(greatest(v_revision.revision_number, 1), 4);
+
+  select st.question_count, st.required_correct
+  into v_count, v_required
+  from public.lesson_leveling_stages st
+  where st.lesson_id = v_revision.lesson_id
+    and st.stage_number = v_stage
+    and st.active = true;
+
+  if v_count is null then v_count := 10; end if;
+  if v_required is null then v_required := least(9, v_count); end if;
+
+  select count(*) into v_available
+  from public.questions
+  where lesson_id = v_revision.lesson_id
+    and active = true;
+
+  if v_available < v_count then
+    return jsonb_build_object(
+      'ok', false,
+      'stage_number', v_stage,
+      'available_count', v_available,
+      'required_count', v_count,
+      'required_correct', v_required
+    );
+  end if;
+
+  select id into v_attempt_id
+  from public.question_attempts
+  where user_id = v_user_id
+    and revision_id = p_revision_id
+    and kind = 'leveling'
+    and status = 'in_progress'
+  order by started_at desc
+  limit 1;
+
+  if v_attempt_id is not null then
+    return jsonb_build_object(
+      'ok', true,
+      'stage_number', v_stage,
+      'attempt_id', v_attempt_id,
+      'continued', true,
+      'required_count', v_count,
+      'required_correct', v_required
+    );
+  end if;
+
+  insert into public.question_attempts (
+    user_id, lesson_id, revision_id, kind, status, total, required_correct
+  )
+  values (
+    v_user_id, v_revision.lesson_id, p_revision_id, 'leveling', 'in_progress', v_count, v_required
+  )
+  returning id into v_attempt_id;
+
+  select array_agg(candidate.id) into v_ids
+  from (
+    select q.id
+    from public.questions q
+    where q.lesson_id = v_revision.lesson_id
+      and q.active = true
+    order by
+      case when exists (
+        select 1
+        from public.question_attempts olda
+        join public.question_attempt_items oldi on oldi.attempt_id = olda.id
+        where olda.user_id = v_user_id
+          and olda.lesson_id = v_revision.lesson_id
+          and olda.kind = 'leveling'
+          and olda.status = 'completed'
+          and oldi.question_id = q.id
+      ) then 2 else 0 end,
+      case when exists (
+        select 1
+        from public.user_question_answers ua
+        where ua.user_id = v_user_id
+          and ua.question_id = q.id
+          and ua.is_correct = false
+      ) then 0
+      when not exists (
+        select 1
+        from public.user_question_answers ua
+        where ua.user_id = v_user_id
+          and ua.question_id = q.id
+      ) then 1
+      else 2 end,
+      q.level desc,
+      random()
+    limit v_count
+  ) candidate;
+
+  insert into public.question_attempt_items(attempt_id, question_id, position)
+  select v_attempt_id, x.question_id, x.position::integer
+  from unnest(v_ids) with ordinality as x(question_id, position);
+
+  return jsonb_build_object(
+    'ok', true,
+    'stage_number', v_stage,
+    'attempt_id', v_attempt_id,
+    'continued', false,
+    'required_count', v_count,
+    'required_correct', v_required
+  );
+end;
+$$;
+
+revoke all on function public.start_leveling_question_attempt(uuid) from public;
+grant execute on function public.start_leveling_question_attempt(uuid) to authenticated;

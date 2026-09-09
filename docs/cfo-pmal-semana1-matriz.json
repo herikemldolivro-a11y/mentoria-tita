@@ -1,0 +1,405 @@
+{
+  "semana": 1,
+  "titulo": "CFO PMAL — Semana 1",
+  "periodo": {
+    "inicio": "2026-09-02",
+    "fim": "2026-09-09"
+  },
+  "materias": [
+    {
+      "slug": "legislacao-pmal",
+      "sigla": "LEGISLAÇÃO PMAL",
+      "nome": "Legislação PMAL",
+      "descricao": "Lei Estadual nº 5.346/1992 e normas institucionais da PMAL.",
+      "posicao": 1,
+      "aulas": [
+        {
+          "numero": 1,
+          "slug": "lei-5346-generalidades-conceituacao",
+          "titulo": "Lei Estadual nº 5.346/1992: generalidades e conceituação",
+          "questoes_lista": 35,
+          "topicos": [
+            "Finalidade do Estatuto — art. 1º",
+            "Natureza, missão e subordinação da PMAL — art. 2º",
+            "Policiais militares de carreira e temporários — art. 3º",
+            "Serviço e carreira policial militar — arts. 4º e 5º",
+            "Polícia ostensiva, ordem pública e serviço ativo — art. 6º",
+            "Posto, graduação e precedência — art. 6º",
+            "Cargo e função — art. 6º",
+            "Hierarquia e disciplina — art. 6º",
+            "Matrícula e nomeação — art. 6º",
+            "PM temporário, serviço temporário, comissionado, efetivação e interinidade — art. 6º",
+            "Legislação básica, peculiar e específica — art. 6º",
+            "Ausente, deserção, desaparecido/extraviado e OPM — art. 6º",
+            "Expressões equivalentes de serviço ativo — parágrafo único do art. 6º"
+          ]
+        },
+        {
+          "numero": 2,
+          "slug": "lei-5346-ingresso-hierarquia-disciplina",
+          "titulo": "Lei Estadual nº 5.346/1992: ingresso, hierarquia e disciplina",
+          "questoes_lista": 35,
+          "topicos": [
+            "Regra geral e condições de ingresso — arts. 7º e 8º",
+            "Idade, altura e requisitos do CFO PMAL 2026",
+            "Formação, serviço temporário, comissionamento e efetivação — art. 8º",
+            "Hierarquia e disciplina — arts. 9º e 10",
+            "Círculos e escala hierárquica — art. 11",
+            "Praças Especiais — art. 11",
+            "Precedência e antiguidade — arts. 12 e 13",
+            "Precedência do Aspirante a Oficial e do Cadete — art. 14"
+          ]
+        },
+        {
+          "numero": 3,
+          "slug": "lei-5346-cargo-funcao-comando-subordinacao",
+          "titulo": "Lei Estadual nº 5.346/1992: cargo, função, comando e subordinação",
+          "questoes_lista": 35,
+          "topicos": [
+            "Lei Estadual nº 5.346/1992: cargo, função, comando e subordinação"
+          ]
+        },
+        {
+          "numero": 4,
+          "slug": "lei-5346-direitos-prerrogativas",
+          "titulo": "Lei Estadual nº 5.346/1992: direitos e prerrogativas",
+          "questoes_lista": 35,
+          "topicos": [
+            "Lei Estadual nº 5.346/1992: direitos e prerrogativas"
+          ]
+        },
+        {
+          "numero": 5,
+          "slug": "lei-5346-deveres-obrigacoes-etica",
+          "titulo": "Lei Estadual nº 5.346/1992: deveres, obrigações e ética",
+          "questoes_lista": 35,
+          "topicos": [
+            "Lei Estadual nº 5.346/1992: deveres, obrigações e ética"
+          ]
+        },
+        {
+          "numero": 6,
+          "slug": "lei-5346-violacao-deveres-conselhos",
+          "titulo": "Lei Estadual nº 5.346/1992: violação de deveres e conselhos",
+          "questoes_lista": 35,
+          "topicos": [
+            "Lei Estadual nº 5.346/1992: violação de deveres e conselhos"
+          ]
+        },
+        {
+          "numero": 7,
+          "slug": "lei-5346-ausente-desertor-desaparecido-extraviado",
+          "titulo": "Lei Estadual nº 5.346/1992: ausente, desertor, desaparecido e extraviado",
+          "questoes_lista": 35,
+          "topicos": [
+            "Lei Estadual nº 5.346/1992: ausente, desertor, desaparecido e extraviado"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "processo-penal-militar",
+      "sigla": "PPM",
+      "nome": "Processo Penal Militar",
+      "descricao": "Fundamentos do processo penal militar e do CPPM.",
+      "posicao": 2,
+      "aulas": [
+        {
+          "numero": 1,
+          "slug": "processo-penal-militar-aplicacao-cppm",
+          "titulo": "Processo penal militar e aplicação do CPPM",
+          "questoes_lista": 35,
+          "topicos": [
+            "Processo penal militar e aplicação do CPPM"
+          ]
+        },
+        {
+          "numero": 2,
+          "slug": "policia-judiciaria-militar",
+          "titulo": "Polícia judiciária militar",
+          "questoes_lista": 35,
+          "topicos": [
+            "Polícia judiciária militar"
+          ]
+        },
+        {
+          "numero": 3,
+          "slug": "ipm-instauracao-desenvolvimento",
+          "titulo": "Inquérito policial militar: instauração e desenvolvimento",
+          "questoes_lista": 35,
+          "topicos": [
+            "Inquérito policial militar: instauração e desenvolvimento"
+          ]
+        },
+        {
+          "numero": 4,
+          "slug": "ipm-encerramento-arquivamento-valor-probatorio",
+          "titulo": "IPM: encerramento, arquivamento e valor probatório",
+          "questoes_lista": 35,
+          "topicos": [
+            "IPM: encerramento, arquivamento e valor probatório"
+          ]
+        },
+        {
+          "numero": 5,
+          "slug": "acao-penal-militar",
+          "titulo": "Ação penal militar",
+          "questoes_lista": 35,
+          "topicos": [
+            "Ação penal militar"
+          ]
+        },
+        {
+          "numero": 6,
+          "slug": "processo-juiz-auxiliares-partes",
+          "titulo": "Processo, juiz, auxiliares e partes",
+          "questoes_lista": 35,
+          "topicos": [
+            "Processo, juiz, auxiliares e partes"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "lingua-portuguesa",
+      "sigla": "PORTUGUÊS",
+      "nome": "Língua Portuguesa",
+      "descricao": "Conteúdos linguísticos da semana, sem compreensão e interpretação de textos.",
+      "posicao": 3,
+      "aulas": [
+        {
+          "numero": 2,
+          "slug": "tipologia-generos-textuais",
+          "titulo": "Tipologia e gêneros textuais",
+          "questoes_lista": 15,
+          "topicos": [
+            "Narração, descrição, exposição, argumentação e injunção",
+            "Diferença entre tipo textual e gênero textual",
+            "Notícia, reportagem, crônica, artigo de opinião, editorial, entrevista e resenha",
+            "Conto, parábola, carta/e-mail, edital, manual, receita, anúncio/publicidade e verbete",
+            "Narração x descrição e predominância global",
+            "Exposição x argumentação",
+            "Parábola, edital e crônica: gênero x tipo",
+            "Sequências textuais secundárias dentro do mesmo gênero"
+          ]
+        },
+        {
+          "numero": 3,
+          "slug": "ortografia-oficial",
+          "titulo": "Ortografia oficial",
+          "questoes_lista": 15,
+          "topicos": [
+            "Ortografia oficial"
+          ]
+        },
+        {
+          "numero": 4,
+          "slug": "coesao-referenciacao-conectores",
+          "titulo": "Coesão textual, referenciação e conectores",
+          "questoes_lista": 15,
+          "topicos": [
+            "Coesão textual, referenciação e conectores"
+          ]
+        },
+        {
+          "numero": 5,
+          "slug": "verbos-tempos-modos-emprego-texto",
+          "titulo": "Verbos: tempos, modos e emprego no texto",
+          "questoes_lista": 15,
+          "topicos": [
+            "Verbos: tempos, modos e emprego no texto"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "informatica",
+      "sigla": "INFORMÁTICA",
+      "nome": "Informática",
+      "descricao": "Windows, organização da informação e Microsoft Office.",
+      "posicao": 4,
+      "aulas": [
+        {
+          "numero": 1,
+          "slug": "windows-ambiente-interface-operacoes-basicas",
+          "titulo": "Windows: ambiente, interface e operações básicas",
+          "questoes_lista": 35,
+          "topicos": [
+            "Windows: ambiente, interface e operações básicas"
+          ]
+        },
+        {
+          "numero": 2,
+          "slug": "arquivos-pastas-extensoes-organizacao-informacao",
+          "titulo": "Arquivos, pastas, extensões e organização da informação",
+          "questoes_lista": 35,
+          "topicos": [
+            "Arquivos, pastas, extensões e organização da informação"
+          ]
+        },
+        {
+          "numero": 3,
+          "slug": "microsoft-word",
+          "titulo": "Microsoft Word",
+          "questoes_lista": 35,
+          "topicos": [
+            "Microsoft Word"
+          ]
+        },
+        {
+          "numero": 4,
+          "slug": "microsoft-excel-estrutura-referencias",
+          "titulo": "Microsoft Excel: estrutura e referências",
+          "questoes_lista": 35,
+          "topicos": [
+            "Microsoft Excel: estrutura e referências"
+          ]
+        },
+        {
+          "numero": 5,
+          "slug": "microsoft-excel-formulas-funcoes-graficos-analise",
+          "titulo": "Microsoft Excel: fórmulas, funções, gráficos e análise",
+          "questoes_lista": 35,
+          "topicos": [
+            "Microsoft Excel: fórmulas, funções, gráficos e análise"
+          ]
+        },
+        {
+          "numero": 6,
+          "slug": "microsoft-powerpoint",
+          "titulo": "Microsoft PowerPoint",
+          "questoes_lista": 35,
+          "topicos": [
+            "Microsoft PowerPoint"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "conhecimentos-alagoas",
+      "sigla": "ALAGOAS",
+      "nome": "Conhecimentos do Estado de Alagoas",
+      "descricao": "História, formação social e geografia do Estado de Alagoas.",
+      "posicao": 5,
+      "aulas": [
+        {
+          "numero": 1,
+          "slug": "formacao-historica-colonizacao-portuguesa",
+          "titulo": "Formação histórica e colonização portuguesa",
+          "questoes_lista": 35,
+          "topicos": [
+            "Formação histórica e colonização portuguesa"
+          ]
+        },
+        {
+          "numero": 2,
+          "slug": "economia-acucareira-formacao-social",
+          "titulo": "Economia açucareira e formação social",
+          "questoes_lista": 35,
+          "topicos": [
+            "Economia açucareira e formação social"
+          ]
+        },
+        {
+          "numero": 3,
+          "slug": "emancipacao-pernambuco-elevacao-provincia",
+          "titulo": "Emancipação de Pernambuco e elevação à Província",
+          "questoes_lista": 35,
+          "topicos": [
+            "Emancipação de Pernambuco e elevação à Província"
+          ]
+        },
+        {
+          "numero": 4,
+          "slug": "quilombo-palmares",
+          "titulo": "Quilombo dos Palmares",
+          "questoes_lista": 35,
+          "topicos": [
+            "Quilombo dos Palmares"
+          ]
+        },
+        {
+          "numero": 5,
+          "slug": "regionalizacao-litoral-zona-mata-agreste-sertao",
+          "titulo": "Regionalização geográfica: litoral, Zona da Mata, Agreste e Sertão",
+          "questoes_lista": 35,
+          "topicos": [
+            "Regionalização geográfica: litoral, Zona da Mata, Agreste e Sertão"
+          ]
+        },
+        {
+          "numero": 6,
+          "slug": "rio-sao-francisco-territorio-alagoano",
+          "titulo": "Rio São Francisco e território alagoano",
+          "questoes_lista": 35,
+          "topicos": [
+            "Rio São Francisco e território alagoano"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "direito-penal",
+      "sigla": "DIREITO PENAL",
+      "nome": "Direito Penal",
+      "descricao": "Parte geral do Direito Penal com foco em teoria do crime.",
+      "posicao": 6,
+      "aulas": [
+        {
+          "numero": 1,
+          "slug": "aplicacao-lei-penal",
+          "titulo": "Aplicação da lei penal",
+          "questoes_lista": 35,
+          "topicos": [
+            "Aplicação da lei penal"
+          ]
+        },
+        {
+          "numero": 2,
+          "slug": "teoria-crime-fato-tipico-conduta",
+          "titulo": "Teoria do crime: fato típico e conduta",
+          "questoes_lista": 35,
+          "topicos": [
+            "Teoria do crime: fato típico e conduta"
+          ]
+        },
+        {
+          "numero": 3,
+          "slug": "dolo-culpa-erro-resultado-agravador",
+          "titulo": "Dolo, culpa, erro e resultado agravador",
+          "questoes_lista": 35,
+          "topicos": [
+            "Dolo, culpa, erro e resultado agravador"
+          ]
+        },
+        {
+          "numero": 4,
+          "slug": "iter-criminis-tentativa",
+          "titulo": "Iter criminis e tentativa",
+          "questoes_lista": 35,
+          "topicos": [
+            "Iter criminis e tentativa"
+          ]
+        },
+        {
+          "numero": 5,
+          "slug": "ilicitude-excludentes",
+          "titulo": "Ilicitude e excludentes",
+          "questoes_lista": 35,
+          "topicos": [
+            "Ilicitude e excludentes"
+          ]
+        },
+        {
+          "numero": 6,
+          "slug": "imputabilidade-penal",
+          "titulo": "Imputabilidade penal",
+          "questoes_lista": 35,
+          "topicos": [
+            "Imputabilidade penal"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { PrfSubject } from "@/lib/prf-week-one";
+import { createClient } from "@/lib/supabase/client";
 import {
   listenStudyUpdated,
   loadSubjectLessonStates,
@@ -27,9 +28,23 @@ export function PrfSubjectRoadmap({ subject }: { subject: PrfSubject }) {
   const [states, setStates] = useState<Record<string, LessonProgressState>>({});
   const [hydrated, setHydrated] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [pprnOpenAccess, setPprnOpenAccess] = useState(false); // MT_PPRN_ALL_LESSONS_OPEN_V1
 
   const refresh = useCallback(async () => {
     try {
+      try {
+        const supabase = createClient();
+        const { data: auth } = await supabase.auth.getUser();
+        if (auth.user) {
+          const { data: profile } = await supabase.from("profiles").select("active_study_plan_id").eq("id", auth.user.id).maybeSingle();
+          if (profile?.active_study_plan_id) {
+            const { data: activePlan } = await supabase.from("study_plans").select("slug").eq("id", profile.active_study_plan_id).maybeSingle();
+            setPprnOpenAccess(activePlan?.slug === "pprn-reta-final-2026");
+          }
+        }
+      } catch {
+        setPprnOpenAccess(false);
+      }
       await startSubject(subject.slug);
       setStates(await loadSubjectLessonStates(subject.slug));
       setErrorMessage(null);
@@ -71,7 +86,7 @@ export function PrfSubjectRoadmap({ subject }: { subject: PrfSubject }) {
       <section className="mt-7">
         <div className="mb-5">
           <span className="text-[10px] font-black tracking-[0.2em] text-[var(--gold-bright)]">TRILHA DA MATÉRIA</span>
-          <h2 className="mt-2 font-serif text-3xl text-[var(--ink)]">Siga uma aula por vez.</h2>
+          <h2 className="mt-2 font-serif text-3xl text-[var(--ink)]">{pprnOpenAccess ? "Todas as aulas estão liberadas." : "Siga uma aula por vez."}</h2>
         </div>
 
         <div className="relative pl-8 sm:pl-10">
@@ -84,7 +99,7 @@ export function PrfSubjectRoadmap({ subject }: { subject: PrfSubject }) {
               const previousState = previous ? states[previous.slug] : null;
               const isCompleted = Boolean(lessonState?.theoryCompleted && lessonState?.listCompleted);
               const previousCompleted = Boolean(previousState?.theoryCompleted && previousState?.listCompleted);
-              const unlocked = index === 0 || previousCompleted;
+              const unlocked = pprnOpenAccess || index === 0 || previousCompleted; // MT_PPRN_ALL_LESSONS_OPEN_V12
               const current = unlocked && !isCompleted;
 
               return (
@@ -151,7 +166,7 @@ export function PrfSubjectRoadmap({ subject }: { subject: PrfSubject }) {
       </section>
 
       {errorMessage ? <p className="mt-5 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-xs text-red-300">{errorMessage}</p> : null}
-      {hydrated ? <p className="mt-5 text-[9px] leading-5 text-[var(--muted)]">Trilha sincronizada com sua conta. A próxima aula é liberada com base no progresso salvo no Supabase.</p> : null}
+      {hydrated ? <p className="mt-5 text-[9px] leading-5 text-[var(--muted)]">{pprnOpenAccess ? "PPRN Reta Final: todas as aulas desta matéria estão liberadas desde o início." : "Trilha sincronizada com sua conta. A próxima aula é liberada com base no progresso salvo no Supabase."}</p> : null}
     </div>
   );
 }
