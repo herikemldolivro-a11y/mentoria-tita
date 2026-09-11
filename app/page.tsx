@@ -74,7 +74,7 @@ export default async function Home() {
   const completed = personal.items.length ? personalCompleted : fallbackCompleted;
   const total = personal.items.length || fallbackLessons.length;
 
-  const personalWeekNumber = firstIncomplete?.weekNumber ?? personal.items[0]?.weekNumber ?? 1;
+  const personalWeekNumber = todayItems[0]?.weekNumber ?? firstIncomplete?.weekNumber ?? personal.items[0]?.weekNumber ?? 1;
   const personalWeekItems = personal.items.filter((item) => item.weekNumber === personalWeekNumber);
   const journeyWeekNumber = personalWeekItems.length ? personalWeekNumber : currentWeek?.weekNumber ?? 1;
   const journeyTitle = personalWeekItems.length
@@ -94,6 +94,7 @@ export default async function Home() {
         questionCount: item.lesson.questionCount,
         theoryCompleted: item.theoryCompleted,
         listCompleted: item.listCompleted,
+        isToday: item.scheduledFor === today,
       }))
     : currentWeek?.subjects.flatMap((subject) => subject.lessons.map((lesson) => ({
         id: lesson.id,
