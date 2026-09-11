@@ -25,12 +25,20 @@ const statusChips: Array<{ value: QuestionStatusFilter; label: string }> = [
 
 const emptyPage: QuestionBankPage = { items: [], total: 0, page: 1, page_size: 20 };
 
-export function QuestionBank({ initialStatus = "all" }: { initialStatus?: QuestionStatusFilter }) {
+export function QuestionBank({
+  initialStatus = "all",
+  initialSubjectId = "",
+  initialLessonId = "",
+}: {
+  initialStatus?: QuestionStatusFilter;
+  initialSubjectId?: string;
+  initialLessonId?: string;
+}) {
   const [taxonomy, setTaxonomy] = useState<StudyTaxonomy | null>(null);
   const [data, setData] = useState<QuestionBankPage>(emptyPage);
   const [status, setStatus] = useState<QuestionStatusFilter>(initialStatus);
-  const [subjectId, setSubjectId] = useState("");
-  const [lessonId, setLessonId] = useState("");
+  const [subjectId, setSubjectId] = useState(initialSubjectId);
+  const [lessonId, setLessonId] = useState(initialLessonId);
   const [level, setLevel] = useState("");
   const [keyword, setKeyword] = useState("");
   const [appliedKeyword, setAppliedKeyword] = useState("");
