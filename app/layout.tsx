@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./tita-v3.css";
 import "./tita-v3-motion.css";
+import "./tita-fire-v2.css";
 
 const themeScript = `try { document.documentElement.dataset.theme = 'dark'; localStorage.setItem('tita-theme', 'dark'); } catch (_) { document.documentElement.dataset.theme = 'dark'; }`;
 
