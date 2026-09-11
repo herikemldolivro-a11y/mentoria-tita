@@ -125,65 +125,94 @@ export function LessonJourney({
 
   return (
     <section className="relative overflow-hidden rounded-[30px] border border-white/[.10] bg-[#08090c] px-4 py-6 shadow-[0_26px_90px_rgba(0,0,0,.34)] sm:px-7 sm:py-8">
-      <div className="tita-soft-grid pointer-events-none absolute inset-0 opacity-[.10]" />
-      <div className="pointer-events-none absolute -left-20 top-10 h-64 w-64 rounded-full bg-emerald-400/[.035] blur-[95px]" />
+      <div className="tita-soft-grid pointer-events-none absolute inset-0 opacity-[.08]" />
+      <div className="pointer-events-none absolute -left-20 top-20 h-64 w-64 rounded-full bg-emerald-400/[.025] blur-[95px]" />
 
-      <div className="relative border-b border-white/[.07] pb-5">
+      <header className="relative z-10 border-b border-white/[.07] pb-6">
         <span className="tita-kicker">FLUXO COMPLETO DA AULA</span>
         <h2 className="mt-2 font-serif text-3xl tracking-[-.035em] text-white sm:text-4xl">Sua trilha</h2>
-        <p className="mt-2 max-w-2xl text-[10px] leading-5 text-white/38">Verde significa o que você precisa fazer agora. Clique na etapa para abrir somente o conteúdo dela; o restante fica em cinza.</p>
-      </div>
+        <p className="mt-2 max-w-2xl text-[10px] leading-5 text-white/38">Verde significa o que você precisa fazer agora. O caminho se move com você; as próximas etapas ficam em cinza até chegar a vez delas.</p>
+      </header>
 
-      <div className="relative mx-auto mt-6 max-w-4xl">
-        <div className="absolute bottom-7 left-[21px] top-7 w-px bg-white/[.10] sm:left-[23px]" />
-        <div className="relative space-y-3">
+      <div className="relative z-0 mx-auto mt-10 max-w-5xl pb-2">
+        <svg className="pointer-events-none absolute inset-0 hidden h-full w-full sm:block" viewBox="0 0 1000 700" preserveAspectRatio="none" aria-hidden="true">
+          <path
+            d="M 230 56 C 230 112, 770 112, 770 190 C 770 260, 230 260, 230 330 C 230 400, 770 400, 770 470 C 770 540, 230 540, 230 624"
+            fill="none"
+            stroke="rgba(255,255,255,.12)"
+            strokeWidth="5"
+            strokeLinecap="round"
+          />
+          <path
+            d="M 230 56 C 230 112, 770 112, 770 190 C 770 260, 230 260, 230 330 C 230 400, 770 400, 770 470 C 770 540, 230 540, 230 624"
+            fill="none"
+            stroke="rgba(255,255,255,.035)"
+            strokeWidth="13"
+            strokeLinecap="round"
+          />
+        </svg>
+
+        <svg className="pointer-events-none absolute inset-0 h-full w-full sm:hidden" viewBox="0 0 1000 700" preserveAspectRatio="none" aria-hidden="true">
+          <path
+            d="M 380 56 C 380 112, 620 112, 620 190 C 620 260, 380 260, 380 330 C 380 400, 620 400, 620 470 C 620 540, 380 540, 380 624"
+            fill="none"
+            stroke="rgba(255,255,255,.12)"
+            strokeWidth="5"
+            strokeLinecap="round"
+          />
+        </svg>
+
+        <div className="relative space-y-2 sm:space-y-3">
           {steps.map((step, index) => {
             const Icon = step.icon;
             const isCurrent = currentStage === step.id;
             const isSelected = selectedStage === step.id;
             const isCompleted = step.status === "completed";
             const isLocked = step.status === "locked";
+            const leftSide = index % 2 === 0;
 
             return (
-              <button
-                key={step.id}
-                type="button"
-                disabled={isLocked}
-                onClick={() => openStep(step)}
-                className={`group relative grid w-full grid-cols-[46px_1fr] items-center gap-3 rounded-[20px] border p-3 text-left transition sm:grid-cols-[50px_1fr_auto] sm:p-4 ${
-                  isCurrent
-                    ? "border-emerald-300/35 bg-emerald-300/[.075] shadow-[0_14px_44px_rgba(16,185,129,.10)]"
-                    : isSelected
-                      ? "border-white/[.16] bg-white/[.045]"
-                      : "border-white/[.07] bg-white/[.018] hover:border-white/[.13] hover:bg-white/[.035]"
-                } ${isLocked ? "cursor-not-allowed opacity-48 hover:border-white/[.07] hover:bg-white/[.018]" : "cursor-pointer"}`}
-              >
-                <span className={`relative z-10 grid h-11 w-11 place-items-center rounded-full border shadow-[0_0_0_6px_#08090c] ${
-                  isCurrent
-                    ? "border-emerald-200/45 bg-emerald-400/15 text-emerald-100 shadow-[0_0_0_6px_#08090c,0_0_28px_rgba(52,211,153,.24)]"
-                    : "border-white/[.10] bg-[#111317] text-white/34"
-                }`}>
-                  {isCompleted ? <Check size={16} strokeWidth={3} /> : isLocked ? <LockKeyhole size={13} /> : <Icon size={16} />}
-                </span>
+              <div key={step.id} className={`relative flex min-h-[132px] items-start pt-4 sm:min-h-[138px] ${leftSide ? "justify-start" : "justify-end"}`}>
+                <button
+                  type="button"
+                  disabled={isLocked}
+                  onClick={() => openStep(step)}
+                  className={`group relative w-[76%] rounded-[22px] border px-4 pb-4 pt-8 text-left transition sm:w-[46%] sm:px-5 sm:pb-5 sm:pt-9 ${
+                    isCurrent
+                      ? "border-emerald-300/35 bg-[linear-gradient(145deg,rgba(20,76,57,.32),rgba(12,18,16,.94))] shadow-[0_16px_50px_rgba(16,185,129,.10)]"
+                      : isSelected
+                        ? "border-white/[.16] bg-white/[.045]"
+                        : "border-white/[.075] bg-[#0d0f12]/95 hover:border-white/[.14] hover:bg-[#111317]"
+                  } ${isLocked ? "cursor-not-allowed opacity-48 hover:border-white/[.075] hover:bg-[#0d0f12]/95" : "cursor-pointer"}`}
+                >
+                  <span className={`absolute -top-[23px] left-1/2 z-20 grid h-[46px] w-[46px] -translate-x-1/2 place-items-center rounded-full border shadow-[0_0_0_7px_#08090c] ${
+                    isCurrent
+                      ? "border-emerald-200/55 bg-[#123c2e] text-emerald-100 shadow-[0_0_0_7px_#08090c,0_0_30px_rgba(52,211,153,.26)]"
+                      : "border-white/[.12] bg-[#121418] text-white/35"
+                  }`}>
+                    {isCompleted ? <Check size={16} strokeWidth={3} /> : isLocked ? <LockKeyhole size={13} /> : <Icon size={16} />}
+                  </span>
 
-                <span className="min-w-0">
-                  <span className={`block text-[8px] font-black tracking-[.13em] ${isCurrent ? "text-emerald-200/80" : "text-white/25"}`}>ETAPA {String(index + 1).padStart(2, "0")}</span>
-                  <strong className={`mt-1 block text-sm ${isCurrent ? "text-white" : "text-white/72"}`}>{step.label}</strong>
-                  <span className={`mt-1 block text-[9px] ${isCurrent ? "text-emerald-100/65" : "text-white/30"}`}>{step.subtitle}</span>
-                </span>
-
-                <span className={`col-start-2 row-start-2 justify-self-start rounded-full border px-2.5 py-1 text-[7px] font-black tracking-[.1em] sm:col-start-3 sm:row-start-1 sm:justify-self-end ${
-                  isCurrent
-                    ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-200"
-                    : isCompleted
-                      ? "border-white/[.09] bg-white/[.025] text-white/34"
-                      : isLocked
-                        ? "border-white/[.06] bg-black/15 text-white/20"
-                        : "border-white/[.09] bg-white/[.025] text-white/38"
-                }`}>
-                  {isCurrent ? "FAZER AGORA" : isCompleted ? "CONCLUÍDA" : step.status === "scheduled" ? "AGENDADA" : isLocked ? "BLOQUEADA" : "ABRIR"}
-                </span>
-              </button>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <span className={`block text-[8px] font-black tracking-[.13em] ${isCurrent ? "text-emerald-200/80" : "text-white/24"}`}>ETAPA {String(index + 1).padStart(2, "0")}</span>
+                      <strong className={`mt-1.5 block text-sm sm:text-base ${isCurrent ? "text-white" : "text-white/72"}`}>{step.label}</strong>
+                      <span className={`mt-1.5 block text-[9px] leading-4 ${isCurrent ? "text-emerald-100/62" : "text-white/30"}`}>{step.subtitle}</span>
+                    </div>
+                    <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[7px] font-black tracking-[.1em] ${
+                      isCurrent
+                        ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-200"
+                        : isCompleted
+                          ? "border-white/[.09] bg-white/[.025] text-white/34"
+                          : isLocked
+                            ? "border-white/[.06] bg-black/15 text-white/20"
+                            : "border-white/[.09] bg-white/[.025] text-white/38"
+                    }`}>
+                      {isCurrent ? "FAZER AGORA" : isCompleted ? "CONCLUÍDA" : step.status === "scheduled" ? "AGENDADA" : isLocked ? "BLOQUEADA" : "ABRIR"}
+                    </span>
+                  </div>
+                </button>
+              </div>
             );
           })}
         </div>
