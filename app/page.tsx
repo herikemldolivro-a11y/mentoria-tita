@@ -76,7 +76,6 @@ export default async function Home() {
 
   const personalWeekNumber = firstIncomplete?.weekNumber ?? personal.items[0]?.weekNumber ?? 1;
   const personalWeekItems = personal.items.filter((item) => item.weekNumber === personalWeekNumber);
-
   const journeyWeekNumber = personalWeekItems.length ? personalWeekNumber : currentWeek?.weekNumber ?? 1;
   const journeyTitle = personalWeekItems.length
     ? `Semana ${journeyWeekNumber} do seu cronograma individual`
@@ -103,7 +102,7 @@ export default async function Home() {
         lessonTitle: lesson.title,
         href: focusContest?.slug === "pprn"
           ? `/cronograma/pprn/${lesson.id}`
-          : `/cronograma/semana-${currentWeek.weekNumber}/${subject.slug}/${lesson.slug}`,
+          : `/cronograma/semana-${journeyWeekNumber}/${subject.slug}/${lesson.slug}`,
         imagePath: fallbackImage(subject.slug),
         accent: "#c5c8cc",
         dayLabel: null,
@@ -131,7 +130,11 @@ export default async function Home() {
 
         <XpCommandCenter />
 
-        <section className="tita-panel-strong relative overflow-hidden rounded-[30px] text-white">
+        {journeyMissions.length ? (
+          <WeekJourney weekNumber={journeyWeekNumber} title={journeyTitle} missions={journeyMissions} />
+        ) : null}
+
+        <section className="tita-panel-strong relative mt-8 overflow-hidden rounded-[30px] text-white">
           <div className="tita-soft-grid pointer-events-none absolute inset-0 opacity-30" />
           <div className="pointer-events-none absolute -right-12 -top-20 text-[14rem] font-black leading-none text-white/[.018] sm:text-[19rem]">95+</div>
           <div className="relative grid lg:grid-cols-[1fr_315px]">
@@ -145,7 +148,7 @@ export default async function Home() {
                   <span className="mt-6 block text-[9px] font-black tracking-[.13em] text-white/36">SEU PLANO FOI MONTADO</span>
                   <h2 className="mt-3 max-w-3xl font-serif text-4xl leading-[.98] tracking-[-.04em] sm:text-5xl">Comece a Semana {journeyWeekNumber} pela trilha visual.</h2>
                   <p className="mt-4 max-w-2xl text-sm leading-7 text-white/50">{journeyMissions.length} missões organizadas. Ao iniciar a semana, as matérias aparecem conectadas em sequência com aula, questões, revisão e nivelamento.</p>
-                  <a href="#trilha-semana" className="tita-primary-button mt-8">VER INÍCIO DA SEMANA <ArrowRight size={16} /></a>
+                  <a href="#trilha-semana" className="tita-primary-button mt-8">IR PARA SEMANA {journeyWeekNumber} <ArrowRight size={16} /></a>
                 </>
               ) : currentMission ? (
                 <>
@@ -191,8 +194,6 @@ export default async function Home() {
             </aside>
           </div>
         </section>
-
-        {journeyMissions.length ? <WeekJourney weekNumber={journeyWeekNumber} title={journeyTitle} missions={journeyMissions} /> : null}
 
         <div className="mt-8"><QuestionPerformanceDashboard /></div>
         {(personal.items.length || currentWeek) ? <div className="mt-7"><UpcomingRevisions /></div> : null}
