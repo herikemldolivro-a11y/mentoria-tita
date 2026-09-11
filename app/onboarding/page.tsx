@@ -68,13 +68,13 @@ export default async function OnboardingPage() {
 
         <section className="py-9 sm:py-12">
           <span className="tita-kicker">PRIMEIRO ACESSO · FOCO 95+</span>
-          <h1 className="mt-4 max-w-4xl font-serif text-4xl leading-[0.96] tracking-[-0.04em] sm:text-6xl lg:text-7xl">Vamos montar a sua <em className="font-normal text-[var(--tita-accent)]">trilha.</em></h1>
-          <p className="mt-5 max-w-2xl text-sm leading-7 text-[var(--muted)] sm:text-base">Olá, {displayName}. Em três passos a plataforma combina concurso, tempo disponível e prioridade das matérias para gerar um cronograma individual.</p>
+          <h1 className="mt-4 max-w-4xl font-serif text-4xl leading-[0.96] tracking-[-0.04em] sm:text-6xl lg:text-7xl">Vamos montar seu <em className="font-normal text-[var(--tita-accent)]">Plano de Estudos.</em></h1>
+          <p className="mt-5 max-w-2xl text-sm leading-7 text-[var(--muted)] sm:text-base">Olá, {displayName}. Em três passos a plataforma combina concurso, tempo disponível e prioridade das matérias para distribuir toda a matriz nas suas semanas.</p>
         </section>
 
         <DynamicOnboarding contests={contests} displayName={displayName} initialContestSlug={focusContest?.slug} />
 
-        <p className="mx-auto mt-8 max-w-3xl text-center text-[9px] leading-relaxed text-[var(--muted)]">Você poderá recalcular sua trilha depois sem apagar respostas, revisões ou histórico de desempenho.</p>
+        <p className="mx-auto mt-8 max-w-3xl text-center text-[9px] leading-relaxed text-[var(--muted)]">Depois você pode editar o Plano de Estudos e recalcular as semanas sem apagar respostas, revisões ou histórico de desempenho.</p>
       </div>
     </main>
   );
