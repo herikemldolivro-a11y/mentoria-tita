@@ -166,10 +166,50 @@ body {
   background-size: 32px 32px;
 }
 
-/* Compatibilidade: componentes antigos que ainda usam as variáveis douradas passam a seguir o V3 cinza. */
+/* Compatibilidade: variáveis antigas douradas passam a seguir o V3 cinza. */
 .brand-copy span,
 .mt-brand-clean + * {
   color: var(--tita-accent) !important;
+}
+
+/* Purga visual dos roxos legados sem precisar reescrever dezenas de telas no mesmo deploy. */
+[class*="bg-[#795cff]"],
+[class*="bg-[#8067ff]"],
+[class*="bg-[#8f73ff]"],
+[class*="bg-[#7658ff]"],
+[class*="bg-[#4f34c8]"],
+[class*="bg-[#6f58d8]"],
+[class*="bg-[#9b82ff]"] {
+  background-color: rgba(196, 199, 204, .11) !important;
+  background-image: none !important;
+}
+
+[class*="text-[#795cff]"],
+[class*="text-[#8067ff]"],
+[class*="text-[#8f73ff]"],
+[class*="text-[#a996ff]"],
+[class*="text-[#aa98ff]"],
+[class*="text-[#b8a8ff]"],
+[class*="text-[#937bff]"] {
+  color: var(--tita-accent) !important;
+}
+
+[class*="border-[#795cff]"],
+[class*="border-[#8067ff]"],
+[class*="border-[#8f73ff]"],
+[class*="border-[#937bff]"],
+[class*="border-[#6f58d8]"] {
+  border-color: var(--tita-line-strong) !important;
+}
+
+[class*="from-[#795cff]"],
+[class*="from-[#8067ff]"],
+[class*="from-[#7658ff]"],
+[class*="to-[#4f34c8]"],
+[class*="to-[#8067ff]"] {
+  --tw-gradient-from: #aeb2b7 var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgb(174 178 183 / 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
