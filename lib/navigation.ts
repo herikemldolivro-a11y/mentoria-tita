@@ -11,8 +11,8 @@ import {
 export const navigationItems = [
   {
     href: "/cronograma",
-    title: "Cronograma",
-    description: "Escolha a matéria e siga a sequência da Semana 1.",
+    title: "Plano de Estudos",
+    description: "Veja suas semanas, missões e ajuste a carga de estudo.",
     icon: CalendarDays,
   },
   {
@@ -21,13 +21,13 @@ export const navigationItems = [
     description: "12 textos por semana, tradução no hover e vocabulário pessoal.",
     icon: Languages,
   },
-    {
+  {
     href: "/calendario",
     title: "Calendário Principal",
     description: "Revisões e nivelamentos em uma agenda conectada.",
     icon: CalendarDays,
   },
-{
+  {
     href: "/revisoes",
     title: "Calendário de Revisões",
     description: "Veja o que precisa revisar e organize sua agenda.",
