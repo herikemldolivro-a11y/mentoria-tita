@@ -23,7 +23,7 @@ import { XpTopbarChip } from "@/components/xp-topbar-chip";
 
 const items = [
   { href: "/", label: "Início", icon: Home },
-  { href: "/cronograma", label: "Cronograma", icon: CalendarDays },
+  { href: "/cronograma", label: "Plano de Estudos", icon: CalendarDays },
   { href: "/calendario", label: "Calendário", icon: CalendarDays },
   { href: "/revisoes", label: "Revisões", icon: CalendarClock },
   { href: "/questoes", label: "Banco de Questões", icon: BookOpenCheck },
@@ -82,7 +82,7 @@ export function AppTopbar({ isAdmin = false }: { isAdmin?: boolean }) {
 
   return (
     <>
-      <aside className="fixed inset-y-0 left-0 z-50 hidden w-[238px] flex-col overflow-hidden border-r border-white/[.07] bg-[#07080a] px-4 py-5 text-white shadow-[24px_0_70px_rgba(0,0,0,.22)] lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-50 hidden w-[238px] isolate flex-col overflow-hidden border-r border-white/[.07] bg-[#07080a] px-4 py-5 text-white shadow-[24px_0_70px_rgba(0,0,0,.22)] lg:flex">
         <FireRail />
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,.018),transparent_28%)]" />
 
@@ -121,7 +121,7 @@ export function AppTopbar({ isAdmin = false }: { isAdmin?: boolean }) {
 
       {mobileOpen ? (
         <div className="fixed inset-0 z-[80] bg-black/72 backdrop-blur-sm lg:hidden" onClick={() => setMobileOpen(false)}>
-          <aside className="relative h-full w-[86%] max-w-[310px] overflow-hidden border-r border-white/10 bg-[#07080a] p-4 text-white" onClick={(event) => event.stopPropagation()}>
+          <aside className="relative h-full w-[86%] max-w-[310px] isolate overflow-hidden border-r border-white/10 bg-[#07080a] p-4 text-white" onClick={(event) => event.stopPropagation()}>
             <FireRail />
             <div className="relative flex items-center justify-between gap-3">
               <Brand />
