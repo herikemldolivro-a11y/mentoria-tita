@@ -33,6 +33,17 @@ const items = [
   { href: "/erros", label: "Caderno de Erros", icon: NotebookPen },
 ] as const;
 
+function FireRail() {
+  return (
+    <span className="tita-fire-rail" aria-hidden="true">
+      <i className="tita-flame tita-flame--one" />
+      <i className="tita-flame tita-flame--two" />
+      <i className="tita-flame tita-flame--three" />
+      <i className="tita-flame tita-flame--four" />
+    </span>
+  );
+}
+
 function NavItems({ isAdmin, onNavigate }: { isAdmin: boolean; onNavigate?: () => void }) {
   const pathname = usePathname();
   const visibleItems = isAdmin
@@ -72,7 +83,7 @@ export function AppTopbar({ isAdmin = false }: { isAdmin?: boolean }) {
   return (
     <>
       <aside className="fixed inset-y-0 left-0 z-50 hidden w-[238px] flex-col overflow-hidden border-r border-white/[.07] bg-[#07080a] px-4 py-5 text-white shadow-[24px_0_70px_rgba(0,0,0,.22)] lg:flex">
-        <span className="tita-fire-rail" aria-hidden="true" />
+        <FireRail />
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,.018),transparent_28%)]" />
 
         <Link href="/" className="relative rounded-2xl border border-white/[.07] bg-white/[.025] p-2.5 shadow-[0_18px_50px_rgba(0,0,0,.26)]">
@@ -111,7 +122,7 @@ export function AppTopbar({ isAdmin = false }: { isAdmin?: boolean }) {
       {mobileOpen ? (
         <div className="fixed inset-0 z-[80] bg-black/72 backdrop-blur-sm lg:hidden" onClick={() => setMobileOpen(false)}>
           <aside className="relative h-full w-[86%] max-w-[310px] overflow-hidden border-r border-white/10 bg-[#07080a] p-4 text-white" onClick={(event) => event.stopPropagation()}>
-            <span className="tita-fire-rail" aria-hidden="true" />
+            <FireRail />
             <div className="relative flex items-center justify-between gap-3">
               <Brand />
               <button type="button" onClick={() => setMobileOpen(false)} className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 text-white/70" aria-label="Fechar menu"><X size={18} /></button>
