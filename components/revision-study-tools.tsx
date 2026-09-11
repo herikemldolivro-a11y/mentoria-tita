@@ -10,6 +10,7 @@ import {
   type StudyTaxonomy,
 } from "@/lib/question-bank";
 import {
+  listenStudyUpdated,
   loadRevisionEvent,
   updateRevisionStudyMode,
 } from "@/lib/study-database";
@@ -39,8 +40,12 @@ export function RevisionStudyTools({ revisionId }: { revisionId: string }) {
   useEffect(() => {
     let alive = true;
 
-    Promise.all([loadRevisionEvent(revisionId), loadStudyTaxonomy()])
-      .then(async ([revision, taxonomy]) => {
+    async function refresh(openPdfFromStudyMode = false) {
+      try {
+        const [revision, taxonomy] = await Promise.all([
+          loadRevisionEvent(revisionId),
+          loadStudyTaxonomy(),
+        ]);
         if (!revision) throw new Error("Revisão não encontrada.");
         const ids = resolveLessonContext(taxonomy, revision);
         if (!ids) throw new Error("Não foi possível localizar a aula desta revisão no plano ativo.");
@@ -69,16 +74,26 @@ export function RevisionStudyTools({ revisionId }: { revisionId: string }) {
           totalCount: total.total,
         });
         setErrorMessage(null);
-      })
-      .catch((error) => {
+
+        if (openPdfFromStudyMode && revision.studyMode === "platform-pdf") {
+          setPdfOpen(true);
+          window.setTimeout(() => {
+            document.getElementById("revision-pdf-reader")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }, 100);
+        }
+      } catch (error) {
         if (alive) setErrorMessage(error instanceof Error ? error.message : "Não foi possível carregar as ferramentas da revisão.");
-      })
-      .finally(() => {
+      } finally {
         if (alive) setLoading(false);
-      });
+      }
+    }
+
+    void refresh();
+    const unlisten = listenStudyUpdated(() => void refresh(true));
 
     return () => {
       alive = false;
+      unlisten();
     };
   }, [revisionId]);
 
@@ -94,9 +109,13 @@ export function RevisionStudyTools({ revisionId }: { revisionId: string }) {
 
   async function openPdf() {
     if (!context) return;
-    setPdfOpen((value) => !value);
-    if (!pdfOpen) {
+    const nextOpen = !pdfOpen;
+    setPdfOpen(nextOpen);
+    if (nextOpen) {
       await updateRevisionStudyMode(context.revision.id, "platform-pdf").catch(() => undefined);
+      window.setTimeout(() => {
+        document.getElementById("revision-pdf-reader")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
     }
   }
 
@@ -155,7 +174,7 @@ export function RevisionStudyTools({ revisionId }: { revisionId: string }) {
       </div>
 
       {pdfOpen ? (
-        <div className="mt-5 border-t border-[var(--border)] pt-5">
+        <div id="revision-pdf-reader" className="mt-5 scroll-mt-24 border-t border-[var(--border)] pt-5">
           <LessonMaterialReader
             subjectSlug={context.revision.subjectSlug}
             lessonSlug={context.revision.lessonSlug}
