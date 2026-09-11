@@ -1,0 +1,126 @@
+.tita-fire-rail {
+  position: absolute !important;
+  left: -18px !important;
+  top: auto !important;
+  bottom: 0 !important;
+  width: 118px !important;
+  height: 300px !important;
+  pointer-events: none;
+  overflow: visible !important;
+  opacity: 1 !important;
+  z-index: 0;
+  filter: saturate(.15);
+}
+
+.tita-fire-rail::before {
+  content: "";
+  position: absolute;
+  left: -28px;
+  bottom: -42px;
+  width: 154px;
+  height: 210px;
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse at 44% 80%, rgba(235,238,242,.22), transparent 30%),
+    radial-gradient(ellipse at 40% 68%, rgba(163,168,175,.22), transparent 48%),
+    radial-gradient(ellipse at 54% 82%, rgba(105,110,117,.30), transparent 64%);
+  filter: blur(24px);
+  animation: tita-fire-glow 3.8s ease-in-out infinite alternate;
+}
+
+.tita-fire-rail::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  bottom: 0;
+  width: 72px;
+  height: 185px;
+  border-radius: 52% 48% 58% 42% / 72% 65% 35% 28%;
+  background: linear-gradient(180deg, rgba(224,227,230,.04) 0%, rgba(189,193,198,.14) 34%, rgba(118,123,130,.30) 72%, rgba(82,87,94,.16) 100%);
+  filter: blur(15px);
+  transform-origin: 50% 100%;
+  animation: tita-fire-body 2.7s ease-in-out infinite alternate;
+}
+
+.tita-flame {
+  position: absolute;
+  display: block;
+  bottom: 6px;
+  transform-origin: 50% 100%;
+  border-radius: 56% 44% 66% 34% / 78% 72% 28% 22%;
+  background:
+    radial-gradient(ellipse at 50% 84%, rgba(244,246,248,.28), transparent 28%),
+    linear-gradient(180deg, rgba(238,240,243,.05) 0%, rgba(184,188,194,.24) 42%, rgba(111,116,123,.36) 78%, rgba(76,80,86,.08) 100%);
+  filter: blur(7px);
+  mix-blend-mode: screen;
+  opacity: .7;
+  will-change: transform, opacity, filter;
+}
+
+.tita-flame--one {
+  left: 19px;
+  width: 32px;
+  height: 164px;
+  animation: tita-flame-one 2.35s cubic-bezier(.45,.05,.55,.95) infinite alternate;
+}
+
+.tita-flame--two {
+  left: 43px;
+  width: 25px;
+  height: 118px;
+  opacity: .56;
+  animation: tita-flame-two 1.95s cubic-bezier(.45,.05,.55,.95) -.7s infinite alternate;
+}
+
+.tita-flame--three {
+  left: 4px;
+  width: 27px;
+  height: 96px;
+  opacity: .48;
+  animation: tita-flame-three 2.8s cubic-bezier(.45,.05,.55,.95) -1.1s infinite alternate;
+}
+
+.tita-flame--four {
+  left: 57px;
+  width: 18px;
+  height: 72px;
+  opacity: .42;
+  animation: tita-flame-four 1.7s cubic-bezier(.45,.05,.55,.95) -.3s infinite alternate;
+}
+
+@keyframes tita-fire-glow {
+  0% { transform: translate3d(-5px, 8px, 0) scale(.92); opacity: .48; }
+  100% { transform: translate3d(8px, -7px, 0) scale(1.08); opacity: .85; }
+}
+
+@keyframes tita-fire-body {
+  0% { transform: translate3d(-6px, 7px, 0) rotate(-7deg) scaleX(.82) scaleY(.91); opacity: .40; }
+  100% { transform: translate3d(7px, -9px, 0) rotate(8deg) scaleX(1.08) scaleY(1.10); opacity: .78; }
+}
+
+@keyframes tita-flame-one {
+  0% { transform: translate3d(-7px, 12px, 0) rotate(-10deg) skewX(-5deg) scaleX(.72) scaleY(.82); opacity: .38; filter: blur(9px); }
+  45% { transform: translate3d(5px, -7px, 0) rotate(6deg) skewX(4deg) scaleX(1.02) scaleY(1.06); opacity: .82; filter: blur(6px); }
+  100% { transform: translate3d(-1px, -18px, 0) rotate(-4deg) skewX(-2deg) scaleX(.86) scaleY(1.18); opacity: .58; filter: blur(8px); }
+}
+
+@keyframes tita-flame-two {
+  0% { transform: translate3d(6px, 9px, 0) rotate(11deg) scaleX(.78) scaleY(.82); opacity: .30; }
+  100% { transform: translate3d(-8px, -20px, 0) rotate(-8deg) scaleX(1.10) scaleY(1.24); opacity: .72; }
+}
+
+@keyframes tita-flame-three {
+  0% { transform: translate3d(-2px, 8px, 0) rotate(-13deg) scale(.8,.76); opacity: .24; }
+  100% { transform: translate3d(10px, -13px, 0) rotate(9deg) scale(1.08,1.15); opacity: .62; }
+}
+
+@keyframes tita-flame-four {
+  0% { transform: translate3d(2px, 5px, 0) rotate(8deg) scale(.78,.72); opacity: .24; }
+  100% { transform: translate3d(-7px, -14px, 0) rotate(-9deg) scale(1.08,1.22); opacity: .56; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tita-fire-rail::before,
+  .tita-fire-rail::after,
+  .tita-flame { animation: none !important; }
+}
