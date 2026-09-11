@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { BackButton } from "@/components/back-button";
+import { LessonJourney } from "@/components/lesson-journey";
 import { PrfLessonWorkflow } from "@/components/prf-lesson-workflow";
 import { loadScheduleWeek } from "@/lib/schedule-server";
 
@@ -19,9 +20,14 @@ export async function ScheduleLessonScreen({ weekNumber, subjectSlug, lessonSlug
       <header className="mt-5 border-b border-[var(--border)] pb-7">
         <span className="text-[10px] font-black tracking-[.2em] text-[var(--gold-bright)]">{week.contestSigla ?? "PLANO"} · {week.title.toUpperCase()} · {subject.shortName}</span>
         <h1 className="mt-3 max-w-4xl font-serif text-4xl leading-[.98] tracking-[-.035em] text-[var(--ink)] sm:text-6xl">Aula {String(lesson.position).padStart(2,"0")} — {lesson.title}</h1>
-        <p className="mt-4 max-w-3xl text-sm leading-7 text-[var(--muted)]">Estude a teoria e conclua a lista de {lesson.questionCount} questões configurada para esta aula. Depois, o fluxo libera o agendamento da revisão.</p>
+        <p className="mt-4 max-w-3xl text-sm leading-7 text-[var(--muted)]">Siga a trilha: teoria, lista, agendamento da revisão, revisão e nivelamento. Cada ponto libera o próximo sem perder seu progresso.</p>
       </header>
+
       <div className="mt-7">
+        <LessonJourney subjectSlug={subject.slug} lessonSlug={lesson.slug} questionCount={lesson.questionCount ?? 35} />
+      </div>
+
+      <div className="v3-lesson-workflow-host mt-7 [&>div>aside]:hidden [&>div]:!grid-cols-1">
         <PrfLessonWorkflow
           subject={{
             slug: subject.slug,
