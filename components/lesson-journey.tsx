@@ -124,17 +124,18 @@ export function LessonJourney({
   }
 
   return (
-    <section className="relative overflow-hidden rounded-[30px] border border-white/[.10] bg-[#08090c] px-4 py-6 shadow-[0_26px_90px_rgba(0,0,0,.34)] sm:px-7 sm:py-8">
-      <div className="tita-soft-grid pointer-events-none absolute inset-0 opacity-[.08]" />
-      <div className="pointer-events-none absolute -left-20 top-20 h-64 w-64 rounded-full bg-emerald-400/[.025] blur-[95px]" />
+    <section className="relative isolate overflow-hidden rounded-[30px] border border-white/[.10] bg-[#08090c] px-4 py-6 shadow-[0_26px_90px_rgba(0,0,0,.34)] sm:px-7 sm:py-8">
+      <div className="tita-soft-grid pointer-events-none absolute inset-0 -z-20 opacity-[.08]" />
+      <div className="pointer-events-none absolute -left-20 top-20 -z-20 h-64 w-64 rounded-full bg-emerald-400/[.025] blur-[95px]" />
 
-      <header className="relative z-10 border-b border-white/[.07] pb-6">
+      <header className="relative z-30 rounded-[22px] bg-[#08090c] pb-7">
         <span className="tita-kicker">FLUXO COMPLETO DA AULA</span>
         <h2 className="mt-2 font-serif text-3xl tracking-[-.035em] text-white sm:text-4xl">Sua trilha</h2>
         <p className="mt-2 max-w-2xl text-[10px] leading-5 text-white/38">Verde significa o que você precisa fazer agora. O caminho se move com você; as próximas etapas ficam em cinza até chegar a vez delas.</p>
+        <div className="mt-6 h-px w-full bg-white/[.07]" />
       </header>
 
-      <div className="relative z-0 mx-auto mt-10 max-w-5xl pb-2">
+      <div className="relative z-0 mx-auto max-w-5xl pb-2" style={{ marginTop: "7rem" }}>
         <svg className="pointer-events-none absolute inset-0 hidden h-full w-full sm:block" viewBox="0 0 1000 700" preserveAspectRatio="none" aria-hidden="true">
           <path
             d="M 230 56 C 230 112, 770 112, 770 190 C 770 260, 230 260, 230 330 C 230 400, 770 400, 770 470 C 770 540, 230 540, 230 624"
@@ -172,12 +173,12 @@ export function LessonJourney({
             const leftSide = index % 2 === 0;
 
             return (
-              <div key={step.id} className={`relative flex min-h-[132px] items-start pt-4 sm:min-h-[138px] ${leftSide ? "justify-start" : "justify-end"}`}>
+              <div key={step.id} className={`relative flex min-h-[132px] items-start pt-7 sm:min-h-[138px] ${leftSide ? "justify-start" : "justify-end"}`}>
                 <button
                   type="button"
                   disabled={isLocked}
                   onClick={() => openStep(step)}
-                  className={`group relative w-[76%] rounded-[22px] border px-4 pb-4 pt-8 text-left transition sm:w-[46%] sm:px-5 sm:pb-5 sm:pt-9 ${
+                  className={`group relative w-[76%] rounded-[22px] border px-4 pb-4 pt-9 text-left transition sm:w-[46%] sm:px-5 sm:pb-5 sm:pt-10 ${
                     isCurrent
                       ? "border-emerald-300/35 bg-[linear-gradient(145deg,rgba(20,76,57,.32),rgba(12,18,16,.94))] shadow-[0_16px_50px_rgba(16,185,129,.10)]"
                       : isSelected
