@@ -51,15 +51,13 @@ export function WeekJourney({
   missions: WeekJourneyMission[];
 }) {
   const storageKey = `tita-week-${weekNumber}-started-v1`;
-  const hasProgress = missions.some((mission) => mission.theoryCompleted || mission.listCompleted);
-  const [started, setStarted] = useState(hasProgress);
+  const [started, setStarted] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    const saved = window.localStorage.getItem(storageKey) === "1";
-    setStarted(hasProgress || saved);
+    setStarted(window.localStorage.getItem(storageKey) === "1");
     setHydrated(true);
-  }, [hasProgress, storageKey]);
+  }, [storageKey]);
 
   const completed = useMemo(() => missions.filter((mission) => mission.theoryCompleted && mission.listCompleted).length, [missions]);
   const progress = missions.length ? Math.round((completed / missions.length) * 100) : 0;
