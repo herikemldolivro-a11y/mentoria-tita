@@ -9,7 +9,7 @@ export function Brand({ compact = false }: { compact?: boolean }) {
           alt="Logo Mentoria Titã"
           fill
           sizes={compact ? "64px" : "72px"}
-          className="object-contain"
+          className="object-contain grayscale-[.15]"
           priority
         />
       </div>
@@ -17,7 +17,7 @@ export function Brand({ compact = false }: { compact?: boolean }) {
         <strong className="block font-serif text-[14px] font-semibold tracking-[0.12em] text-white">
           MENTORIA TITÃ
         </strong>
-        <span className="mt-0.5 block text-[8px] font-black tracking-[0.3em] text-[#dfb457]">
+        <span className="mt-0.5 block text-[8px] font-black tracking-[0.3em] text-[var(--tita-accent)]">
           FOCO 95+
         </span>
       </div>
