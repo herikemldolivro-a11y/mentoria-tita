@@ -18,10 +18,12 @@
 .tita-fire-rail::before {
   content: "";
   position: absolute;
-  left: -34px;
-  right: -42px;
-  bottom: -88px;
-  height: 230px;
+  left: -34px !important;
+  right: -42px !important;
+  top: auto !important;
+  bottom: -88px !important;
+  width: auto !important;
+  height: 230px !important;
   border-radius: 50%;
   background:
     radial-gradient(ellipse at 18% 50%, rgba(47, 128, 255, .52), transparent 32%),
@@ -34,10 +36,12 @@
 .tita-fire-rail::after {
   content: "";
   position: absolute;
-  left: 5%;
-  right: 5%;
-  bottom: -42px;
-  height: 150px;
+  left: 5% !important;
+  right: 5% !important;
+  top: auto !important;
+  bottom: -42px !important;
+  width: auto !important;
+  height: 150px !important;
   border-radius: 48% 52% 18% 18% / 72% 72% 28% 28%;
   background:
     radial-gradient(ellipse at 25% 82%, rgba(112, 190, 255, .38), transparent 29%),
