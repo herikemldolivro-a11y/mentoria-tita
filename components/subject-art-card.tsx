@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 
@@ -26,15 +25,14 @@ export function SubjectArtCard({
   return (
     <Link href={href} className="tita-subject-card group block">
       {imagePath ? (
-        <Image
+        <img
           src={imagePath}
           alt={`Arte de ${title}`}
-          fill
-          sizes="(max-width: 640px) 100vw, (max-width: 1100px) 50vw, 33vw"
-          className="object-cover object-center transition duration-500 group-hover:scale-[1.035]"
+          loading="eager"
+          className="absolute inset-0 z-0 h-full w-full object-cover object-center transition duration-500 group-hover:scale-[1.035]"
         />
       ) : (
-        <div className="absolute inset-0 tita-soft-grid bg-[radial-gradient(circle_at_70%_20%,rgba(255,255,255,.08),transparent_36%),#0c0d0f]" />
+        <div className="absolute inset-0 z-0 tita-soft-grid bg-[radial-gradient(circle_at_70%_20%,rgba(255,255,255,.08),transparent_36%),#0c0d0f]" />
       )}
 
       <div className="absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-3 p-4">
