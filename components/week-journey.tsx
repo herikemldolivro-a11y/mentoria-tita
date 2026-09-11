@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, BookOpenCheck, Check, CircleDot, Flag, LockKeyhole, Play, RotateCcw, Sparkles } from "lucide-react";
+import { ArrowRight, Check, CircleDot, Flag, LockKeyhole, Play, RotateCcw, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
@@ -36,6 +36,24 @@ function missionPlanDate(mission: WeekJourneyMission) {
   } catch {
     return null;
   }
+}
+
+function buildSerpentinePath(count: number, mobile = false) {
+  if (count <= 0) return "";
+  const leftX = mobile ? 380 : 230;
+  const rightX = mobile ? 620 : 770;
+  const stepY = 235;
+  const firstY = 38;
+  let d = `M ${leftX} ${firstY}`;
+  for (let index = 1; index < count; index += 1) {
+    const previousX = (index - 1) % 2 === 0 ? leftX : rightX;
+    const nextX = index % 2 === 0 ? leftX : rightX;
+    const previousY = firstY + (index - 1) * stepY;
+    const nextY = firstY + index * stepY;
+    const midY = (previousY + nextY) / 2;
+    d += ` C ${previousX} ${midY}, ${nextX} ${midY}, ${nextX} ${nextY}`;
+  }
+  return d;
 }
 
 function MissionStages({
@@ -99,46 +117,30 @@ export function WeekJourney({
   if (!missions.length) return null;
 
   if (!hydrated || !started) {
+    const preview = missions.slice(0, 3);
     return (
       <section id="trilha-semana" className="relative mt-8 overflow-hidden rounded-[32px] border border-white/[.11] bg-[#08090b] p-6 shadow-[0_28px_100px_rgba(0,0,0,.38)] sm:p-8">
         <div className="tita-soft-grid pointer-events-none absolute inset-0 opacity-20" />
-        <div className="pointer-events-none absolute -right-16 -top-16 h-72 w-72 rounded-full bg-emerald-400/[.035] blur-[100px]" />
-        <div className="relative grid gap-7 lg:grid-cols-[1fr_330px] lg:items-center">
+        <div className="relative grid gap-8 lg:grid-cols-[1fr_350px] lg:items-center">
           <div>
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/[.11] bg-white/[.045] px-3 py-1.5 text-[8px] font-black tracking-[.16em] text-white/65">
-              <Flag size={13} /> SEMANA {String(weekNumber).padStart(2, "0")}
-            </span>
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/[.11] bg-white/[.045] px-3 py-1.5 text-[8px] font-black tracking-[.16em] text-white/65"><Flag size={13} /> SEMANA {String(weekNumber).padStart(2, "0")}</span>
             <h2 className="mt-5 max-w-3xl font-serif text-4xl leading-[.95] tracking-[-.04em] text-white sm:text-5xl">Sua Semana {weekNumber} está pronta.</h2>
-            <p className="mt-4 max-w-2xl text-xs leading-6 text-white/42">{title || "A plataforma já organizou a sequência da semana."} Ao iniciar, somente o que precisa ser feito hoje fica verde; o restante permanece em cinza.</p>
-            <div className="mt-6 flex flex-wrap gap-3 text-[8px] font-black tracking-[.11em] text-white/38">
-              <span>{missions.length} MISSÕES</span><span>•</span><span>{missions.reduce((sum, mission) => sum + (mission.questionCount ?? 0), 0)} QUESTÕES PREVISTAS</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                window.localStorage.setItem(storageKey, "1");
-                setStarted(true);
-              }}
-              className="tita-primary-button mt-7 min-w-[210px]"
-            >
-              <Play size={15} fill="currentColor" /> INICIAR SEMANA {weekNumber}
-            </button>
+            <p className="mt-4 max-w-2xl text-xs leading-6 text-white/42">{title || "A plataforma já organizou a sequência da semana."} Ao iniciar, as missões aparecem ligadas por um caminho. Só o que é de hoje fica verde.</p>
+            <div className="mt-6 flex flex-wrap gap-3 text-[8px] font-black tracking-[.11em] text-white/38"><span>{missions.length} MISSÕES</span><span>•</span><span>{missions.reduce((sum, mission) => sum + (mission.questionCount ?? 0), 0)} QUESTÕES PREVISTAS</span></div>
+            <button type="button" onClick={() => { window.localStorage.setItem(storageKey, "1"); setStarted(true); }} className="tita-primary-button mt-7 min-w-[210px]"><Play size={15} fill="currentColor" /> INICIAR SEMANA {weekNumber}</button>
           </div>
 
-          <div className="relative h-[230px] overflow-hidden rounded-[26px] border border-white/[.08] bg-black/25">
-            <div className="absolute left-1/2 top-5 h-[190px] w-px -translate-x-1/2 bg-[linear-gradient(180deg,transparent,rgba(255,255,255,.22),transparent)]" />
-            {[0, 1, 2].map((index) => {
-              const mission = missions[index];
-              if (!mission) return null;
+          <div className="relative h-[250px] overflow-hidden rounded-[26px] border border-white/[.08] bg-black/25">
+            <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 1000 700" preserveAspectRatio="none" aria-hidden="true">
+              <path d="M 270 95 C 270 190, 730 175, 730 350 C 730 500, 270 500, 270 615" fill="none" stroke="rgba(255,255,255,.16)" strokeWidth="7" strokeLinecap="round" />
+            </svg>
+            {preview.map((mission, index) => {
               const dueNow = missionDueNow(mission, index);
-              const top = 28 + index * 72;
-              const left = index % 2 === 0 ? "24%" : "64%";
+              const positions = ["left-[24%] top-[12%]", "left-[68%] top-[43%]", "left-[24%] top-[73%]"];
               return (
-                <div key={mission.id} className="absolute -translate-x-1/2" style={{ top, left }}>
-                  <span className={`grid h-12 w-12 place-items-center rounded-full border shadow-[0_0_0_7px_rgba(255,255,255,.025),0_14px_38px_rgba(0,0,0,.35)] ${dueNow ? "border-emerald-300/35 bg-emerald-300/12 text-emerald-100 shadow-[0_0_0_7px_rgba(52,211,153,.025),0_0_28px_rgba(52,211,153,.16)]" : "border-white/[.18] bg-[#15171a] text-white/50"}`}>
-                    <Sparkles size={15} />
-                  </span>
-                  <span className={`mt-2 block max-w-[90px] truncate text-center text-[7px] font-black tracking-[.08em] ${dueNow ? "text-emerald-200/80" : "text-white/38"}`}>{mission.shortName}</span>
+                <div key={mission.id} className={`absolute -translate-x-1/2 ${positions[index]}`}>
+                  <span className={`grid h-12 w-12 place-items-center rounded-full border shadow-[0_0_0_7px_#0b0c0f] ${dueNow ? "border-emerald-300/40 bg-emerald-300/12 text-emerald-100 shadow-[0_0_0_7px_#0b0c0f,0_0_26px_rgba(52,211,153,.18)]" : "border-white/[.16] bg-[#15171a] text-white/45"}`}><Sparkles size={15} /></span>
+                  <span className={`mt-2 block max-w-[90px] truncate text-center text-[7px] font-black tracking-[.08em] ${dueNow ? "text-emerald-200/80" : "text-white/36"}`}>{mission.shortName}</span>
                 </div>
               );
             })}
@@ -148,10 +150,14 @@ export function WeekJourney({
     );
   }
 
+  const trackHeight = Math.max(235, 38 + (missions.length - 1) * 235 + 170);
+  const desktopPath = buildSerpentinePath(missions.length, false);
+  const mobilePath = buildSerpentinePath(missions.length, true);
+
   return (
     <section id="trilha-semana" className="relative mt-8 overflow-hidden rounded-[32px] border border-white/[.11] bg-[#07080a] px-4 py-7 shadow-[0_28px_100px_rgba(0,0,0,.36)] sm:px-7 sm:py-8">
-      <div className="tita-soft-grid pointer-events-none absolute inset-0 opacity-[.13]" />
-      <div className="relative flex flex-col gap-4 border-b border-white/[.07] pb-6 sm:flex-row sm:items-end sm:justify-between">
+      <div className="tita-soft-grid pointer-events-none absolute inset-0 opacity-[.11]" />
+      <header className="relative z-10 flex flex-col gap-4 border-b border-white/[.07] pb-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <span className="tita-kicker">SEMANA {String(weekNumber).padStart(2, "0")} · EM ANDAMENTO</span>
           <h2 className="mt-2 font-serif text-4xl tracking-[-.035em] text-white">Trilha da semana</h2>
@@ -161,62 +167,54 @@ export function WeekJourney({
           <div className="flex items-center justify-between text-[8px] font-black tracking-[.1em] text-white/35"><span>{completed}/{missions.length} MISSÕES</span><span>{progress}%</span></div>
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[.07]"><span className="block h-full rounded-full bg-[linear-gradient(90deg,#777d84,#e3e6e9)]" style={{ width: `${progress}%` }} /></div>
         </div>
-      </div>
+      </header>
 
-      <div className="relative mx-auto mt-8 max-w-5xl pb-4">
-        <div className="absolute bottom-8 left-[22px] top-4 w-[2px] bg-[linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.18)_16%,rgba(255,255,255,.10)_84%,rgba(255,255,255,.03))] md:left-1/2 md:-translate-x-1/2" />
+      <div className="relative z-0 mx-auto mt-10 max-w-5xl" style={{ minHeight: trackHeight }}>
+        <svg className="pointer-events-none absolute inset-0 hidden h-full w-full sm:block" viewBox={`0 0 1000 ${trackHeight}`} preserveAspectRatio="none" aria-hidden="true">
+          <path d={desktopPath} fill="none" stroke="rgba(255,255,255,.12)" strokeWidth="5" strokeLinecap="round" />
+          <path d={desktopPath} fill="none" stroke="rgba(255,255,255,.028)" strokeWidth="15" strokeLinecap="round" />
+        </svg>
+        <svg className="pointer-events-none absolute inset-0 h-full w-full sm:hidden" viewBox={`0 0 1000 ${trackHeight}`} preserveAspectRatio="none" aria-hidden="true">
+          <path d={mobilePath} fill="none" stroke="rgba(255,255,255,.12)" strokeWidth="5" strokeLinecap="round" />
+        </svg>
 
-        <div className="relative space-y-7 md:space-y-9">
+        <div className="relative space-y-0">
           {missions.map((mission, index) => {
             const done = Boolean(mission.theoryCompleted && mission.listCompleted);
             const dueNow = missionDueNow(mission, index);
             const image = mission.imagePath;
+            const leftSide = index % 2 === 0;
             return (
-              <div key={mission.id} className="relative grid grid-cols-[46px_1fr] items-center gap-3 md:grid-cols-[1fr_76px_1fr] md:gap-5">
-                <div className={`${index % 2 === 0 ? "md:col-start-1 md:row-start-1" : "md:col-start-3 md:row-start-1"} col-start-2`}>
-                  <Link href={mission.href} className={`group relative block min-h-[205px] overflow-hidden rounded-[24px] border transition duration-300 ${dueNow ? "border-emerald-300/30 shadow-[0_18px_60px_rgba(16,185,129,.10)]" : "border-white/[.08] hover:border-white/[.16]"}`}>
-                    {image ? <img src={image} alt="" className={`absolute inset-0 h-full w-full object-cover object-center transition duration-500 group-hover:scale-[1.025] ${dueNow ? "opacity-82" : "opacity-55 group-hover:opacity-68"}`} /> : <div className="absolute inset-0 tita-soft-grid bg-[#0d0f12]" />}
-                    <div className={`absolute inset-0 ${dueNow ? "bg-[linear-gradient(100deg,rgba(5,12,9,.97)_0%,rgba(7,28,20,.82)_50%,rgba(10,42,29,.36)_100%)]" : "bg-[linear-gradient(100deg,rgba(5,6,7,.97)_0%,rgba(5,6,7,.84)_50%,rgba(5,6,7,.42)_100%)]"}`} />
-                    <div className="relative flex min-h-[205px] flex-col justify-end p-5 sm:p-6">
-                      <div className="mb-auto flex items-start justify-between gap-3">
-                        <span className="rounded-full border border-white/[.12] bg-black/35 px-2.5 py-1 text-[7px] font-black tracking-[.13em] text-white/68 backdrop-blur-md">{mission.shortName}</span>
-                        <span className={`rounded-full border px-2.5 py-1 text-[7px] font-black tracking-[.1em] ${dueNow ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-200" : "border-white/[.08] bg-black/20 text-white/30"}`}>{dueNow ? "HOJE" : done ? "CONCLUÍDA" : "OUTRO DIA"}</span>
-                      </div>
-                      <span className={`text-[8px] font-black tracking-[.13em] ${dueNow ? "text-emerald-200/55" : "text-white/28"}`}>MISSÃO {String(index + 1).padStart(2, "0")}{mission.dayLabel ? ` · ${mission.dayLabel}` : ""}</span>
-                      <h3 className={`mt-1.5 font-serif text-2xl leading-[1.02] ${dueNow ? "text-white" : "text-white/68"}`}>{mission.subject}</h3>
-                      <p className={`mt-2 line-clamp-2 text-[10px] leading-5 ${dueNow ? "text-white/52" : "text-white/34"}`}>{mission.lessonTitle}</p>
-                      <MissionStages theoryCompleted={mission.theoryCompleted} listCompleted={mission.listCompleted} isDueNow={dueNow} />
-                      <span className={`mt-4 inline-flex items-center gap-2 text-[8px] font-black tracking-[.1em] ${dueNow ? "text-emerald-100/82" : "text-white/42"}`}>ABRIR MISSÃO <ArrowRight size={13} className="transition group-hover:translate-x-1" /></span>
-                    </div>
-                  </Link>
-                </div>
+              <div key={mission.id} className={`relative flex min-h-[235px] items-start pt-4 ${leftSide ? "justify-start" : "justify-end"}`}>
+                <Link href={mission.href} className={`group relative w-[76%] overflow-hidden rounded-[24px] border transition duration-300 sm:w-[46%] ${dueNow ? "border-emerald-300/30 shadow-[0_18px_60px_rgba(16,185,129,.10)]" : "border-white/[.08] hover:border-white/[.16]"}`}>
+                  {image ? <img src={image} alt="" className={`absolute inset-0 h-full w-full object-cover object-center transition duration-500 group-hover:scale-[1.025] ${dueNow ? "opacity-82" : "opacity-48 group-hover:opacity-62"}`} /> : <div className="absolute inset-0 tita-soft-grid bg-[#0d0f12]" />}
+                  <div className={`absolute inset-0 ${dueNow ? "bg-[linear-gradient(100deg,rgba(5,12,9,.97)_0%,rgba(7,28,20,.82)_50%,rgba(10,42,29,.36)_100%)]" : "bg-[linear-gradient(100deg,rgba(5,6,7,.97)_0%,rgba(5,6,7,.84)_50%,rgba(5,6,7,.42)_100%)]"}`} />
 
-                <div className="col-start-1 row-start-1 grid place-items-center md:col-start-2">
-                  <span className={`relative z-10 grid h-11 w-11 place-items-center rounded-full border shadow-[0_0_0_7px_#07080a] ${dueNow ? "border-emerald-200/45 bg-emerald-400/15 text-emerald-100 shadow-[0_0_0_7px_#07080a,0_0_30px_rgba(52,211,153,.22)]" : "border-white/[.1] bg-[#101216] text-white/28"}`}>
+                  <span className={`absolute -top-[23px] left-1/2 z-20 grid h-[46px] w-[46px] -translate-x-1/2 place-items-center rounded-full border shadow-[0_0_0_7px_#07080a] ${dueNow ? "border-emerald-200/45 bg-[#123c2e] text-emerald-100 shadow-[0_0_0_7px_#07080a,0_0_30px_rgba(52,211,153,.22)]" : "border-white/[.12] bg-[#121418] text-white/34"}`}>
                     {done ? <Check size={16} strokeWidth={3} /> : dueNow ? <Play size={13} fill="currentColor" /> : <span className="font-serif text-sm">{index + 1}</span>}
                   </span>
-                </div>
 
-                <div className={`hidden md:block ${index % 2 === 0 ? "col-start-3" : "col-start-1"}`}>
-                  <div className={`flex items-center gap-2 text-[8px] font-black tracking-[.11em] ${dueNow ? "text-emerald-200/38" : "text-white/18"} ${index % 2 === 0 ? "justify-start" : "justify-end"}`}>
-                    <span className={`h-px w-8 ${dueNow ? "bg-emerald-300/18" : "bg-white/[.08]"}`} />
-                    <span>{mission.questionCount ?? 0} QUESTÕES</span>
-                    <BookOpenCheck size={13} />
+                  <div className="relative flex min-h-[205px] flex-col justify-end p-5 pt-9 sm:p-6 sm:pt-10">
+                    <div className="mb-auto flex items-start justify-between gap-3">
+                      <span className="rounded-full border border-white/[.12] bg-black/35 px-2.5 py-1 text-[7px] font-black tracking-[.13em] text-white/68 backdrop-blur-md">{mission.shortName}</span>
+                      <span className={`rounded-full border px-2.5 py-1 text-[7px] font-black tracking-[.1em] ${dueNow ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-200" : "border-white/[.08] bg-black/20 text-white/30"}`}>{dueNow ? "HOJE" : done ? "CONCLUÍDA" : "OUTRO DIA"}</span>
+                    </div>
+                    <span className={`text-[8px] font-black tracking-[.13em] ${dueNow ? "text-emerald-200/55" : "text-white/28"}`}>MISSÃO {String(index + 1).padStart(2, "0")}{mission.dayLabel ? ` · ${mission.dayLabel}` : ""}</span>
+                    <h3 className={`mt-1.5 font-serif text-2xl leading-[1.02] ${dueNow ? "text-white" : "text-white/68"}`}>{mission.subject}</h3>
+                    <p className={`mt-2 line-clamp-2 text-[10px] leading-5 ${dueNow ? "text-white/52" : "text-white/34"}`}>{mission.lessonTitle}</p>
+                    <MissionStages theoryCompleted={mission.theoryCompleted} listCompleted={mission.listCompleted} isDueNow={dueNow} />
+                    <span className={`mt-4 inline-flex items-center gap-2 text-[8px] font-black tracking-[.1em] ${dueNow ? "text-emerald-100/82" : "text-white/42"}`}>ABRIR MISSÃO <ArrowRight size={13} className="transition group-hover:translate-x-1" /></span>
                   </div>
-                </div>
+                </Link>
               </div>
             );
           })}
         </div>
 
-        <div className="relative mt-8 flex justify-center">
-          <span className="inline-flex items-center gap-2 rounded-full border border-white/[.1] bg-white/[.035] px-4 py-2 text-[8px] font-black tracking-[.12em] text-white/48"><Flag size={13} /> FIM DA SEMANA {weekNumber}</span>
-        </div>
+        <div className="relative mt-2 flex justify-center"><span className="inline-flex items-center gap-2 rounded-full border border-white/[.1] bg-white/[.035] px-4 py-2 text-[8px] font-black tracking-[.12em] text-white/48"><Flag size={13} /> FIM DA SEMANA {weekNumber}</span></div>
       </div>
 
-      <div className="relative mt-2 flex justify-end">
-        <button type="button" onClick={() => { window.localStorage.removeItem(storageKey); setStarted(false); }} className="inline-flex items-center gap-2 text-[8px] font-black tracking-[.1em] text-white/24 transition hover:text-white/55"><RotateCcw size={12} /> REVER TELA DE INÍCIO DA SEMANA</button>
-      </div>
+      <div className="relative mt-5 flex justify-end"><button type="button" onClick={() => { window.localStorage.removeItem(storageKey); setStarted(false); }} className="inline-flex items-center gap-2 text-[8px] font-black tracking-[.1em] text-white/24 transition hover:text-white/55"><RotateCcw size={12} /> REVER TELA DE INÍCIO DA SEMANA</button></div>
     </section>
   );
 }
