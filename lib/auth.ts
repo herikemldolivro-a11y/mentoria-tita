@@ -23,6 +23,13 @@ export interface Profile {
   teste_fim: string | null;
   ativo: boolean;
   focus_contest_id: string | null;
+  active_study_plan_id?: string | null;
+  onboarding_completed_at?: string | null;
+  daily_study_minutes?: number | null;
+  schedule_target_weeks?: number | null;
+  schedule_weeks?: number | null;
+  schedule_generated_at?: string | null;
+  registration_code_id?: string | null;
   focus_contest: FocusContest | null;
 }
 
@@ -48,7 +55,7 @@ export async function requireAuthenticatedUser(): Promise<AuthenticatedUser> {
 
   const extendedProfileQuery = await supabase
     .from("profiles")
-    .select("id,email,username,nome,role,concurso,teste_inicio,teste_fim,ativo,focus_contest_id,focus_contest:contests(id,nome,sigla,slug,logo_path)")
+    .select("id,email,username,nome,role,concurso,teste_inicio,teste_fim,ativo,focus_contest_id,active_study_plan_id,onboarding_completed_at,daily_study_minutes,schedule_target_weeks,schedule_weeks,schedule_generated_at,registration_code_id,focus_contest:contests(id,nome,sigla,slug,logo_path)")
     .eq("id", data.user.id)
     .maybeSingle();
 
@@ -62,7 +69,18 @@ export async function requireAuthenticatedUser(): Promise<AuthenticatedUser> {
       .maybeSingle();
 
     rawProfile = legacyProfile
-      ? ({ ...legacyProfile, focus_contest_id: null, focus_contest: null } as RawProfile)
+      ? ({
+          ...legacyProfile,
+          focus_contest_id: null,
+          active_study_plan_id: null,
+          onboarding_completed_at: null,
+          daily_study_minutes: null,
+          schedule_target_weeks: null,
+          schedule_weeks: null,
+          schedule_generated_at: null,
+          registration_code_id: null,
+          focus_contest: null,
+        } as RawProfile)
       : null;
   }
 
