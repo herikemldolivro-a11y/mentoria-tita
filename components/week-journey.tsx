@@ -19,6 +19,25 @@ export type WeekJourneyMission = {
   isToday?: boolean;
 };
 
+function todayInBrazil() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${value.year}-${value.month}-${value.day}`;
+}
+
+function missionPlanDate(mission: WeekJourneyMission) {
+  try {
+    return new URL(mission.href, "https://mentoriatita.local").searchParams.get("planoDia");
+  } catch {
+    return null;
+  }
+}
+
 function MissionStages({
   theoryCompleted,
   listCompleted,
@@ -66,13 +85,14 @@ export function WeekJourney({
 
   const completed = useMemo(() => missions.filter((mission) => mission.theoryCompleted && mission.listCompleted).length, [missions]);
   const progress = missions.length ? Math.round((completed / missions.length) * 100) : 0;
-  const hasExplicitToday = missions.some((mission) => mission.isToday);
+  const todayKey = todayInBrazil();
+  const hasExplicitToday = missions.some((mission) => mission.isToday || missionPlanDate(mission) === todayKey);
   const fallbackActionIndex = missions.findIndex((mission) => !(mission.theoryCompleted && mission.listCompleted));
 
   function missionDueNow(mission: WeekJourneyMission, index: number) {
     const completedMission = Boolean(mission.theoryCompleted && mission.listCompleted);
     if (completedMission) return false;
-    if (hasExplicitToday) return Boolean(mission.isToday);
+    if (hasExplicitToday) return Boolean(mission.isToday) || missionPlanDate(mission) === todayKey;
     return index === fallbackActionIndex;
   }
 
