@@ -1,0 +1,178 @@
+:root,
+:root[data-theme="dark"],
+:root[data-theme="light"] {
+  --background: #050607;
+  --surface: #0c0d0f;
+  --surface-raised: #141619;
+  --surface-soft: #101215;
+  --ink: #f1f2f3;
+  --muted: #8f949b;
+  --border: rgba(255, 255, 255, 0.075);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --gold: #b7bbc0;
+  --gold-bright: #eef0f2;
+  --gold-soft: #30343a;
+  --header: rgba(5, 6, 7, 0.9);
+  --shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+
+  /* Mentoria Titã V3: altere só este bloco para trocar a identidade inteira. */
+  --tita-black: #050607;
+  --tita-black-2: #090a0c;
+  --tita-panel: #101215;
+  --tita-panel-2: #17191d;
+  --tita-line: rgba(255, 255, 255, 0.09);
+  --tita-line-strong: rgba(255, 255, 255, 0.18);
+  --tita-accent: #c3c6ca;
+  --tita-accent-strong: #f0f1f2;
+  --tita-accent-dim: #7f848b;
+  --tita-fire: #969ba2;
+  --tita-success: #60c58d;
+  --tita-warning: #d7ae63;
+  --tita-danger: #d86d72;
+}
+
+html,
+body {
+  background: var(--tita-black) !important;
+  color: var(--ink);
+}
+
+body {
+  background-image:
+    radial-gradient(circle at 16% -12%, rgba(190, 195, 201, 0.08), transparent 29rem),
+    radial-gradient(circle at 96% 22%, rgba(120, 125, 132, 0.045), transparent 27rem),
+    linear-gradient(180deg, #050607 0%, #07080a 56%, #050607 100%) !important;
+}
+
+::selection {
+  background: rgba(215, 219, 224, 0.2);
+  color: #fff;
+}
+
+.tita-fire-rail {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 76px;
+  pointer-events: none;
+  overflow: hidden;
+  opacity: 0.72;
+}
+
+.tita-fire-rail::before,
+.tita-fire-rail::after {
+  content: "";
+  position: absolute;
+  left: -42px;
+  width: 112px;
+  border-radius: 55% 45% 64% 36% / 68% 35% 65% 32%;
+  filter: blur(14px);
+  transform: rotate(18deg);
+}
+
+.tita-fire-rail::before {
+  top: 15%;
+  height: 42%;
+  background:
+    radial-gradient(ellipse at 72% 28%, rgba(233, 235, 238, 0.2), transparent 25%),
+    radial-gradient(ellipse at 54% 48%, rgba(154, 159, 166, 0.22), transparent 42%),
+    linear-gradient(180deg, rgba(156, 161, 168, 0.08), rgba(212, 215, 219, 0.21), transparent 80%);
+  animation: tita-fire-drift 7s ease-in-out infinite alternate;
+}
+
+.tita-fire-rail::after {
+  bottom: 4%;
+  height: 32%;
+  background:
+    radial-gradient(ellipse at 76% 36%, rgba(207, 211, 215, 0.16), transparent 32%),
+    linear-gradient(180deg, transparent, rgba(128, 133, 140, 0.2), transparent);
+  animation: tita-fire-drift 9s ease-in-out -2s infinite alternate-reverse;
+}
+
+@keyframes tita-fire-drift {
+  from { transform: translateY(-8px) rotate(13deg) scaleX(0.86); opacity: 0.58; }
+  to { transform: translateY(16px) rotate(23deg) scaleX(1.08); opacity: 0.92; }
+}
+
+.tita-panel {
+  border: 1px solid var(--tita-line);
+  background: linear-gradient(145deg, rgba(255,255,255,.028), rgba(255,255,255,.012));
+  box-shadow: 0 24px 70px rgba(0,0,0,.28);
+}
+
+.tita-panel-strong {
+  border: 1px solid var(--tita-line-strong);
+  background: linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.018));
+  box-shadow: 0 28px 90px rgba(0,0,0,.36);
+}
+
+.tita-kicker {
+  color: var(--tita-accent);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .2em;
+}
+
+.tita-primary-button {
+  display: inline-flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #e2e4e6, #b8bcc1);
+  padding: 0 18px;
+  color: #08090a;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .1em;
+  transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
+}
+
+.tita-primary-button:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.08);
+  box-shadow: 0 12px 34px rgba(215,218,222,.12);
+}
+
+.tita-subject-card {
+  position: relative;
+  min-height: 245px;
+  overflow: hidden;
+  border: 1px solid var(--tita-line);
+  border-radius: 24px;
+  background: #0c0d0f;
+  transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease;
+}
+
+.tita-subject-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--tita-line-strong);
+  box-shadow: 0 24px 70px rgba(0,0,0,.38);
+}
+
+.tita-subject-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(4,5,6,.03) 8%, rgba(4,5,6,.38) 48%, rgba(4,5,6,.96) 100%);
+  pointer-events: none;
+}
+
+.tita-soft-grid {
+  background-image:
+    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* Compatibilidade: componentes antigos que ainda usam as variáveis douradas passam a seguir o V3 cinza. */
+.brand-copy span,
+.mt-brand-clean + * {
+  color: var(--tita-accent) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tita-fire-rail::before,
+  .tita-fire-rail::after { animation: none; }
+}
