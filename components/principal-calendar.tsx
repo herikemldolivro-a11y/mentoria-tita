@@ -13,8 +13,8 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createPrincipalRevision,
   loadPrincipalCalendarHub,
@@ -30,9 +30,14 @@ const WEEKDAYS = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
 
 export function PrincipalCalendar({ compact = false }: { compact?: boolean }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const handledPrefill = useRef(false);
   const [hub, setHub] = useState<PrincipalCalendarHub | null>(null);
   const [month, setMonth] = useState(() => new Date());
   const [addOpen, setAddOpen] = useState(false);
+  const [prefillLessonId, setPrefillLessonId] = useState<string | null>(null);
+  const [prefillRevisionNumber, setPrefillRevisionNumber] = useState(1);
+  const [prefillDate, setPrefillDate] = useState<string | null>(null);
   const [edit, setEdit] = useState<PrincipalRevision | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -49,6 +54,48 @@ export function PrincipalCalendar({ compact = false }: { compact?: boolean }) {
     const unlisten = listenStudyUpdated(() => void run());
     return () => { alive = false; unlisten(); };
   }, []);
+
+  useEffect(() => {
+    if (!hub || handledPrefill.current) return;
+
+    const subjectSlug = searchParams.get("subject");
+    const lessonSlug = searchParams.get("lesson");
+    if (!subjectSlug || !lessonSlug) return;
+
+    handledPrefill.current = true;
+    const lesson = hub.taxonomy.find((row) => row.subject_slug === subjectSlug && row.lesson_slug === lessonSlug);
+    if (!lesson) {
+      setMessage("A aula enviada pela trilha não foi encontrada no calendário ativo.");
+      return;
+    }
+
+    const revisionNumber = Math.max(1, Math.min(4, Number(searchParams.get("revision") ?? 1) || 1));
+    const recommendedDate = searchParams.get("date");
+    setPrefillLessonId(lesson.lesson_id);
+    setPrefillRevisionNumber(revisionNumber);
+    setPrefillDate(recommendedDate);
+    if (recommendedDate) {
+      const parsed = new Date(`${recommendedDate}T12:00:00`);
+      if (!Number.isNaN(parsed.getTime())) setMonth(parsed);
+    }
+    setMessage(`${lesson.subject_name} · ${lesson.lesson_title} já está preenchida. Escolha somente o dia da revisão.`);
+    setAddOpen(true);
+  }, [hub, searchParams]);
+
+  function openManualRevision() {
+    setPrefillLessonId(null);
+    setPrefillRevisionNumber(1);
+    setPrefillDate(null);
+    setAddOpen(true);
+  }
+
+  function closeAddRevision() {
+    setAddOpen(false);
+    if (prefillLessonId) router.replace("/revisoes");
+    setPrefillLessonId(null);
+    setPrefillRevisionNumber(1);
+    setPrefillDate(null);
+  }
 
   async function openLeveling(leveling: PrincipalLeveling) {
     if (busy) return;
@@ -100,7 +147,7 @@ export function PrincipalCalendar({ compact = false }: { compact?: boolean }) {
               <h2 className="mt-2 font-serif text-3xl sm:text-5xl">Revisões + nivelamentos do estudo principal.</h2>
               <p className="mt-3 max-w-3xl text-xs leading-6 text-white/48">Você escolhe a data da revisão. O nivelamento correspondente aparece automaticamente no dia seguinte e só libera depois que essa revisão for concluída.</p>
             </div>
-            <button type="button" onClick={() => setAddOpen(true)} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-violet-500 px-5 text-[10px] font-black tracking-[.1em] text-white shadow-[0_18px_45px_rgba(124,58,237,.25)] transition hover:bg-violet-400"><Plus size={16}/> ADICIONAR REVISÃO</button>
+            <button type="button" onClick={openManualRevision} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-violet-500 px-5 text-[10px] font-black tracking-[.1em] text-white shadow-[0_18px_45px_rgba(124,58,237,.25)] transition hover:bg-violet-400"><Plus size={16}/> ADICIONAR REVISÃO</button>
           </div>
           <div className="mt-6 grid gap-2 sm:grid-cols-3">
             <Stat title="REVISÕES AGENDADAS" value={scheduledRevisions.length}/>
@@ -122,7 +169,7 @@ export function PrincipalCalendar({ compact = false }: { compact?: boolean }) {
             <button type="button" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth()-1, 1, 12))} className="grid h-10 w-10 place-items-center rounded-xl border border-[var(--border)] text-[var(--muted)]"><ArrowLeft size={16}/></button>
             <button type="button" onClick={() => setMonth(new Date())} className="min-h-10 rounded-xl border border-[var(--border)] px-4 text-[9px] font-black tracking-[.1em] text-[var(--muted)]">HOJE</button>
             <button type="button" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth()+1, 1, 12))} className="grid h-10 w-10 place-items-center rounded-xl border border-[var(--border)] text-[var(--muted)]"><ArrowRight size={16}/></button>
-            <button type="button" onClick={() => setAddOpen(true)} className="ml-1 grid h-10 w-10 place-items-center rounded-xl border border-violet-400/30 bg-violet-400/10 text-violet-300" aria-label="Adicionar revisão"><Plus size={16}/></button>
+            <button type="button" onClick={openManualRevision} className="ml-1 grid h-10 w-10 place-items-center rounded-xl border border-violet-400/30 bg-violet-400/10 text-violet-300" aria-label="Adicionar revisão"><Plus size={16}/></button>
           </div>
         </header>
 
@@ -171,23 +218,66 @@ export function PrincipalCalendar({ compact = false }: { compact?: boolean }) {
         </div>
       ) : null}
 
-      {addOpen ? <AddRevisionModal hub={hub} onClose={() => setAddOpen(false)} onSaved={async () => { setAddOpen(false); await refresh(); }} /> : null}
+      {addOpen ? (
+        <AddRevisionModal
+          hub={hub}
+          prefillLessonId={prefillLessonId}
+          prefillRevisionNumber={prefillRevisionNumber}
+          prefillDate={prefillDate}
+          lockLesson={Boolean(prefillLessonId)}
+          onClose={closeAddRevision}
+          onSaved={async () => {
+            setAddOpen(false);
+            if (prefillLessonId) router.replace("/revisoes");
+            setPrefillLessonId(null);
+            setPrefillRevisionNumber(1);
+            setPrefillDate(null);
+            await refresh();
+          }}
+        />
+      ) : null}
       {edit ? <EditRevisionModal revision={edit} onClose={() => setEdit(null)} onOpen={() => router.push(`/revisoes/${edit.id}`)} onSaved={async (date) => { setBusy(edit.id); try { await reschedulePrincipalRevision(edit.id,date); setEdit(null); await refresh(); } finally { setBusy(null); } }} busy={busy === edit.id}/> : null}
     </div>
   );
 }
 
-function AddRevisionModal({ hub, onClose, onSaved }: { hub: PrincipalCalendarHub; onClose: () => void; onSaved: () => void }) {
+function AddRevisionModal({
+  hub,
+  onClose,
+  onSaved,
+  prefillLessonId = null,
+  prefillRevisionNumber = 1,
+  prefillDate = null,
+  lockLesson = false,
+}: {
+  hub: PrincipalCalendarHub;
+  onClose: () => void;
+  onSaved: () => void;
+  prefillLessonId?: string | null;
+  prefillRevisionNumber?: number;
+  prefillDate?: string | null;
+  lockLesson?: boolean;
+}) {
   const subjects = useMemo(() => [...new Set(hub.taxonomy.map((row) => row.subject_name))].sort((a,b)=>a.localeCompare(b,"pt-BR")), [hub.taxonomy]);
-  const [subject, setSubject] = useState(subjects[0] ?? "");
+  const prefilledLesson = useMemo(() => hub.taxonomy.find((row) => row.lesson_id === prefillLessonId) ?? null, [hub.taxonomy, prefillLessonId]);
+  const [subject, setSubject] = useState(prefilledLesson?.subject_name ?? subjects[0] ?? "");
   const lessons = useMemo(() => hub.taxonomy.filter((row) => row.subject_name === subject), [hub.taxonomy, subject]);
-  const [lessonId, setLessonId] = useState(lessons[0]?.lesson_id ?? "");
-  const [revision, setRevision] = useState(1);
-  const [date, setDate] = useState(dateKey(new Date()));
+  const [lessonId, setLessonId] = useState(prefilledLesson?.lesson_id ?? lessons[0]?.lesson_id ?? "");
+  const [revision, setRevision] = useState(prefillRevisionNumber);
+  const [date, setDate] = useState(prefillDate ?? dateKey(new Date()));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => { setLessonId(lessons[0]?.lesson_id ?? ""); }, [subject]);
+  useEffect(() => {
+    if (lockLesson && prefilledLesson) {
+      setSubject(prefilledLesson.subject_name);
+      setLessonId(prefilledLesson.lesson_id);
+      setRevision(prefillRevisionNumber);
+      if (prefillDate) setDate(prefillDate);
+      return;
+    }
+    setLessonId(lessons[0]?.lesson_id ?? "");
+  }, [lessons, lockLesson, prefillDate, prefilledLesson, prefillRevisionNumber]);
 
   async function save() {
     if (!lessonId || !date || saving) return;
@@ -200,16 +290,35 @@ function AddRevisionModal({ hub, onClose, onSaved }: { hub: PrincipalCalendarHub
   return (
     <div className="fixed inset-0 z-[100] grid place-items-center bg-black/80 p-4 backdrop-blur-sm" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
       <section className="w-full max-w-2xl rounded-[28px] border border-violet-400/25 bg-[#0d0d13] p-5 text-white shadow-[0_30px_100px_rgba(0,0,0,.6)] sm:p-7">
-        <div className="flex items-start justify-between gap-4"><div><span className="text-[9px] font-black tracking-[.18em] text-violet-300">CALENDÁRIO PRINCIPAL</span><h3 className="mt-2 font-serif text-3xl">Adicionar revisão de qualquer matéria.</h3></div><button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 text-white/55"><X size={17}/></button></div>
-        {error ? <div className="mt-4 rounded-xl border border-red-500/25 bg-red-500/10 p-3 text-xs text-red-300">{error}</div> : null}
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <Field label="MATÉRIA"><select value={subject} onChange={(e)=>setSubject(e.target.value)} className={selectClass}>{subjects.map((item)=><option key={item} value={item}>{item}</option>)}</select></Field>
-          <Field label="REVISÃO"><select value={revision} onChange={(e)=>setRevision(Number(e.target.value))} className={selectClass}>{[1,2,3,4].map((n)=><option key={n} value={n}>Revisão {n}</option>)}</select></Field>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <span className="text-[9px] font-black tracking-[.18em] text-violet-300">CALENDÁRIO PRINCIPAL</span>
+            <h3 className="mt-2 font-serif text-3xl">{lockLesson ? "Escolha somente o dia da revisão." : "Adicionar revisão de qualquer matéria."}</h3>
+          </div>
+          <button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 text-white/55"><X size={17}/></button>
         </div>
-        <Field label="AULA"><select value={lessonId} onChange={(e)=>setLessonId(e.target.value)} className={selectClass}>{lessons.map((lesson)=><option key={lesson.lesson_id} value={lesson.lesson_id}>Semana {lesson.week_number} · {lesson.lesson_title}</option>)}</select></Field>
-        <Field label="DATA DA REVISÃO"><input type="date" value={date} onChange={(e)=>setDate(e.target.value)} className={selectClass}/></Field>
+        {error ? <div className="mt-4 rounded-xl border border-red-500/25 bg-red-500/10 p-3 text-xs text-red-300">{error}</div> : null}
+
+        {lockLesson && prefilledLesson ? (
+          <div className="mt-6 rounded-[20px] border border-emerald-400/25 bg-emerald-400/[.06] p-4">
+            <span className="text-[8px] font-black tracking-[.14em] text-emerald-300">AULA JÁ PREENCHIDA AUTOMATICAMENTE</span>
+            <strong className="mt-2 block text-base text-white">{prefilledLesson.lesson_title}</strong>
+            <span className="mt-1 block text-[10px] text-white/45">{prefilledLesson.subject_name} · Revisão {revision}</span>
+            <p className="mt-3 text-[10px] leading-5 text-emerald-100/55">Você não precisa procurar matéria nem aula. Só escolha a data abaixo.</p>
+          </div>
+        ) : (
+          <>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <Field label="MATÉRIA"><select value={subject} onChange={(e)=>setSubject(e.target.value)} className={selectClass}>{subjects.map((item)=><option key={item} value={item}>{item}</option>)}</select></Field>
+              <Field label="REVISÃO"><select value={revision} onChange={(e)=>setRevision(Number(e.target.value))} className={selectClass}>{[1,2,3,4].map((n)=><option key={n} value={n}>Revisão {n}</option>)}</select></Field>
+            </div>
+            <Field label="AULA"><select value={lessonId} onChange={(e)=>setLessonId(e.target.value)} className={selectClass}>{lessons.map((lesson)=><option key={lesson.lesson_id} value={lesson.lesson_id}>Semana {lesson.week_number} · {lesson.lesson_title}</option>)}</select></Field>
+          </>
+        )}
+
+        <Field label={lockLesson ? "ESCOLHA O DIA DA REVISÃO" : "DATA DA REVISÃO"}><input type="date" value={date} onChange={(e)=>setDate(e.target.value)} className={selectClass}/></Field>
         <div className="mt-4 rounded-xl border border-violet-400/20 bg-violet-400/[.06] p-3 text-[10px] leading-5 text-white/55"><Sparkles className="mr-2 inline text-violet-300" size={13}/>Ao salvar, o Nivelamento {revision} será colocado automaticamente no dia seguinte. Ele só poderá ser iniciado depois que a Revisão {revision} for concluída.</div>
-        <button type="button" onClick={() => void save()} disabled={!lessonId || saving} className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-violet-500 text-[10px] font-black tracking-[.11em] text-white disabled:opacity-45">{saving ? "SALVANDO..." : <><Plus size={16}/> ADICIONAR À AGENDA</>}</button>
+        <button type="button" onClick={() => void save()} disabled={!lessonId || saving} className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-violet-500 text-[10px] font-black tracking-[.11em] text-white disabled:opacity-45">{saving ? "SALVANDO..." : <><Plus size={16}/> {lockLesson ? "AGENDAR ESTA AULA" : "ADICIONAR À AGENDA"}</>}</button>
       </section>
     </div>
   );
