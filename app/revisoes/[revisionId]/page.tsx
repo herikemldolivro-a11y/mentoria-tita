@@ -1,5 +1,6 @@
 import { BackButton } from "@/components/back-button";
 import { PageShell } from "@/components/page-shell";
+import { RevisionNotes } from "@/components/revision-notes";
 import { RevisionPendingQuestions } from "@/components/revision-pending-questions";
 import { RevisionSession } from "@/components/revision-session";
 import { RevisionStudyTools } from "@/components/revision-study-tools";
@@ -13,6 +14,7 @@ export default async function RevisionPage({ params }: { params: Promise<{ revis
         <BackButton fallback="/revisoes" label="Voltar ao calendário" />
         <div className="mt-5">
           <RevisionStudyTools revisionId={revisionId} />
+          <RevisionNotes revisionId={revisionId} />
           <RevisionPendingQuestions revisionId={revisionId} />
           <RevisionSession revisionId={revisionId} />
         </div>
