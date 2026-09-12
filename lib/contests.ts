@@ -8,6 +8,13 @@ export interface ContestOption {
 
 export const contestOptions: ContestOption[] = [
   {
+    slug: "enem-40-dias",
+    sigla: "ENEM 40D",
+    nome: "ENEM · Plano 40 Dias",
+    instituicao: "Foco estratégico para o CFO PMPB",
+    logoPath: null,
+  },
+  {
     slug: "pprn",
     sigla: "PPRN",
     nome: "Polícia Penal RN 2026",
