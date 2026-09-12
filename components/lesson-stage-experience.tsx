@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { EnemLessonJourney } from "@/components/enem-lesson-journey";
+import { EnemLessonWorkflow } from "@/components/enem-lesson-workflow";
 import { LessonJourney, type LessonStageId } from "@/components/lesson-journey";
 import { PrfLessonWorkflow } from "@/components/prf-lesson-workflow";
 import type { MatrixLesson, PrfSubject } from "@/lib/prf-week-one";
@@ -9,10 +11,12 @@ export function LessonStageExperience({
   subject,
   lesson,
   questionCount,
+  trackingOnly = false,
 }: {
   subject: PrfSubject;
   lesson: MatrixLesson;
   questionCount: number;
+  trackingOnly?: boolean;
 }) {
   const [activeStage, setActiveStage] = useState<LessonStageId | null>(null);
   const detailRef = useRef<HTMLDivElement | null>(null);
@@ -33,17 +37,26 @@ export function LessonStageExperience({
 
   return (
     <>
-      <LessonJourney
-        subjectSlug={subject.slug}
-        lessonSlug={lesson.slug}
-        questionCount={questionCount}
-        selectedStage={activeStage}
-        onStageSelect={selectStage}
-      />
+      {trackingOnly ? (
+        <EnemLessonJourney
+          subjectSlug={subject.slug}
+          lessonSlug={lesson.slug}
+          selectedStage={activeStage}
+          onStageSelect={selectStage}
+        />
+      ) : (
+        <LessonJourney
+          subjectSlug={subject.slug}
+          lessonSlug={lesson.slug}
+          questionCount={questionCount}
+          selectedStage={activeStage}
+          onStageSelect={selectStage}
+        />
+      )}
 
       <div ref={detailRef} className="scroll-mt-24">
         <div className="tita-stage-workflow mt-6" data-stage={activeStage ?? "closed"}>
-          <PrfLessonWorkflow subject={subject} lesson={lesson} />
+          {trackingOnly ? <EnemLessonWorkflow subject={subject} lesson={lesson} /> : <PrfLessonWorkflow subject={subject} lesson={lesson} />}
         </div>
       </div>
     </>
