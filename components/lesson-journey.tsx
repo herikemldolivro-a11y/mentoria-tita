@@ -127,11 +127,12 @@ export function LessonJourney({
     <section className="relative isolate overflow-hidden rounded-[30px] border border-white/[.10] bg-[#08090c] px-4 py-6 shadow-[0_26px_90px_rgba(0,0,0,.34)] sm:px-7 sm:py-8">
       <div className="tita-soft-grid pointer-events-none absolute inset-0 -z-20 opacity-[.08]" />
       <div className="pointer-events-none absolute -left-20 top-20 -z-20 h-64 w-64 rounded-full bg-emerald-400/[.025] blur-[95px]" />
+      <div className="pointer-events-none absolute -right-24 bottom-12 -z-20 h-72 w-72 rounded-full bg-violet-500/[.035] blur-[105px]" />
 
       <header className="relative z-30 rounded-[22px] bg-[#08090c] pb-7">
         <span className="tita-kicker">FLUXO COMPLETO DA AULA</span>
         <h2 className="mt-2 font-serif text-3xl tracking-[-.035em] text-white sm:text-4xl">Sua trilha</h2>
-        <p className="mt-2 max-w-2xl text-[10px] leading-5 text-white/38">Verde significa o que você precisa fazer agora. O caminho se move com você; as próximas etapas ficam em cinza até chegar a vez delas.</p>
+        <p className="mt-2 max-w-2xl text-[10px] leading-5 text-white/38">Verde = o que você precisa fazer agora. Roxo = etapa já concluída. Cinza = futuro, agendado ou ainda bloqueado.</p>
         <div className="mt-6 h-px w-full bg-white/[.07]" />
       </header>
 
@@ -181,30 +182,34 @@ export function LessonJourney({
                   className={`group relative w-[76%] rounded-[22px] border px-4 pb-4 pt-9 text-left transition sm:w-[46%] sm:px-5 sm:pb-5 sm:pt-10 ${
                     isCurrent
                       ? "border-emerald-300/35 bg-[linear-gradient(145deg,rgba(20,76,57,.32),rgba(12,18,16,.94))] shadow-[0_16px_50px_rgba(16,185,129,.10)]"
-                      : isSelected
-                        ? "border-white/[.16] bg-white/[.045]"
-                        : "border-white/[.075] bg-[#0d0f12]/95 hover:border-white/[.14] hover:bg-[#111317]"
+                      : isCompleted
+                        ? "border-violet-300/30 bg-[linear-gradient(145deg,rgba(76,29,149,.26),rgba(22,14,35,.94))] shadow-[0_16px_52px_rgba(139,92,246,.14),0_0_26px_rgba(168,85,247,.07)]"
+                        : isSelected
+                          ? "border-white/[.16] bg-white/[.045]"
+                          : "border-white/[.075] bg-[#0d0f12]/95 hover:border-white/[.14] hover:bg-[#111317]"
                   } ${isLocked ? "cursor-not-allowed opacity-48 hover:border-white/[.075] hover:bg-[#0d0f12]/95" : "cursor-pointer"}`}
                 >
                   <span className={`absolute -top-[23px] left-1/2 z-20 grid h-[46px] w-[46px] -translate-x-1/2 place-items-center rounded-full border shadow-[0_0_0_7px_#08090c] ${
                     isCurrent
                       ? "border-emerald-200/55 bg-[#123c2e] text-emerald-100 shadow-[0_0_0_7px_#08090c,0_0_30px_rgba(52,211,153,.26)]"
-                      : "border-white/[.12] bg-[#121418] text-white/35"
+                      : isCompleted
+                        ? "border-violet-200/50 bg-[#35215f] text-violet-100 shadow-[0_0_0_7px_#08090c,0_0_32px_rgba(139,92,246,.32),0_0_52px_rgba(168,85,247,.12)]"
+                        : "border-white/[.12] bg-[#121418] text-white/35"
                   }`}>
                     {isCompleted ? <Check size={16} strokeWidth={3} /> : isLocked ? <LockKeyhole size={13} /> : <Icon size={16} />}
                   </span>
 
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <span className={`block text-[8px] font-black tracking-[.13em] ${isCurrent ? "text-emerald-200/80" : "text-white/24"}`}>ETAPA {String(index + 1).padStart(2, "0")}</span>
-                      <strong className={`mt-1.5 block text-sm sm:text-base ${isCurrent ? "text-white" : "text-white/72"}`}>{step.label}</strong>
-                      <span className={`mt-1.5 block text-[9px] leading-4 ${isCurrent ? "text-emerald-100/62" : "text-white/30"}`}>{step.subtitle}</span>
+                      <span className={`block text-[8px] font-black tracking-[.13em] ${isCurrent ? "text-emerald-200/80" : isCompleted ? "text-violet-200/80" : "text-white/24"}`}>ETAPA {String(index + 1).padStart(2, "0")}</span>
+                      <strong className={`mt-1.5 block text-sm sm:text-base ${isCurrent || isCompleted ? "text-white" : "text-white/72"}`}>{step.label}</strong>
+                      <span className={`mt-1.5 block text-[9px] leading-4 ${isCurrent ? "text-emerald-100/62" : isCompleted ? "text-violet-100/60" : "text-white/30"}`}>{step.subtitle}</span>
                     </div>
                     <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[7px] font-black tracking-[.1em] ${
                       isCurrent
                         ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-200"
                         : isCompleted
-                          ? "border-white/[.09] bg-white/[.025] text-white/34"
+                          ? "border-violet-300/28 bg-violet-300/10 text-violet-200"
                           : isLocked
                             ? "border-white/[.06] bg-black/15 text-white/20"
                             : "border-white/[.09] bg-white/[.025] text-white/38"
