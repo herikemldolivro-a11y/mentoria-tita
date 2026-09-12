@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { EnemStudyPlanEditor } from "@/components/enem-study-plan-editor";
 import { PageShell } from "@/components/page-shell";
 import { StudyPlanEditor, type StudyPlanEditorSubject } from "@/components/study-plan-editor";
 import { requireAuthenticatedUser } from "@/lib/auth";
@@ -49,15 +50,19 @@ export default async function EditarPlanoDeEstudosPage() {
   return (
     <PageShell>
       <main className="mx-auto w-full max-w-[1180px] px-4 pb-24 pt-7 sm:px-6 sm:pt-10">
-        <StudyPlanEditor
-          contestSlug={focusContest.slug}
-          contestName={focusContest.nome}
-          contestSigla={focusContest.sigla}
-          displayName={displayName}
-          initialDailyMinutes={profile.daily_study_minutes ?? 240}
-          currentWeeks={profile.schedule_weeks ?? profile.schedule_target_weeks ?? null}
-          subjects={editorSubjects}
-        />
+        {focusContest.slug === "enem-40-dias" ? (
+          <EnemStudyPlanEditor subjects={editorSubjects} />
+        ) : (
+          <StudyPlanEditor
+            contestSlug={focusContest.slug}
+            contestName={focusContest.nome}
+            contestSigla={focusContest.sigla}
+            displayName={displayName}
+            initialDailyMinutes={profile.daily_study_minutes ?? 240}
+            currentWeeks={profile.schedule_weeks ?? profile.schedule_target_weeks ?? null}
+            subjects={editorSubjects}
+          />
+        )}
       </main>
     </PageShell>
   );
