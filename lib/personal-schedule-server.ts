@@ -185,7 +185,10 @@ export async function loadPersonalSchedule(): Promise<PersonalScheduleSnapshot> 
 }
 
 export function personalLessonHref(item: PersonalScheduleItem) {
-  const base = `/cronograma/semana-${item.lesson.sourceWeekNumber}/${item.subject.slug}/${item.lesson.slug}`;
+  const isEnemLesson = /^dia-\d+-bloco-\d+-/u.test(item.lesson.slug);
+  const base = isEnemLesson
+    ? `/cronograma/enem/dia-${item.lesson.sourceWeekNumber}/${item.subject.slug}/${item.lesson.slug}`
+    : `/cronograma/semana-${item.lesson.sourceWeekNumber}/${item.subject.slug}/${item.lesson.slug}`;
   const query = new URLSearchParams({ planoDia: item.scheduledFor, planoSemana: String(item.weekNumber) });
   return `${base}?${query.toString()}`;
 }
