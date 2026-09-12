@@ -78,7 +78,7 @@ export function PrincipalCalendar({ compact = false }: { compact?: boolean }) {
       const parsed = new Date(`${recommendedDate}T12:00:00`);
       if (!Number.isNaN(parsed.getTime())) setMonth(parsed);
     }
-    setMessage(`${lesson.subject_name} · ${lesson.lesson_title} já está preenchida. Escolha somente o dia da revisão.`);
+    setMessage(`${lesson.subject_name} · ${lesson.lesson_title} já está preenchida. Escolha o dia e, se quiser, registre uma observação.`);
     setAddOpen(true);
   }, [hub, searchParams]);
 
@@ -265,6 +265,7 @@ function AddRevisionModal({
   const [lessonId, setLessonId] = useState(prefilledLesson?.lesson_id ?? lessons[0]?.lesson_id ?? "");
   const [revision, setRevision] = useState(prefillRevisionNumber);
   const [date, setDate] = useState(prefillDate ?? dateKey(new Date()));
+  const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -282,18 +283,18 @@ function AddRevisionModal({
   async function save() {
     if (!lessonId || !date || saving) return;
     setSaving(true); setError(null);
-    try { await createPrincipalRevision({ lessonId, revisionNumber: revision, date }); onSaved(); }
+    try { await createPrincipalRevision({ lessonId, revisionNumber: revision, date, notes }); onSaved(); }
     catch (err) { setError(err instanceof Error ? err.message : "Não foi possível adicionar a revisão."); }
     finally { setSaving(false); }
   }
 
   return (
     <div className="fixed inset-0 z-[100] grid place-items-center bg-black/80 p-4 backdrop-blur-sm" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
-      <section className="w-full max-w-2xl rounded-[28px] border border-violet-400/25 bg-[#0d0d13] p-5 text-white shadow-[0_30px_100px_rgba(0,0,0,.6)] sm:p-7">
+      <section className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[28px] border border-violet-400/25 bg-[#0d0d13] p-5 text-white shadow-[0_30px_100px_rgba(0,0,0,.6)] sm:p-7">
         <div className="flex items-start justify-between gap-4">
           <div>
             <span className="text-[9px] font-black tracking-[.18em] text-violet-300">CALENDÁRIO PRINCIPAL</span>
-            <h3 className="mt-2 font-serif text-3xl">{lockLesson ? "Escolha somente o dia da revisão." : "Adicionar revisão de qualquer matéria."}</h3>
+            <h3 className="mt-2 font-serif text-3xl">{lockLesson ? "Escolha o dia da revisão." : "Adicionar revisão de qualquer matéria."}</h3>
           </div>
           <button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 text-white/55"><X size={17}/></button>
         </div>
@@ -304,7 +305,7 @@ function AddRevisionModal({
             <span className="text-[8px] font-black tracking-[.14em] text-emerald-300">AULA JÁ PREENCHIDA AUTOMATICAMENTE</span>
             <strong className="mt-2 block text-base text-white">{prefilledLesson.lesson_title}</strong>
             <span className="mt-1 block text-[10px] text-white/45">{prefilledLesson.subject_name} · Revisão {revision}</span>
-            <p className="mt-3 text-[10px] leading-5 text-emerald-100/55">Você não precisa procurar matéria nem aula. Só escolha a data abaixo.</p>
+            <p className="mt-3 text-[10px] leading-5 text-emerald-100/55">A matéria e a aula já vieram da trilha. Você escolhe a data e pode deixar uma observação opcional.</p>
           </div>
         ) : (
           <>
@@ -317,7 +318,18 @@ function AddRevisionModal({
         )}
 
         <Field label={lockLesson ? "ESCOLHA O DIA DA REVISÃO" : "DATA DA REVISÃO"}><input type="date" value={date} onChange={(e)=>setDate(e.target.value)} className={selectClass}/></Field>
-        <div className="mt-4 rounded-xl border border-violet-400/20 bg-violet-400/[.06] p-3 text-[10px] leading-5 text-white/55"><Sparkles className="mr-2 inline text-violet-300" size={13}/>Ao salvar, o Nivelamento {revision} será colocado automaticamente no dia seguinte. Ele só poderá ser iniciado depois que a Revisão {revision} for concluída.</div>
+        <Field label="OBSERVAÇÕES DA REVISÃO · OPCIONAL">
+          <textarea
+            value={notes}
+            onChange={(e)=>setNotes(e.target.value.slice(0, 2000))}
+            rows={4}
+            maxLength={2000}
+            placeholder="Ex.: errei conversão de unidade; revisar regra de três; atenção à pegadinha X..."
+            className={`${selectClass} min-h-[112px] resize-y py-3 leading-6`}
+          />
+          <span className="mt-1 block text-right text-[8px] font-medium tracking-normal text-white/25">{notes.length}/2000</span>
+        </Field>
+        <div className="mt-4 rounded-xl border border-violet-400/20 bg-violet-400/[.06] p-3 text-[10px] leading-5 text-white/55"><Sparkles className="mr-2 inline text-violet-300" size={13}/>Ao salvar, o Nivelamento {revision} será colocado automaticamente no dia seguinte. A observação ficará visível quando você abrir esta revisão.</div>
         <button type="button" onClick={() => void save()} disabled={!lessonId || saving} className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-violet-500 text-[10px] font-black tracking-[.11em] text-white disabled:opacity-45">{saving ? "SALVANDO..." : <><Plus size={16}/> {lockLesson ? "AGENDAR ESTA AULA" : "ADICIONAR À AGENDA"}</>}</button>
       </section>
     </div>
