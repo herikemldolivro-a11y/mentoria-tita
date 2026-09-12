@@ -17,16 +17,24 @@ export async function ScheduleLessonScreen({ weekNumber, subjectSlug, lessonSlug
   const lesson = subject?.lessons.find((item) => item.slug === lessonSlug);
   if (!week || !subject || !lesson) notFound();
 
-  const index = subject.lessons.findIndex((item) => item.id === lesson.id);
-  const previous = subject.lessons[index - 1];
-  if (index > 0 && !(previous?.theoryCompleted && previous?.listCompleted)) notFound();
-
   const trackingOnly = week.contestSlug === "enem-40-dias";
+
+  // O ENEM usa cada Dia como unidade independente. Não bloqueia uma aula do dia
+  // por progresso de outra aula/matéria, porque teoria/lista são executadas fora.
+  if (!trackingOnly) {
+    const index = subject.lessons.findIndex((item) => item.id === lesson.id);
+    const previous = subject.lessons[index - 1];
+    if (index > 0 && !(previous?.theoryCompleted && previous?.listCompleted)) notFound();
+  }
+
   const priority = priorityPresentation(lesson.priority);
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 pb-24 pt-7 sm:px-6 sm:pt-9">
-      <BackButton fallback={`/cronograma/semana-${weekNumber}/${subject.slug}`} label={trackingOnly ? `Voltar para o Dia ${weekNumber}` : `Voltar para ${subject.shortName}`} />
+      <BackButton
+        fallback={trackingOnly ? "/cronograma" : `/cronograma/semana-${weekNumber}/${subject.slug}`}
+        label={trackingOnly ? `Voltar para o Plano · Dia ${weekNumber}` : `Voltar para ${subject.shortName}`}
+      />
       <header className="mt-5 border-b border-[var(--border)] pb-7">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-[10px] font-black tracking-[.2em] text-[var(--gold-bright)]">
@@ -43,7 +51,7 @@ export async function ScheduleLessonScreen({ weekNumber, subjectSlug, lessonSlug
         </h1>
         <p className="mt-4 max-w-3xl text-sm leading-7 text-[var(--muted)]">
           {trackingOnly
-            ? "Este plano serve como painel de execução: estude na sua plataforma externa, marque teoria e lista como concluídas aqui e use o calendário para revisão e nivelamento."
+            ? "Este plano serve como painel de execução: veja exatamente o que estudar na sua plataforma externa, registre teoria e questões aqui e siga para revisão e nivelamento."
             : "Siga a trilha: apenas o passo que precisa ser feito agora fica verde. Clique nele para abrir o conteúdo da etapa."}
         </p>
       </header>
