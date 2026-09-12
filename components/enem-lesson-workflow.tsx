@@ -19,7 +19,6 @@ import {
   listenStudyUpdated,
   loadLessonProgress,
   loadLessonRevision,
-  queueRevisionDraft,
   saveLessonProgress,
   type LessonProgressState,
 } from "@/lib/study-database";
@@ -148,25 +147,18 @@ export function EnemLessonWorkflow({ subject, lesson }: { subject: PrfSubject; l
     });
   }
 
-  async function openCalendar() {
+  function openCalendar() {
     if (!(state.theoryCompleted && state.listCompleted)) return;
-    setSaving(true);
-    setErrorMessage(null);
-    try {
-      const draft = await queueRevisionDraft({
-        subjectSlug: subject.slug,
-        subjectName: subject.shortName,
-        lessonSlug: lesson.slug,
-        lessonTitle: lesson.title,
-        revisionNumber: 1,
-        recommendedDate: addDaysToDateKey(todayKey(), 2),
-      });
-      router.push(`/revisoes?agendar=${draft.id}`);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Não foi possível preparar a revisão.");
-    } finally {
-      setSaving(false);
-    }
+
+    const params = new URLSearchParams({
+      subject: subject.slug,
+      lesson: lesson.slug,
+      revision: "1",
+      date: addDaysToDateKey(todayKey(), 2),
+      source: "enem-lesson",
+    });
+
+    router.push(`/revisoes?${params.toString()}`);
   }
 
   const lessonCompleted = state.theoryCompleted && state.listCompleted;
@@ -248,7 +240,7 @@ export function EnemLessonWorkflow({ subject, lesson }: { subject: PrfSubject; l
                 {state.listCompleted ? "DESMARCAR LISTA" : "MARCAR LISTA EXTERNA COMO CONCLUÍDA"}
               </button>
               {state.listCompleted && !review ? (
-                <button type="button" disabled={saving} onClick={() => void openCalendar()} className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-emerald-400 px-5 text-[10px] font-black tracking-[.1em] text-[#07110b]">
+                <button type="button" disabled={saving} onClick={openCalendar} className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-emerald-400 px-5 text-[10px] font-black tracking-[.1em] text-[#07110b]">
                   <GripVertical size={15} /> IR AO CALENDÁRIO COM ESTA AULA <ArrowRight size={15} />
                 </button>
               ) : null}
@@ -260,7 +252,7 @@ export function EnemLessonWorkflow({ subject, lesson }: { subject: PrfSubject; l
           <span className="text-[10px] font-black tracking-[.18em]" style={{ color: review ? "#6ee7b7" : "var(--muted)" }}>ETAPA 03 · AGENDAR REVISÃO</span>
           <h2 className="mt-3 font-serif text-3xl text-[var(--ink)]">A aula já vai preenchida para o calendário.</h2>
           <p className="mt-2 max-w-3xl text-xs leading-6 text-[var(--muted)]">
-            Você não procura matéria nem digita assunto de novo. Abra a agenda e arraste o card de <strong className="text-[var(--ink)]">{lesson.title}</strong> para o dia desejado.
+            Ao abrir a agenda, <strong className="text-[var(--ink)]">{subject.shortName} · {lesson.title}</strong> já estará selecionada. Você só escolhe o dia da revisão; não procura matéria e não digita assunto novamente.
           </p>
 
           {!lessonCompleted ? (
@@ -272,7 +264,7 @@ export function EnemLessonWorkflow({ subject, lesson }: { subject: PrfSubject; l
               <button type="button" onClick={() => router.push("/revisoes")} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-emerald-500/25 px-3 text-[9px] font-black text-emerald-300"><CalendarClock size={14} /> ABRIR AGENDA</button>
             </div>
           ) : (
-            <button type="button" disabled={saving} onClick={() => void openCalendar()} className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-xl bg-emerald-400 px-5 text-[10px] font-black tracking-[.1em] text-[#07110b]">
+            <button type="button" disabled={saving} onClick={openCalendar} className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-xl bg-emerald-400 px-5 text-[10px] font-black tracking-[.1em] text-[#07110b]">
               <CalendarClock size={15} /> ABRIR CALENDÁRIO · AULA JÁ PREENCHIDA
             </button>
           )}
