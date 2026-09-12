@@ -59,14 +59,18 @@ function ResourceCard({
   subtitle,
   items,
   status,
+  confirmedBadge,
 }: {
   icon: typeof Database;
   title: string;
   subtitle: string;
   items: string[];
   status: EnemResourceStatus;
+  confirmedBadge?: string;
 }) {
   const tone = statusTone[status];
+  const badge = status === "confirmed" && confirmedBadge ? confirmedBadge : tone.badge;
+
   return (
     <section className="rounded-[22px] border p-4 sm:p-5" style={{ borderColor: tone.border, background: tone.bg }}>
       <div className="flex items-start justify-between gap-3">
@@ -80,7 +84,7 @@ function ResourceCard({
           </div>
         </div>
         <span className="shrink-0 rounded-full border px-2 py-1 text-[7px] font-black tracking-[.1em]" style={{ borderColor: tone.border, color: tone.text }}>
-          {tone.badge}
+          {badge}
         </span>
       </div>
       <div className="mt-4 space-y-2">
@@ -98,6 +102,22 @@ export function EnemLessonResourceGuide({ subject, lesson }: { subject: PrfSubje
   const guide = getEnemResourceGuide(subject.slug, lesson.title);
   const defaultTone = fallbackPriority(lesson.priority);
   const theoryItems = (lesson.topics.length ? lesson.topics : [lesson.title]).map((item) => theoryItem(item, defaultTone));
+  const normalizedTitle = lesson.title.toLocaleLowerCase("pt-BR");
+  const isMathBasicDayOne = subject.slug === "matematica" && normalizedTitle.includes("matemática básica");
+
+  // Dia 1 foi conferido diretamente no inventário da Assaad.
+  // O módulo Matemática Básica possui 10 listas no total, mas o Dia 1 usa somente as 5 aderentes
+  // ao conteúdo definido na matriz. As demais ficam para os blocos seguintes.
+  const assaadLists = isMathBasicDayOne
+    ? [
+        "Lista de Sistema de Numeração Decimal · 30 questões",
+        "Lista de Operações Fundamentais · 15 questões",
+        "Lista de Números Decimais e Operações · 20 questões",
+        "Lista de Números Negativos e Operações com Inteiros · 10 questões",
+        "Lista de Conjuntos Numéricos · 30 questões",
+      ]
+    : guide.assaadLists;
+  const assaadListStatus: EnemResourceStatus = isMathBasicDayOne ? "confirmed" : guide.assaadListStatus;
 
   return (
     <section className="mb-7 overflow-hidden rounded-[28px] border border-white/[.09] bg-[#0a0b0e] shadow-[0_20px_70px_rgba(0,0,0,.24)]">
@@ -140,13 +160,20 @@ export function EnemLessonResourceGuide({ subject, lesson }: { subject: PrfSubje
           </div>
         </section>
 
+        {isMathBasicDayOne ? (
+          <div className="mt-3 rounded-[20px] border border-emerald-400/25 bg-emerald-400/[.055] px-4 py-3.5 text-[10px] leading-5 text-emerald-100/75">
+            <strong className="text-emerald-200">Tem lista, sim.</strong> O banco <strong className="text-white">Matemática Básica</strong> possui <strong className="text-white">10 listas</strong> no total. Para o Dia 1 entram as <strong className="text-white">5 listas aderentes</strong> ao conteúdo da matriz; as demais continuam distribuídas nos blocos seguintes.
+          </div>
+        ) : null}
+
         <div className="mt-3 grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
           <ResourceCard
             icon={Database}
-            title="LISTA ASSAAD"
-            subtitle="Banco oficial da Assaad ligado ao tema. Quantidades vêm da matriz/inventário confirmado."
-            items={guide.assaadLists}
-            status={guide.assaadListStatus}
+            title="LISTAS ASSAAD DESTA AULA"
+            subtitle={isMathBasicDayOne ? "Confirmadas diretamente no inventário da Assaad. Aqui aparecem somente as listas que pertencem ao conteúdo deste Dia 1." : "Banco oficial da Assaad ligado ao tema. Quando confirmado, a aula mostra as listas/quantidades que pertencem a este bloco."}
+            items={assaadLists}
+            status={assaadListStatus}
+            confirmedBadge={isMathBasicDayOne ? "SIM · 5 LISTAS" : assaadListStatus === "confirmed" ? "SIM" : undefined}
           />
           <ResourceCard
             icon={FileStack}
@@ -172,7 +199,7 @@ export function EnemLessonResourceGuide({ subject, lesson }: { subject: PrfSubje
           <ResourceCard
             icon={ListChecks}
             title="LISTA EXTERNA"
-            subtitle="Banco/PDF separado da Assaad. Só aparece como confirmado quando existe fonte concreta."
+            subtitle="Banco/PDF separado da Assaad. Isto NÃO é a Lista Assaad acima. Só aparece como confirmado quando existe fonte concreta."
             items={guide.externalList}
             status={guide.externalListStatus}
           />
