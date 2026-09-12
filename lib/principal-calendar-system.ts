@@ -25,6 +25,7 @@ export type PrincipalRevision = {
   scheduled_for: string | null;
   status: "draft" | "scheduled" | "completed";
   completed_at: string | null;
+  notes?: string | null;
 };
 
 export type PrincipalLeveling = {
@@ -61,7 +62,7 @@ export async function loadPrincipalCalendarHub() {
   } satisfies PrincipalCalendarHub;
 }
 
-export async function createPrincipalRevision(input: { lessonId: string; revisionNumber: number; date: string }) {
+export async function createPrincipalRevision(input: { lessonId: string; revisionNumber: number; date: string; notes?: string }) {
   const supabase = createClient();
   const { data, error } = await supabase.rpc("create_or_schedule_principal_revision", {
     p_lesson_id: input.lessonId,
@@ -69,7 +70,21 @@ export async function createPrincipalRevision(input: { lessonId: string; revisio
     p_date: input.date,
   });
   if (error) throw error;
-  return data as PrincipalRevision;
+
+  const revision = data as PrincipalRevision;
+  if (input.notes !== undefined) {
+    const normalizedNotes = input.notes.trim().slice(0, 2000);
+    const { data: updated, error: updateError } = await supabase
+      .from("user_revisions")
+      .update({ notes: normalizedNotes || null, updated_at: new Date().toISOString() })
+      .eq("id", revision.id)
+      .select("*")
+      .single();
+    if (updateError) throw updateError;
+    return updated as PrincipalRevision;
+  }
+
+  return revision;
 }
 
 export async function reschedulePrincipalRevision(revisionId: string, date: string) {
