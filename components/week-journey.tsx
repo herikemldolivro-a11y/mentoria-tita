@@ -72,11 +72,11 @@ function MissionStages({
     <div className="mt-4 flex items-center gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {stages.map((stage, index) => (
         <div key={stage.label} className="flex shrink-0 items-center gap-1.5">
-          <span className={`grid h-6 min-w-6 place-items-center rounded-full border px-1 ${stage.active ? "border-emerald-300/40 bg-emerald-300/12 text-emerald-100 shadow-[0_0_16px_rgba(52,211,153,.14)]" : "border-white/[.08] bg-black/20 text-white/28"}`}>
+          <span className={`grid h-6 min-w-6 place-items-center rounded-full border px-1 ${stage.active ? "border-emerald-300/40 bg-emerald-300/12 text-emerald-100 shadow-[0_0_16px_rgba(52,211,153,.14)]" : stage.done ? "border-violet-300/35 bg-violet-300/10 text-violet-100 shadow-[0_0_16px_rgba(139,92,246,.18)]" : "border-white/[.08] bg-black/20 text-white/28"}`}>
             {stage.done ? <Check size={11} strokeWidth={3} /> : stage.active ? <CircleDot size={10} /> : <LockKeyhole size={9} />}
           </span>
-          <span className={`text-[7px] font-black tracking-[.11em] ${stage.active ? "text-emerald-200/85" : "text-white/24"}`}>{stage.label}</span>
-          {index < stages.length - 1 ? <span className={`h-px w-4 ${stage.active ? "bg-emerald-300/22" : "bg-white/[.09]"}`} /> : null}
+          <span className={`text-[7px] font-black tracking-[.11em] ${stage.active ? "text-emerald-200/85" : stage.done ? "text-violet-200/80" : "text-white/24"}`}>{stage.label}</span>
+          {index < stages.length - 1 ? <span className={`h-px w-4 ${stage.active ? "bg-emerald-300/22" : stage.done ? "bg-violet-300/24" : "bg-white/[.09]"}`} /> : null}
         </div>
       ))}
     </div>
@@ -125,7 +125,7 @@ export function WeekJourney({
           <div>
             <span className="inline-flex items-center gap-2 rounded-full border border-white/[.11] bg-white/[.045] px-3 py-1.5 text-[8px] font-black tracking-[.16em] text-white/65"><Flag size={13} /> SEMANA {String(weekNumber).padStart(2, "0")}</span>
             <h2 className="mt-5 max-w-3xl font-serif text-4xl leading-[.95] tracking-[-.04em] text-white sm:text-5xl">Sua Semana {weekNumber} está pronta.</h2>
-            <p className="mt-4 max-w-2xl text-xs leading-6 text-white/42">{title || "A plataforma já organizou a sequência da semana."} Ao iniciar, as missões aparecem ligadas por um caminho. Só o que é de hoje fica verde.</p>
+            <p className="mt-4 max-w-2xl text-xs leading-6 text-white/42">{title || "A plataforma já organizou a sequência da semana."} Ao iniciar, as missões aparecem ligadas por um caminho. Verde é o que entra hoje; roxo marca o que você já concluiu.</p>
             <div className="mt-6 flex flex-wrap gap-3 text-[8px] font-black tracking-[.11em] text-white/38"><span>{missions.length} MISSÕES</span><span>•</span><span>{missions.reduce((sum, mission) => sum + (mission.questionCount ?? 0), 0)} QUESTÕES PREVISTAS</span></div>
             <button type="button" onClick={() => { window.localStorage.setItem(storageKey, "1"); setStarted(true); }} className="tita-primary-button mt-7 min-w-[210px]"><Play size={15} fill="currentColor" /> INICIAR SEMANA {weekNumber}</button>
           </div>
@@ -136,11 +136,12 @@ export function WeekJourney({
             </svg>
             {preview.map((mission, index) => {
               const dueNow = missionDueNow(mission, index);
+              const done = Boolean(mission.theoryCompleted && mission.listCompleted);
               const positions = ["left-[24%] top-[12%]", "left-[68%] top-[43%]", "left-[24%] top-[73%]"];
               return (
                 <div key={mission.id} className={`absolute -translate-x-1/2 ${positions[index]}`}>
-                  <span className={`grid h-12 w-12 place-items-center rounded-full border shadow-[0_0_0_7px_#0b0c0f] ${dueNow ? "border-emerald-300/40 bg-emerald-300/12 text-emerald-100 shadow-[0_0_0_7px_#0b0c0f,0_0_26px_rgba(52,211,153,.18)]" : "border-white/[.16] bg-[#15171a] text-white/45"}`}><Sparkles size={15} /></span>
-                  <span className={`mt-2 block max-w-[90px] truncate text-center text-[7px] font-black tracking-[.08em] ${dueNow ? "text-emerald-200/80" : "text-white/36"}`}>{mission.shortName}</span>
+                  <span className={`grid h-12 w-12 place-items-center rounded-full border shadow-[0_0_0_7px_#0b0c0f] ${dueNow ? "border-emerald-300/40 bg-emerald-300/12 text-emerald-100 shadow-[0_0_0_7px_#0b0c0f,0_0_26px_rgba(52,211,153,.18)]" : done ? "border-violet-300/45 bg-violet-400/15 text-violet-100 shadow-[0_0_0_7px_#0b0c0f,0_0_28px_rgba(139,92,246,.34),0_0_54px_rgba(168,85,247,.14)]" : "border-white/[.16] bg-[#15171a] text-white/45"}`}>{done ? <Check size={15} strokeWidth={3} /> : <Sparkles size={15} />}</span>
+                  <span className={`mt-2 block max-w-[90px] truncate text-center text-[7px] font-black tracking-[.08em] ${dueNow ? "text-emerald-200/80" : done ? "text-violet-200/85" : "text-white/36"}`}>{mission.shortName}</span>
                 </div>
               );
             })}
@@ -161,11 +162,11 @@ export function WeekJourney({
         <div>
           <span className="tita-kicker">SEMANA {String(weekNumber).padStart(2, "0")} · EM ANDAMENTO</span>
           <h2 className="mt-2 font-serif text-4xl tracking-[-.035em] text-white">Trilha da semana</h2>
-          <p className="mt-2 max-w-2xl text-[10px] leading-5 text-white/34">Verde = o que entra no seu dia de hoje. Cinza = concluído, futuro ou ainda bloqueado.</p>
+          <p className="mt-2 max-w-2xl text-[10px] leading-5 text-white/34">Verde = missão de hoje. Roxo = aula + lista concluídas. Cinza = futuro ou ainda bloqueado.</p>
         </div>
         <div className="min-w-[210px]">
           <div className="flex items-center justify-between text-[8px] font-black tracking-[.1em] text-white/35"><span>{completed}/{missions.length} MISSÕES</span><span>{progress}%</span></div>
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[.07]"><span className="block h-full rounded-full bg-[linear-gradient(90deg,#777d84,#e3e6e9)]" style={{ width: `${progress}%` }} /></div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[.07]"><span className="block h-full rounded-full bg-[linear-gradient(90deg,#7c3aed,#a855f7,#d8b4fe)] shadow-[0_0_14px_rgba(168,85,247,.28)]" style={{ width: `${progress}%` }} /></div>
         </div>
       </header>
 
@@ -186,24 +187,25 @@ export function WeekJourney({
             const leftSide = index % 2 === 0;
             return (
               <div key={mission.id} className={`relative flex min-h-[235px] items-start pt-4 ${leftSide ? "justify-start" : "justify-end"}`}>
-                <Link href={mission.href} className={`group relative w-[76%] overflow-hidden rounded-[24px] border transition duration-300 sm:w-[46%] ${dueNow ? "border-emerald-300/30 shadow-[0_18px_60px_rgba(16,185,129,.10)]" : "border-white/[.08] hover:border-white/[.16]"}`}>
-                  {image ? <img src={image} alt="" className={`absolute inset-0 h-full w-full object-cover object-center transition duration-500 group-hover:scale-[1.025] ${dueNow ? "opacity-82" : "opacity-48 group-hover:opacity-62"}`} /> : <div className="absolute inset-0 tita-soft-grid bg-[#0d0f12]" />}
-                  <div className={`absolute inset-0 ${dueNow ? "bg-[linear-gradient(100deg,rgba(5,12,9,.97)_0%,rgba(7,28,20,.82)_50%,rgba(10,42,29,.36)_100%)]" : "bg-[linear-gradient(100deg,rgba(5,6,7,.97)_0%,rgba(5,6,7,.84)_50%,rgba(5,6,7,.42)_100%)]"}`} />
+                <Link href={mission.href} className={`group relative w-[76%] overflow-hidden rounded-[24px] border transition duration-300 sm:w-[46%] ${dueNow ? "border-emerald-300/30 shadow-[0_18px_60px_rgba(16,185,129,.10)]" : done ? "border-violet-300/30 shadow-[0_18px_62px_rgba(124,58,237,.16),0_0_34px_rgba(168,85,247,.08)] hover:border-violet-200/45" : "border-white/[.08] hover:border-white/[.16]"}`}>
+                  {image ? <img src={image} alt="" className={`absolute inset-0 h-full w-full object-cover object-center transition duration-500 group-hover:scale-[1.025] ${dueNow ? "opacity-82" : done ? "opacity-58 group-hover:opacity-66" : "opacity-48 group-hover:opacity-62"}`} /> : <div className="absolute inset-0 tita-soft-grid bg-[#0d0f12]" />}
+                  <div className={`absolute inset-0 ${dueNow ? "bg-[linear-gradient(100deg,rgba(5,12,9,.97)_0%,rgba(7,28,20,.82)_50%,rgba(10,42,29,.36)_100%)]" : done ? "bg-[linear-gradient(100deg,rgba(12,7,22,.97)_0%,rgba(42,20,75,.82)_52%,rgba(76,29,149,.34)_100%)]" : "bg-[linear-gradient(100deg,rgba(5,6,7,.97)_0%,rgba(5,6,7,.84)_50%,rgba(5,6,7,.42)_100%)]"}`} />
+                  {done ? <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-violet-400/20 blur-3xl" /> : null}
 
-                  <span className={`absolute -top-[23px] left-1/2 z-20 grid h-[46px] w-[46px] -translate-x-1/2 place-items-center rounded-full border shadow-[0_0_0_7px_#07080a] ${dueNow ? "border-emerald-200/45 bg-[#123c2e] text-emerald-100 shadow-[0_0_0_7px_#07080a,0_0_30px_rgba(52,211,153,.22)]" : "border-white/[.12] bg-[#121418] text-white/34"}`}>
+                  <span className={`absolute -top-[23px] left-1/2 z-20 grid h-[46px] w-[46px] -translate-x-1/2 place-items-center rounded-full border shadow-[0_0_0_7px_#07080a] ${dueNow ? "border-emerald-200/45 bg-[#123c2e] text-emerald-100 shadow-[0_0_0_7px_#07080a,0_0_30px_rgba(52,211,153,.22)]" : done ? "border-violet-200/50 bg-[#35215f] text-violet-100 shadow-[0_0_0_7px_#07080a,0_0_32px_rgba(139,92,246,.36),0_0_58px_rgba(168,85,247,.14)]" : "border-white/[.12] bg-[#121418] text-white/34"}`}>
                     {done ? <Check size={16} strokeWidth={3} /> : dueNow ? <Play size={13} fill="currentColor" /> : <span className="font-serif text-sm">{index + 1}</span>}
                   </span>
 
                   <div className="relative flex min-h-[205px] flex-col justify-end p-5 pt-9 sm:p-6 sm:pt-10">
                     <div className="mb-auto flex items-start justify-between gap-3">
-                      <span className="rounded-full border border-white/[.12] bg-black/35 px-2.5 py-1 text-[7px] font-black tracking-[.13em] text-white/68 backdrop-blur-md">{mission.shortName}</span>
-                      <span className={`rounded-full border px-2.5 py-1 text-[7px] font-black tracking-[.1em] ${dueNow ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-200" : "border-white/[.08] bg-black/20 text-white/30"}`}>{dueNow ? "HOJE" : done ? "CONCLUÍDA" : "OUTRO DIA"}</span>
+                      <span className={`rounded-full border px-2.5 py-1 text-[7px] font-black tracking-[.13em] backdrop-blur-md ${done ? "border-violet-300/20 bg-violet-400/10 text-violet-100/80" : "border-white/[.12] bg-black/35 text-white/68"}`}>{mission.shortName}</span>
+                      <span className={`rounded-full border px-2.5 py-1 text-[7px] font-black tracking-[.1em] ${dueNow ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-200" : done ? "border-violet-300/30 bg-violet-300/10 text-violet-200" : "border-white/[.08] bg-black/20 text-white/30"}`}>{dueNow ? "HOJE" : done ? "CONCLUÍDA" : "OUTRO DIA"}</span>
                     </div>
-                    <span className={`text-[8px] font-black tracking-[.13em] ${dueNow ? "text-emerald-200/55" : "text-white/28"}`}>MISSÃO {String(index + 1).padStart(2, "0")}{mission.dayLabel ? ` · ${mission.dayLabel}` : ""}</span>
-                    <h3 className={`mt-1.5 font-serif text-2xl leading-[1.02] ${dueNow ? "text-white" : "text-white/68"}`}>{mission.subject}</h3>
-                    <p className={`mt-2 line-clamp-2 text-[10px] leading-5 ${dueNow ? "text-white/52" : "text-white/34"}`}>{mission.lessonTitle}</p>
+                    <span className={`text-[8px] font-black tracking-[.13em] ${dueNow ? "text-emerald-200/55" : done ? "text-violet-200/62" : "text-white/28"}`}>MISSÃO {String(index + 1).padStart(2, "0")}{mission.dayLabel ? ` · ${mission.dayLabel}` : ""}</span>
+                    <h3 className={`mt-1.5 font-serif text-2xl leading-[1.02] ${dueNow || done ? "text-white" : "text-white/68"}`}>{mission.subject}</h3>
+                    <p className={`mt-2 line-clamp-2 text-[10px] leading-5 ${dueNow ? "text-white/52" : done ? "text-violet-100/54" : "text-white/34"}`}>{mission.lessonTitle}</p>
                     <MissionStages theoryCompleted={mission.theoryCompleted} listCompleted={mission.listCompleted} isDueNow={dueNow} />
-                    <span className={`mt-4 inline-flex items-center gap-2 text-[8px] font-black tracking-[.1em] ${dueNow ? "text-emerald-100/82" : "text-white/42"}`}>ABRIR MISSÃO <ArrowRight size={13} className="transition group-hover:translate-x-1" /></span>
+                    <span className={`mt-4 inline-flex items-center gap-2 text-[8px] font-black tracking-[.1em] ${dueNow ? "text-emerald-100/82" : done ? "text-violet-100/82" : "text-white/42"}`}>ABRIR MISSÃO <ArrowRight size={13} className="transition group-hover:translate-x-1" /></span>
                   </div>
                 </Link>
               </div>
