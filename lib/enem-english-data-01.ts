@@ -1,0 +1,56 @@
+import { makeEnemOptions as o, type EnemEnglishReading } from "@/lib/enem-english-types";
+
+export const enemEnglishReadings01: EnemEnglishReading[] = [
+  {
+    id:"enem-eng-01", day:1, slot:1, year:2025, application:"Aplicação regular · Dia 1", questionLabel:"Questão 01 · caderno azul", title:"Halloween, identidade e apropriação cultural", kind:"text",
+    paragraphs:[
+      `Glory Ames, from the White Earth reservation, is frustrated that despite the presence of several indigenous reservations near Moorhead, local Halloween stores still feature a western section with costumes such as "pow wow princess".`,
+      `Even worse, despite a long-running debate about racism and cultural appropriation, often prompted by backlash against celebrities and politicians for donning offensive costumes, people continue to wear such costumes.`,
+      `Last Halloween, Ames spotted a photo on Instagram of a girl dressed as a Native American with a bullet in her forehead. She immediately reported it to the social media platform and had it removed.`,
+      `"They blatantly take certain aspects of our culture, race, religion, and use it for their advantage and ignore the people living it", said Ames.`,
+    ],
+    source:"LIU, M. C. M. · Washington Post · acesso em 12 maio 2024 (adaptado).",
+    questionExcerpt:[`They blatantly take certain aspects of our culture, race, religion, and use it for their advantage and ignore the people living it.`],
+    question:"Ao abordar um aspecto da celebração do Halloween, esse texto tem por objetivo",
+    options:o("denunciar a violência contra crianças indígenas.","descrever costumes tradicionais em celebrações indígenas.","valorizar as vestimentas características dos povos originários.","criticar a exploração indevida de elementos da identidade indígena.","sugerir ações de combate ao preconceito contra os povos originários."), correct:"D",
+    explanation:"A fala final resume a crítica central do texto à apropriação cultural indevida.",
+    glossary:{ reservation:"reserva", indigenous:"indígena", frustrated:"frustrada", despite:"apesar de", costumes:"fantasias", backlash:"reação negativa", offensive:"ofensivas", blatantly:"descaradamente", aspects:"aspectos", advantage:"vantagem" },
+  },
+  {
+    id:"enem-eng-02", day:1, slot:2, year:2025, application:"Aplicação regular · Dia 1", questionLabel:"Questão 02 · caderno azul", title:"Angela Davis e a função social da filosofia", kind:"text",
+    paragraphs:[`My idea of philosophy is that if it is not relevant to human problems, if it does not tell us how we can go about eradicating some of the misery in this world, then it is not worth the name of philosophy. I think Socrates made a very profound statement when he asserted that philosophy is to teach us proper living. In this day and age "proper living" means liberation from the urgent problems of poverty, economic necessity and indoctrination, mental oppression.`],
+    source:"DAVIS, A. Lectures on Liberation. Washington: Smithsonian Libraries, 1971 (adaptado).",
+    questionExcerpt:[`if it is not relevant to human problems ... then it is not worth the name of philosophy.`,`"proper living" means liberation from the urgent problems of poverty, economic necessity and indoctrination, mental oppression.`],
+    question:"Nesse texto, ao discorrer sobre a relevância da filosofia, a escritora Angela Davis tem por objetivo",
+    options:o("criticá-la pela restrição temática.","vinculá-la ao universo acadêmico.","afastá-la da abordagem socrática.","aproximá-la dos problemas sociais.","responsabilizá-la pela pobreza humana."), correct:"D",
+    explanation:"Davis condiciona o valor da filosofia à relevância para problemas humanos e à superação de pobreza e opressão.",
+    glossary:{ philosophy:"filosofia", relevant:"relevante", eradicating:"erradicando", misery:"miséria", worth:"valor/digno", profound:"profunda", asserted:"afirmou", proper:"adequada", liberation:"libertação", poverty:"pobreza", indoctrination:"doutrinação", oppression:"opressão" },
+  },
+  {
+    id:"enem-eng-03", day:2, slot:1, year:2025, application:"Aplicação regular · Dia 1", questionLabel:"Questão 03 · caderno azul", title:"Remember: humanidade e natureza", kind:"text",
+    paragraphs:[`Remember the sky that you were born under,\nknow each of the star's stories.\nRemember the moon, know who she is.\nRemember the sun's birth at dawn.\n[…]\nRemember your birth, how your mother struggled\nto give you form and breath\n[…]\nRemember the earth whose skin you are:\nred earth, black earth, yellow earth, white earth\nbrown earth, we are earth.`, `Remember the plants, trees, animal life who all have their\ntribes, their families, their histories, too\n[…]\nRemember you are all people and all people are you.\nRemember you are this universe and this universe is you.\nRemember all is in motion, is growing, is you.`],
+    source:"HARJO, J. She Had Some Horses. Londres: W. Norton & Company, 1983 (fragmento).",
+    questionExcerpt:[`Remember the earth whose skin you are ... we are earth.`,`Remember you are this universe and this universe is you.`],
+    question:"Nesse poema, de uma autora de ascendência indígena, o eu lírico ressalta a",
+    options:o("potência dos astros celestes.","origem das plantas e dos animais.","importância do apego à terra natal.","relação entre seres humanos e natureza.","conexão entre o tempo real e o tempo imaginário."), correct:"D",
+    explanation:"Os versos identificam o ser humano à própria natureza e ao universo, enfatizando pertencimento e conexão.",
+    glossary:{ remember:"lembre-se", sky:"céu", born:"nascido", dawn:"amanhecer", struggled:"lutou", breath:"respiração", earth:"terra", skin:"pele", plants:"plantas", tribes:"tribos", universe:"universo", motion:"movimento", growing:"crescendo" },
+  },
+  {
+    id:"enem-eng-04", day:2, slot:2, year:2025, application:"Aplicação regular · Dia 1", questionLabel:"Questão 04 · caderno azul", title:"Snowflake generation e resiliência", kind:"text",
+    paragraphs:[`It is true that all children are special, simply because they are children. But most adults are not special, and children end up as adults pretty quickly. Life then can be difficult and even disappointing. The shock of this may account for the emergence of the "snowflake generation" of university students, who are so delicate they can't handle controversial ideas being put forward in their lectures.`, `The roots of this fragility run deep in modern culture. So, an approach of the world that states: "Life is wonderful, you're special and, if you are a good boy/girl, life will be amazing forever" is not a message designed to aid bouncing back from failure or confronting catastrophe. Resilience is not about feeding ego — telling your children how wonderful they are — but strengthening it.`],
+    source:"LOTT, T. · The Guardian · acesso em 10 dez. 2017 (adaptado).",
+    questionExcerpt:[`"snowflake generation" ... university students, who are so delicate they can't handle controversial ideas being put forward in their lectures.`],
+    question:"Nesse texto, a expressão \"snowflake generation\" é usada para",
+    options:o("abordar obstáculos impostos a universitários.","destacar mensagens de incentivo a estudantes.","estimular ações proativas em situações de emergência.","retratar relações conflituosas em ambiente universitário.","apontar posturas de uma juventude avessa a contrariedades."), correct:"E",
+    explanation:"O texto define a expressão como estudantes que não conseguem lidar com ideias controversas, isto é, jovens avessos a contrariedades.",
+    glossary:{ adults:"adultos", disappointing:"decepcionante", shock:"choque", emergence:"surgimento", delicate:"sensíveis/delicados", handle:"lidar com", controversial:"controversas", lectures:"aulas/palestras", roots:"raízes", fragility:"fragilidade", failure:"fracasso", catastrophe:"catástrofe", resilience:"resiliência", strengthening:"fortalecendo" },
+  },
+  {
+    id:"enem-eng-05", day:3, slot:1, year:2025, application:"Aplicação regular · Dia 1", questionLabel:"Questão 05 · caderno azul", title:"What is sleep?", kind:"visual", paragraphs:[], source:"Disponível em: pt.foursquare.com · acesso em 14 maio 2024.",
+    visual:{ variant:"cups", lines:["I slept 8–10 h","I slept 5–7 h","What is sleep?"], description:"Recriação esquemática: três copos aumentam de tamanho conforme diminuem as horas de sono.", note:"Apenas “What is sleep?” foi recuperado literalmente no material; os outros rótulos aparecem como correspondência explicativa." },
+    questionExcerpt:[`What is sleep?`], question:"Nesse texto, a pergunta \"What is sleep?\", em uma das embalagens do produto, está relacionada ao(à)",
+    options:o("escassez de horas de sono.","estímulo a um descanso de qualidade.","gasto com bebidas que combatem a insônia.","consumo de bebidas que causam dependência.","necessidade de um produto que provoque o sono."), correct:"A",
+    explanation:"A pergunta ironiza quem praticamente não dorme: quanto menor o número de horas de sono, maior o café necessário.", glossary:{ slept:"dormi", sleep:"sono/dormir" },
+  },
+];
