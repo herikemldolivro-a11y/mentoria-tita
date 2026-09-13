@@ -1,5 +1,6 @@
 import { enemEnglishReadings01 } from "@/lib/enem-english-data-01";
 import { enemEnglishReadings02 } from "@/lib/enem-english-data-02";
+import { enemEnglishReadings02b } from "@/lib/enem-english-data-02b";
 import { enemEnglishReadings03 } from "@/lib/enem-english-data-03";
 import { enemEnglishReadings04 } from "@/lib/enem-english-data-04";
 import type { EnemEnglishReading } from "@/lib/enem-english-types";
@@ -9,6 +10,7 @@ export type { EnemEnglishOption, EnemEnglishReading, EnemEnglishVisual } from "@
 export const enemEnglishReadings: EnemEnglishReading[] = [
   ...enemEnglishReadings01,
   ...enemEnglishReadings02,
+  ...enemEnglishReadings02b,
   ...enemEnglishReadings03,
   ...enemEnglishReadings04,
 ];
