@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ArrowRight, CalendarDays, CheckCircle2, Clock3, LockKeyhole, Pencil, SlidersHorizontal } from "lucide-react";
+import { ArrowRight, CalendarDays, CheckCircle2, Clock3, LockKeyhole, SlidersHorizontal } from "lucide-react";
+import { EnemEnglishDailyRitual } from "@/components/enem-english-daily-ritual";
 import { PageShell } from "@/components/page-shell";
 import { PprnRetaFinalSchedule } from "@/components/pprn-reta-final-schedule";
 import { requireAuthenticatedUser } from "@/lib/auth";
@@ -45,8 +46,6 @@ export default async function CronogramaPage() {
   const { focusContest, profile } = await requireAuthenticatedUser();
   const personal = await loadPersonalSchedule().catch(() => null);
 
-  /* A trilha individual tem prioridade. Assim, até concursos que tinham um
-     cronograma legado passam ao Plano de Estudos depois que o aluno configura/recalcula. */
   if (personal?.items.length) {
     const weeks = groupWeeks(personal.items);
     const done = personal.items.filter((item) => item.theoryCompleted && item.listCompleted).length;
@@ -92,31 +91,35 @@ export default async function CronogramaPage() {
                   </header>
 
                   <div className="space-y-0 divide-y divide-white/[.055]">
-                    {groupDates(weekItems).map(([date, dayItems]) => (
-                      <div key={date} className="grid gap-3 p-5 md:grid-cols-[145px_1fr] sm:p-6">
-                        <div>
-                          <span className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[.11em] text-blue-200/70"><CalendarDays size={14} /> {formatDate(date)}</span>
-                          <span className="mt-2 block text-[9px] text-white/30">Dia {dayItems[0]?.studyDay}</span>
+                    {groupDates(weekItems).map(([date, dayItems]) => {
+                      const studyDay = dayItems[0]?.studyDay ?? 0;
+                      return (
+                        <div key={date} className="grid gap-3 p-5 md:grid-cols-[145px_1fr] sm:p-6">
+                          <div>
+                            <span className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[.11em] text-blue-200/70"><CalendarDays size={14} /> {formatDate(date)}</span>
+                            <span className="mt-2 block text-[9px] text-white/30">Dia {studyDay}</span>
+                          </div>
+                          <div className="grid gap-2">
+                            {dayItems.map((item) => {
+                              const completed = item.theoryCompleted && item.listCompleted;
+                              return (
+                                <Link key={item.id} href={personalLessonHref(item)} className="group flex flex-col gap-3 rounded-2xl border border-white/[.07] bg-white/[.02] p-4 transition hover:border-blue-300/[.18] hover:bg-white/[.045] sm:flex-row sm:items-center sm:justify-between">
+                                  <div className="min-w-0">
+                                    <span className="text-[8px] font-black tracking-[.13em]" style={{ color: item.visual.accent }}>{item.subject.shortName}</span>
+                                    <h3 className="mt-1 text-sm font-bold text-white/88">{item.lesson.title}</h3>
+                                    <span className="mt-1.5 flex items-center gap-1.5 text-[9px] text-white/34"><Clock3 size={12} /> {item.estimatedMinutes} min estimados</span>
+                                  </div>
+                                  <span className={`inline-flex min-h-9 shrink-0 items-center gap-2 rounded-xl border px-3 text-[8px] font-black tracking-[.09em] ${completed ? "border-emerald-400/20 bg-emerald-400/[.07] text-emerald-300" : "border-white/[.1] bg-white/[.035] text-white/70"}`}>
+                                    {completed ? <><CheckCircle2 size={13} /> CONCLUÍDA</> : <>ABRIR <ArrowRight size={13} /></>}
+                                  </span>
+                                </Link>
+                              );
+                            })}
+                            {focusContest?.slug === "enem-40-dias" && studyDay >= 1 && studyDay <= 10 ? <EnemEnglishDailyRitual day={studyDay} compact /> : null}
+                          </div>
                         </div>
-                        <div className="grid gap-2">
-                          {dayItems.map((item) => {
-                            const completed = item.theoryCompleted && item.listCompleted;
-                            return (
-                              <Link key={item.id} href={personalLessonHref(item)} className="group flex flex-col gap-3 rounded-2xl border border-white/[.07] bg-white/[.02] p-4 transition hover:border-blue-300/[.18] hover:bg-white/[.045] sm:flex-row sm:items-center sm:justify-between">
-                                <div className="min-w-0">
-                                  <span className="text-[8px] font-black tracking-[.13em]" style={{ color: item.visual.accent }}>{item.subject.shortName}</span>
-                                  <h3 className="mt-1 text-sm font-bold text-white/88">{item.lesson.title}</h3>
-                                  <span className="mt-1.5 flex items-center gap-1.5 text-[9px] text-white/34"><Clock3 size={12} /> {item.estimatedMinutes} min estimados</span>
-                                </div>
-                                <span className={`inline-flex min-h-9 shrink-0 items-center gap-2 rounded-xl border px-3 text-[8px] font-black tracking-[.09em] ${completed ? "border-emerald-400/20 bg-emerald-400/[.07] text-emerald-300" : "border-white/[.1] bg-white/[.035] text-white/70"}`}>
-                                  {completed ? <><CheckCircle2 size={13} /> CONCLUÍDA</> : <>ABRIR <ArrowRight size={13} /></>}
-                                </span>
-                              </Link>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </section>
               );
