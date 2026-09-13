@@ -135,7 +135,7 @@ export function EnemEnglishReader({ readingId }:{ readingId:string }) {
       <section className="mt-3 overflow-hidden rounded-[30px] border border-violet-400/20 bg-[radial-gradient(circle_at_85%_0%,rgba(124,58,237,.20),transparent_38%),#08090d] text-white shadow-[0_28px_90px_rgba(0,0,0,.35)]">
         <div className="p-6 sm:p-8">
           <div className="flex flex-wrap items-center gap-2 text-[8px] font-black tracking-[.12em]">
-            <span className="rounded-full border border-violet-300/20 bg-violet-300/[.07] px-3 py-1.5 text-violet-200">DIA {reading.day} · LEITURA {reading.slot}/2</span>
+            <span className="rounded-full border border-violet-300/20 bg-violet-300/[.07] px-3 py-1.5 text-violet-200">DIA {reading.day + 1} · LEITURA {reading.slot}/2</span>
             <span className="rounded-full border border-white/10 px-3 py-1.5 text-white/45">ENEM {reading.year}</span>
             <span className="rounded-full border border-white/10 px-3 py-1.5 text-white/45">{reading.kind === "visual" ? "VISUAL" : "TEXTO"}</span>
           </div>
