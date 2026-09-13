@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, CalendarDays, CheckCircle2, Clock3, LockKeyhole, SlidersHorizontal } from "lucide-react";
-import { EnemEnglishDailyRitual } from "@/components/enem-english-daily-ritual";
+import { EnemDailySideQuests } from "@/components/enem-daily-side-quests";
 import { PageShell } from "@/components/page-shell";
 import { PprnRetaFinalSchedule } from "@/components/pprn-reta-final-schedule";
 import { requireAuthenticatedUser } from "@/lib/auth";
@@ -115,7 +115,11 @@ export default async function CronogramaPage() {
                                 </Link>
                               );
                             })}
-                            {focusContest?.slug === "enem-40-dias" && studyDay >= 1 && studyDay <= 10 ? <EnemEnglishDailyRitual day={studyDay} compact /> : null}
+                            {focusContest?.slug === "enem-40-dias" && studyDay >= 2 && studyDay <= 40 ? (
+                              <div className="mt-2 rounded-2xl border border-sky-300/[.08] bg-sky-300/[.018] p-3">
+                                <EnemDailySideQuests day={studyDay} side="right" />
+                              </div>
+                            ) : null}
                           </div>
                         </div>
                       );
