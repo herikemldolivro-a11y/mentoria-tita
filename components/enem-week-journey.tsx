@@ -100,6 +100,14 @@ export function EnemWeekJourney({
     return index === fallbackActionIndex;
   }
 
+  function dayDueNow(studyDay?: number) {
+    if (!studyDay) return false;
+    if (hasExplicitToday) {
+      return missions.some((mission) => mission.studyDay === studyDay && (mission.isToday || missionPlanDate(mission) === todayKey));
+    }
+    return missions[fallbackActionIndex]?.studyDay === studyDay;
+  }
+
   if (!missions.length) return null;
 
   if (!hydrated || !started) {
@@ -162,6 +170,7 @@ export function EnemWeekJourney({
             const previousDay = index > 0 ? missions[index - 1]?.studyDay : undefined;
             const showDailyBranch = Boolean(mission.studyDay && mission.studyDay >= 2 && mission.studyDay !== previousDay);
             const branchSide = leftSide ? "right" : "left";
+            const branchActive = dayDueNow(mission.studyDay);
 
             return (
               <div key={mission.id} className="relative flex min-h-[260px] flex-col items-stretch pt-4 sm:block">
@@ -181,7 +190,7 @@ export function EnemWeekJourney({
                       )}
                     </svg>
                     <div className={`relative z-10 order-2 mt-3 w-full sm:absolute sm:top-2 sm:mt-0 sm:w-[38%] ${leftSide ? "sm:right-0" : "sm:left-0"}`}>
-                      <EnemDailySideQuests day={mission.studyDay ?? 2} side={branchSide} dueNow={active} />
+                      <EnemDailySideQuests day={mission.studyDay ?? 2} side={branchSide} dueNow={branchActive} />
                     </div>
                   </>
                 ) : null}
