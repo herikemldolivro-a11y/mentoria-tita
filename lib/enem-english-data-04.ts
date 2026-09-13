@@ -1,0 +1,51 @@
+import { makeEnemOptions as o, type EnemEnglishReading } from "@/lib/enem-english-types";
+
+export const enemEnglishReadings04: EnemEnglishReading[] = [
+  {
+    id:"enem-eng-16", day:8, slot:2, year:2023, application:"PPL", questionLabel:"Questão 04 · caderno azul", title:"AmeRícan: identidade plural", kind:"text",
+    paragraphs:[`we gave birth to a new generation,\nAmeRícan, broader than lost gold\nnever touched, hidden inside the\npuerto rican mountains.\nwe gave birth to a new generation,\nAmeRícan, it includes everything\nimaginable you-name-it-we-got-it\nsociety.`, `we gave birth to a new generation,\nAmeRícan salutes all folklores,\neuropean, indian, black, spanish\nand anything else compatible:\nAmeRícan, yes, for now, for i love this,\nmy second land, and i dream to take\nthe accent from the altercation, and be\nproud to call myself american, in the\nu.s. sense of the word, AmeRícan, America!`],
+    source:"LAVIERA, T. Benedición: The Complete Poetry of Tato Laviera. Houston: Arte Público Press, 2014 (fragmento).",
+    questionExcerpt:[`we gave birth to a new generation, AmeRícan`, `AmeRícan salutes all folklores, european, indian, black, spanish and anything else compatible`],
+    question:"Nos versos desse poema, o eu lírico adota um tom de",
+    options:o("objeção aos costumes de uma geração.","crítica à política monetária.","celebração de uma identidade plural.","homenagem à sociedade americana.","exaltação da geografia porto-riquenha."), correct:"C",
+    explanation:"A repetição sobre a nova geração e a saudação a várias matrizes culturais celebram a identidade híbrida AmeRícan.",
+    glossary:{ birth:"nascimento", generation:"geração", broader:"mais ampla", hidden:"escondido", includes:"inclui", everything:"tudo", imaginable:"imaginável", salutes:"saúda", folklores:"folclores", compatible:"compatível", second:"segunda", land:"terra", dream:"sonho", accent:"sotaque", proud:"orgulhoso" },
+  },
+  {
+    id:"enem-eng-17", day:9, slot:1, year:2022, application:"Aplicação regular", questionLabel:"Questão 01 · caderno azul", title:"Cuba, exílio e Miami", kind:"text",
+    paragraphs:[`As my official bio reads, I was made in Cuba, assembled in Spain, and imported to the United States – meaning my mother, seven months pregnant, and the rest of my family arrived as exiles from Cuba to Madrid, where I was born. Less than two months later, we emigrated once more and settled in New York City, then eventually in Miami, where I was raised and educated.`, `Although technically we lived in the United States, the Cuban community was culturally insular in Miami during the 1970s, bonded together by the trauma of exile. What's more, it seemed that practically everyone was Cuban: my teachers, my classmates, the mechanic, the bus driver. I didn't grow up feeling different or treated as a minority. The few kids who got picked on in my grade school were the ones with freckles and funny last names like Dawson and O'Neil.`],
+    source:"BLANCO, R. · CNN · acesso em 9 dez. 2017 (adaptado).",
+    questionExcerpt:[`the Cuban community was culturally insular in Miami during the 1970s, bonded together by the trauma of exile.`,`I didn't grow up feeling different or treated as a minority.`],
+    question:"Ao relatar suas vivências, o autor destaca o(a)",
+    options:o("qualidade da educação formal em Miami.","prestígio da cultura cubana nos Estados Unidos.","oportunidade de qualificação profissional em Miami.","cenário da integração de cubanos nos Estados Unidos.","fortalecimento do elo familiar em comunidades estadunidenses."), correct:"D",
+    explanation:"O autor descreve uma comunidade cubana onipresente em Miami, a ponto de não se sentir minoria, retratando o cenário de integração/enclave cubano nos EUA.",
+    glossary:{ official:"oficial", bio:"biografia", assembled:"montado", imported:"importado", pregnant:"grávida", exiles:"exilados", emigrated:"emigrou", settled:"estabeleceu-se", raised:"criado", educated:"educado", insular:"fechada/insular", bonded:"unida", trauma:"trauma", exile:"exílio", classmates:"colegas", minority:"minoria", freckles:"sardas" },
+  },
+  {
+    id:"enem-eng-18", day:9, slot:2, year:2022, application:"Aplicação regular", questionLabel:"Questão 02 · caderno azul", title:"Jane Austen, dating apps e expectativas amorosas", kind:"text",
+    paragraphs:[`Two hundred years ago, Jane Austen lived in a world where single men boasted vast estates; single ladies were expected to speak several languages, sing and play the piano. In both cases, it was, of course, advantageous if you looked good too. So, how much has – or hasn't – changed?`, `Dating apps opaquely outline the demands of today's relationship market; users ruminate long and hard over their choice of pictures and what they write in their biographies to hook in potential lovers, and that's just your own profile. What do you look for in a future partner's profile – potential signifiers of a popular personality, a good job, a nice car? These apps are a poignant reminder of the often classist attitudes we still adopt, as well as the financial and aesthetic expectations we demand from potential partners.`],
+    source:"Linha de fonte da prova não recuperada no material.",
+    questionExcerpt:[`Two hundred years ago ... So, how much has – or hasn't – changed?`, `Dating apps opaquely outline the demands of today's relationship market.`],
+    question:"O texto aborda relações interpessoais com o objetivo de",
+    options:o("problematizar o papel de gênero em casamentos modernos.","apontar a relevância da educação formal na escolha de parceiro.","comparar a expectativa de parceiros amorosos em épocas distintas.","discutir o uso de aplicativos para proporcionar encontros românticos.","valorizar a importância da aparência física na seleção de pretendentes."), correct:"C",
+    explanation:"O texto parte do mundo de Jane Austen e pergunta quanto mudou, comparando explicitamente exigências amorosas de duas épocas.",
+    glossary:{ hundred:"cem", years:"anos", single:"solteiro", boasted:"ostentavam", estates:"propriedades", expected:"esperava-se", advantageous:"vantajoso", changed:"mudou", dating:"relacionamentos/encontros", outline:"delineiam", demands:"exigências", relationship:"relacionamento", ruminate:"refletem", choice:"escolha", lovers:"parceiros amorosos", partner:"parceiro", classist:"classistas", expectations:"expectativas" },
+  },
+  {
+    id:"enem-eng-19", day:10, slot:1, year:2022, application:"Aplicação regular", questionLabel:"Questão 03 · caderno azul", title:"Tom Gauld: a biblioteca do castelo", kind:"visual", paragraphs:[], source:"GAULD, T. · tomgauld.com · acesso em 25 out. 2021.",
+    visual:{ variant:"scene", lines:[], description:"Tirinha de quatro quadros. Um senhor sombrio, tipo vampiro, ameaça uma mulher: ela ficará presa no castelo, as muralhas são altas, a floresta tem feras e ele próprio se transformará em uma besta. A mulher permanece impassível e só demonstra interesse pela biblioteca, pelo tamanho do acervo e pela quantidade de livros; no fim, aparece sentada lendo tranquilamente.", note:"Os balões originais em inglês NÃO foram recuperados literalmente no material. A plataforma preserva a descrição sem inventar falas." },
+    question:"Nessa tirinha, o comportamento da mulher expressa",
+    options:o("revolta com a falta de sorte.","gosto pela prática da leitura.","receio pelo futuro do casamento.","entusiasmo com os livros de terror.","rejeição ao novo tipo de residência."), correct:"B",
+    explanation:"Diante das ameaças, a personagem reage apenas à biblioteca e termina lendo, evidenciando gosto pela prática da leitura.",
+  },
+  {
+    id:"enem-eng-20", day:10, slot:2, year:2022, application:"Aplicação regular", questionLabel:"Questão 04 · caderno azul", title:"Instagram e seus downsides", kind:"text",
+    paragraphs:[`Instagram is by far my favorite. It is made up of all photos and videos, which is perfect for visual people like me. There is the home page that showcases the posts from people you follow, an explore tab which offers posts from accounts all over the world, and your own page, with a notification tab to show who likes and comments on your posts.`, `It has some downsides though. It is known to make many people feel insecure or down about themselves because the platform showcases the highlights of everyone's lives, while rarely showing the negatives. This can make one feel like their life is not going as well as others, contributing to the growing rates of anxiety or depression in many teens today. There is an underlying desire for acceptance through the number of likes or followers one has.`],
+    source:"Disponível em: cyberbullying.org · acesso em 29 out. 2021.",
+    questionExcerpt:[`It has some downsides though.`, `contributing to the growing rates of anxiety or depression in many teens today.`],
+    question:"O termo \"downsides\" introduz a ideia de que o Instagram é responsável por",
+    options:o("oferecer recursos de fotografia.","divulgar problemas dos usuários.","estimular aceitação dos seguidores.","provocar ansiedade nos adolescentes.","aproximar pessoas ao redor do mundo."), correct:"D",
+    explanation:"Logo após “downsides”, o texto afirma que a plataforma contribui para o crescimento de ansiedade ou depressão em adolescentes.",
+    glossary:{ favorite:"favorito", photos:"fotos", videos:"vídeos", showcases:"exibe/destaca", posts:"publicações", follow:"seguir", explore:"explorar", accounts:"contas", notification:"notificação", comments:"comentários", downsides:"desvantagens/pontos negativos", insecure:"inseguro", highlights:"destaques", rarely:"raramente", negatives:"aspectos negativos", contributing:"contribuindo", growing:"crescentes", anxiety:"ansiedade", depression:"depressão", teens:"adolescentes", underlying:"subjacente", desire:"desejo", acceptance:"aceitação", followers:"seguidores" },
+  },
+];
