@@ -3,11 +3,11 @@
 import { ArrowRight, CheckCircle2, ImageIcon, Languages } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { getEnemEnglishDay } from "@/lib/enem-english-data";
+import { getEnemEnglishPlanDay } from "@/lib/enem-english-data";
 import { createClient } from "@/lib/supabase/client";
 
 export function EnemEnglishDailyRitual({ day, compact=false }:{ day:number; compact?:boolean }) {
-  const readings = useMemo(()=>getEnemEnglishDay(day),[day]);
+  const readings = useMemo(()=>getEnemEnglishPlanDay(day),[day]);
   const [completed,setCompleted] = useState<Set<string>>(new Set());
 
   useEffect(()=>{
