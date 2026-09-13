@@ -1,5 +1,2 @@
 import { makeEnemOptions as o, type EnemEnglishReading } from "@/lib/enem-english-types";
-
-export const enemEnglish06: EnemEnglishReading = {
-  id:"enem-eng-06", day:3, slot:2, year:2024, application:"Aplicação regular · Dia 1", questionLabel:"Questão 02 · caderno azul", title:"Holy War", kind:"text",
-  paragraphs:[`Holy War\nOh, so we can hate each other and fear each other\nWe can build these walls between each other\nBaby, blow by blow and brick by brick\nKeep yourself locked in, yourself locked in\n[…]
+export const enemEnglish06: EnemEnglishReading={id:"enem-eng-06",day:3,slot:2,year:2024,application:"Aplicação regular · Dia 1",questionLabel:"Questão 02 · caderno azul",title:"Holy War",kind:"text",paragraphs:[`Holy War\nOh, so we can hate each other and fear each other\nWe can build these walls between each other\nBaby, blow by blow and
