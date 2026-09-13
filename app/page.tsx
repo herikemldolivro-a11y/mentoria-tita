@@ -1,12 +1,12 @@
 import { ArrowRight, CalendarDays, ClipboardList, Clock3, Settings2, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { DashboardCard } from "@/components/dashboard-card";
-import { EnemEnglishDailyRitual } from "@/components/enem-english-daily-ritual";
+import { EnemWeekJourney, type EnemWeekJourneyMission } from "@/components/enem-week-journey";
 import { PageShell } from "@/components/page-shell";
 import { QuestionPerformanceDashboard } from "@/components/question-performance-dashboard";
 import { StudyTimeStatus } from "@/components/study-time-status";
 import { UpcomingRevisions } from "@/components/upcoming-revisions";
-import { WeekJourney, type WeekJourneyMission } from "@/components/week-journey";
+import { WeekJourney } from "@/components/week-journey";
 import { XpCommandCenter } from "@/components/xp-command-center";
 import { requireAuthenticatedUser } from "@/lib/auth";
 import { dashboardNavigationItems } from "@/lib/navigation";
@@ -67,7 +67,6 @@ export default async function Home() {
   const todayItems = personal.items.filter((item) => item.scheduledFor === today);
   const firstIncomplete = personal.items.find((item) => !(item.theoryCompleted && item.listCompleted));
   const currentMission = todayItems.find((item) => !(item.theoryCompleted && item.listCompleted)) ?? firstIncomplete ?? personal.items[0] ?? null;
-  const enemDailyDay = todayItems[0]?.studyDay ?? currentMission?.studyDay ?? firstIncomplete?.studyDay ?? 1;
 
   const fallbackCompleted = fallbackLessons.filter((lesson) => lesson.theoryCompleted && lesson.listCompleted).length;
   const fallbackProgress = fallbackLessons.length ? Math.round((fallbackCompleted / fallbackLessons.length) * 100) : 0;
@@ -84,7 +83,7 @@ export default async function Home() {
     ? `Semana ${journeyWeekNumber} do seu cronograma individual`
     : currentWeek?.title ?? `Semana ${journeyWeekNumber}`;
 
-  const journeyMissions: WeekJourneyMission[] = personalWeekItems.length
+  const journeyMissions: EnemWeekJourneyMission[] = personalWeekItems.length
     ? personalWeekItems.map((item) => ({
         id: item.id,
         subject: item.subject.name,
@@ -94,6 +93,7 @@ export default async function Home() {
         imagePath: item.visual.imagePath ?? fallbackImage(item.subject.slug),
         accent: item.visual.accent,
         dayLabel: `DIA ${item.studyDay}`,
+        studyDay: item.studyDay,
         questionCount: item.lesson.questionCount,
         theoryCompleted: item.theoryCompleted,
         listCompleted: item.listCompleted,
@@ -110,6 +110,7 @@ export default async function Home() {
         imagePath: fallbackImage(subject.slug),
         accent: "#c5c8cc",
         dayLabel: null,
+        studyDay: undefined,
         questionCount: lesson.questionCount,
         theoryCompleted: lesson.theoryCompleted,
         listCompleted: lesson.listCompleted,
@@ -134,14 +135,14 @@ export default async function Home() {
 
         <StudyTimeStatus />
 
-        {focusContest?.slug === "enem-40-dias" && enemDailyDay <= 10 ? (
-          <EnemEnglishDailyRitual day={enemDailyDay} />
-        ) : null}
-
         <XpCommandCenter />
 
         {journeyMissions.length ? (
-          <WeekJourney weekNumber={journeyWeekNumber} title={journeyTitle} missions={journeyMissions} />
+          focusContest?.slug === "enem-40-dias" ? (
+            <EnemWeekJourney weekNumber={journeyWeekNumber} title={journeyTitle} missions={journeyMissions} />
+          ) : (
+            <WeekJourney weekNumber={journeyWeekNumber} title={journeyTitle} missions={journeyMissions} />
+          )
         ) : null}
 
         <section className="tita-panel-strong relative mt-8 overflow-hidden rounded-[30px] text-white">
