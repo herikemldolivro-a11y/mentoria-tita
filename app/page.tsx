@@ -1,15 +1,17 @@
 import { ArrowRight, CalendarDays, ClipboardList, Clock3, Settings2, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { DashboardCard } from "@/components/dashboard-card";
+import { EnemEnglishDailyRitual } from "@/components/enem-english-daily-ritual";
 import { PageShell } from "@/components/page-shell";
-import { UpcomingRevisions } from "@/components/upcoming-revisions";
-import { dashboardNavigationItems } from "@/lib/navigation";
-import { requireAuthenticatedUser } from "@/lib/auth";
 import { QuestionPerformanceDashboard } from "@/components/question-performance-dashboard";
-import { loadMySchedule, type ScheduleWeek } from "@/lib/schedule-server";
-import { loadPersonalSchedule, personalLessonHref, type PersonalScheduleItem } from "@/lib/personal-schedule-server";
-import { XpCommandCenter } from "@/components/xp-command-center";
+import { StudyTimeStatus } from "@/components/study-time-status";
+import { UpcomingRevisions } from "@/components/upcoming-revisions";
 import { WeekJourney, type WeekJourneyMission } from "@/components/week-journey";
+import { XpCommandCenter } from "@/components/xp-command-center";
+import { requireAuthenticatedUser } from "@/lib/auth";
+import { dashboardNavigationItems } from "@/lib/navigation";
+import { loadPersonalSchedule, personalLessonHref, type PersonalScheduleItem } from "@/lib/personal-schedule-server";
+import { loadMySchedule, type ScheduleWeek } from "@/lib/schedule-server";
 
 function todayInBrazil() {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -65,6 +67,7 @@ export default async function Home() {
   const todayItems = personal.items.filter((item) => item.scheduledFor === today);
   const firstIncomplete = personal.items.find((item) => !(item.theoryCompleted && item.listCompleted));
   const currentMission = todayItems.find((item) => !(item.theoryCompleted && item.listCompleted)) ?? firstIncomplete ?? personal.items[0] ?? null;
+  const enemDailyDay = todayItems[0]?.studyDay ?? currentMission?.studyDay ?? firstIncomplete?.studyDay ?? 1;
 
   const fallbackCompleted = fallbackLessons.filter((lesson) => lesson.theoryCompleted && lesson.listCompleted).length;
   const fallbackProgress = fallbackLessons.length ? Math.round((fallbackCompleted / fallbackLessons.length) * 100) : 0;
@@ -128,6 +131,12 @@ export default async function Home() {
               : "Seu plano atual foi convertido para a nova experiência de trilha semanal."}
           </p>
         </div>
+
+        <StudyTimeStatus />
+
+        {focusContest?.slug === "enem-40-dias" && enemDailyDay <= 10 ? (
+          <EnemEnglishDailyRitual day={enemDailyDay} />
+        ) : null}
 
         <XpCommandCenter />
 
