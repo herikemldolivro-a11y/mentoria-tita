@@ -16,7 +16,8 @@ export const enemEnglishReadings: EnemEnglishReading[] = [
 ];
 
 export const enemEnglishDays = Array.from({ length: 10 }, (_, index) => ({
-  day: index + 1,
+  day: index + 2,
+  contentDay: index + 1,
   readings: enemEnglishReadings.filter((reading) => reading.day === index + 1).sort((a,b)=>a.slot-b.slot),
 }));
 
@@ -26,4 +27,9 @@ export function getEnemEnglishReading(id:string) {
 
 export function getEnemEnglishDay(day:number) {
   return enemEnglishReadings.filter((reading)=>reading.day===day).sort((a,b)=>a.slot-b.slot);
+}
+
+export function getEnemEnglishPlanDay(studyDay:number) {
+  if (studyDay < 2) return [];
+  return getEnemEnglishDay(studyDay - 1);
 }
