@@ -2,6 +2,7 @@
 
 import {
   ArrowRight,
+  BookMarked,
   BookOpenCheck,
   CalendarClock,
   Check,
@@ -11,8 +12,10 @@ import {
   LockKeyhole,
   RotateCcw,
 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { getEnemSnapshotCount } from "@/lib/enem-question-snapshots";
 import type { MatrixLesson, PrfSubject } from "@/lib/prf-week-one";
 import { addDaysToDateKey, formatDatePtBr, todayKey, type RevisionEvent } from "@/lib/revision-system";
 import {
@@ -94,6 +97,8 @@ export function EnemLessonWorkflow({ subject, lesson }: { subject: PrfSubject; l
     () => (lesson.topics.length ? lesson.topics : [`${lesson.title}`]).map((item) => parseLinkedItem(item, fallbackTone)),
     [fallbackTone, lesson.title, lesson.topics],
   );
+  const snapshotCount = getEnemSnapshotCount(subject.slug, lesson.title);
+  const snapshotHref = `/questoes/enem?subject=${encodeURIComponent(subject.slug)}&lesson=${encodeURIComponent(lesson.slug)}&title=${encodeURIComponent(lesson.title)}`;
 
   const refresh = useCallback(async () => {
     const [nextState, nextReview] = await Promise.all([
@@ -225,10 +230,10 @@ export function EnemLessonWorkflow({ subject, lesson }: { subject: PrfSubject; l
         </section>
 
         <section className="rounded-[26px] border p-5 sm:p-7" style={{ borderColor: state.listCompleted ? "rgba(52,211,153,.35)" : state.theoryCompleted ? "rgba(255,255,255,.13)" : "var(--border)", background: "var(--surface)", opacity: state.theoryCompleted ? 1 : .55 }}>
-          <span className="text-[10px] font-black tracking-[.18em]" style={{ color: state.listCompleted ? "#6ee7b7" : "var(--muted)" }}>ETAPA 02 · LISTA FORA DA PLATAFORMA</span>
-          <h2 className="mt-3 font-serif text-3xl text-[var(--ink)]">Resolva no seu banco e confirme aqui.</h2>
+          <span className="text-[10px] font-black tracking-[.18em]" style={{ color: state.listCompleted ? "#6ee7b7" : "var(--muted)" }}>ETAPA 02 · LISTA DE QUESTÕES</span>
+          <h2 className="mt-3 font-serif text-3xl text-[var(--ink)]">Resolva no seu banco e salve aqui o que merece revisão.</h2>
           <p className="mt-2 max-w-3xl text-xs leading-6 text-[var(--muted)]">
-            A Mentoria Titã não abre nem corrige esta lista. Use a Assaad ou o banco que você escolher; aqui ela serve como checklist para liberar a revisão e o nivelamento.
+            A resolução e a correção continuam no banco que você escolher. Quando houver lista visual cadastrada, a Titã mostra somente as questões classificadas nesta aula para você folhear e marcar as que quer rever depois.
           </p>
 
           {!state.theoryCompleted ? (
@@ -237,8 +242,13 @@ export function EnemLessonWorkflow({ subject, lesson }: { subject: PrfSubject; l
             <div className="mt-5 flex flex-wrap gap-3">
               <button type="button" disabled={saving} onClick={() => void toggleExternalList()} className="inline-flex min-h-12 items-center gap-2 rounded-xl border px-5 text-[10px] font-black tracking-[.1em]" style={{ borderColor: state.listCompleted ? "rgba(52,211,153,.38)" : "rgba(255,255,255,.14)", background: state.listCompleted ? "rgba(16,185,129,.08)" : "rgba(255,255,255,.035)", color: state.listCompleted ? "#6ee7b7" : "var(--ink)" }}>
                 {state.listCompleted ? <RotateCcw size={15} /> : <Check size={15} />}
-                {state.listCompleted ? "DESMARCAR LISTA" : "MARCAR LISTA EXTERNA COMO CONCLUÍDA"}
+                {state.listCompleted ? "DESMARCAR LISTA" : "MARCAR LISTA COMO CONCLUÍDA"}
               </button>
+              {snapshotCount > 0 ? (
+                <Link href={snapshotHref} className="inline-flex min-h-12 items-center gap-2 rounded-xl border border-violet-300/25 bg-violet-400/[.07] px-5 text-[10px] font-black tracking-[.08em] text-violet-200 transition hover:border-violet-300/45">
+                  <BookMarked size={15} /> VER QUESTÕES PARA SALVAR · {snapshotCount}
+                </Link>
+              ) : null}
               {state.listCompleted && !review ? (
                 <button type="button" disabled={saving} onClick={openCalendar} className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-emerald-400 px-5 text-[10px] font-black tracking-[.1em] text-[#07110b]">
                   <GripVertical size={15} /> IR AO CALENDÁRIO COM ESTA AULA <ArrowRight size={15} />
