@@ -1,4 +1,5 @@
 import { EnemQuestionSnapshotViewer } from "@/components/enem-question-snapshot-viewer";
+import { EnemQuestionSourceIndex } from "@/components/enem-question-source-index";
 import { PageShell } from "@/components/page-shell";
 import { requireAuthenticatedUser } from "@/lib/auth";
 
@@ -20,6 +21,12 @@ export default async function EnemQuestionViewerPage({ searchParams }: { searchP
 
   return (
     <PageShell>
+      {search.saved === "1" ? null : (
+        <EnemQuestionSourceIndex
+          subjectSlug={subjectSlug}
+          lessonTitle={lessonTitle}
+        />
+      )}
       <EnemQuestionSnapshotViewer
         subjectSlug={subjectSlug}
         lessonSlug={lessonSlug}
