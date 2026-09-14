@@ -115,6 +115,7 @@ export function EnemQuestionSnapshotViewer({
   const current = questions[index] ?? null;
   const isSaved = current ? savedIds.has(current.id) : false;
   const sourceInfo = current ? getEnemQuestionSourceInfo(current) : null;
+  const currentOriginalNumber = sourceInfo?.position ?? current?.number ?? index + 1;
 
   async function toggleSaved() {
     if (!current || saving) return;
@@ -230,10 +231,10 @@ export function EnemQuestionSnapshotViewer({
       : "LISTA VISUAL · SALVE O QUE QUER REVER";
 
   const description = savedOnly
-    ? "Estas são as questões que você marcou durante o estudo. Use as setas ou selecione diretamente o número que quer rever."
+    ? "Estas são as questões que você marcou durante o estudo. Use as setas ou selecione diretamente o número original que quer rever."
     : context === "revision"
-      ? "A mesma lista visual da aula fica disponível dentro da revisão. Use Selecionar questão para ir direto ao número desejado, sem passar uma por uma."
-      : "Uma questão por vez, recortada diretamente da lista original. Use as setas, selecione diretamente o número desejado e marque com o favorito as questões que precisam reaparecer na revisão desta aula.";
+      ? "A mesma lista visual da aula fica disponível dentro da revisão. Use Selecionar questão para ir direto ao número original da questão, sem passar uma por uma."
+      : "Uma questão por vez, recortada diretamente da lista original. Use as setas, selecione diretamente o número original desejado e marque com o favorito as questões que precisam reaparecer na revisão desta aula.";
 
   return (
     <div className={embedded ? "w-full" : "mx-auto w-full max-w-5xl px-4 pb-24 pt-7 sm:px-6"}>
@@ -272,12 +273,10 @@ export function EnemQuestionSnapshotViewer({
           <header className="flex flex-col gap-3 border-b border-white/[.07] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
             <div>
               <span className="text-[8px] font-black tracking-[.14em] text-white/35">{current.section}</span>
-              <strong className="mt-1 block text-sm text-white">Questão {index + 1} de {questions.length} nesta aula</strong>
-              {sourceInfo ? (
-                <span className="mt-1 block text-[8px] font-bold text-white/30">
-                  ORIGINAL · {sourceInfo.position}/{sourceInfo.total} NA LISTA {sourceInfo.label.toUpperCase()}
-                </span>
-              ) : null}
+              <strong className="mt-1 block text-sm text-white">Questão {currentOriginalNumber}</strong>
+              <span className="mt-1 block text-[8px] font-bold text-white/30">
+                POSIÇÃO {index + 1} DE {questions.length} NESTA AULA{sourceInfo ? ` · ${sourceInfo.label.toUpperCase()}` : ""}
+              </span>
             </div>
             <div className="flex flex-wrap gap-2">
               <button type="button" disabled={copying} onClick={() => void copyCurrentQuestionImage()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-cyan-300/20 bg-cyan-300/[.05] px-4 text-[9px] font-black tracking-[.08em] text-cyan-200 transition hover:border-cyan-200/35 disabled:opacity-50">
@@ -298,22 +297,26 @@ export function EnemQuestionSnapshotViewer({
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <span className="text-[8px] font-black tracking-[.14em] text-emerald-300">IR DIRETO PARA</span>
-                  <strong className="mt-1 block text-sm text-white">Selecione o número da questão</strong>
+                  <strong className="mt-1 block text-sm text-white">Selecione o número original da questão</strong>
+                  <span className="mt-1 block text-[8px] font-bold text-white/30">OS NÚMEROS ABAIXO SÃO OS MESMOS DA LISTA ORIGINAL</span>
                 </div>
-                <span className="rounded-lg border border-white/[.08] bg-white/[.03] px-2.5 py-1 text-[8px] font-black text-white/35">{questions.length} QUESTÕES</span>
+                <span className="rounded-lg border border-white/[.08] bg-white/[.03] px-2.5 py-1 text-[8px] font-black text-white/35">{questions.length} QUESTÕES NESTA AULA</span>
               </div>
               <div className="mt-4 grid max-h-56 grid-cols-6 gap-2 overflow-y-auto pr-1 sm:grid-cols-10 md:grid-cols-12">
                 {questions.map((question, questionIndex) => {
                   const active = questionIndex === index;
+                  const pickerSource = getEnemQuestionSourceInfo(question);
+                  const originalNumber = pickerSource.position || question.number;
                   return (
                     <button
                       key={`${question.id}-picker`}
                       type="button"
                       aria-current={active ? "true" : undefined}
+                      title={`Questão ${originalNumber} · ${pickerSource.label}`}
                       onClick={() => selectQuestion(questionIndex)}
                       className={`min-h-10 rounded-lg border text-[10px] font-black transition ${active ? "border-emerald-300/55 bg-emerald-400/15 text-emerald-200 shadow-[0_0_18px_rgba(52,211,153,.08)]" : "border-white/[.09] bg-white/[.025] text-white/55 hover:border-emerald-300/30 hover:text-white"}`}
                     >
-                      {questionIndex + 1}
+                      {originalNumber}
                     </button>
                   );
                 })}
@@ -330,7 +333,7 @@ export function EnemQuestionSnapshotViewer({
             }}
           >
             <div className="mb-2 text-center text-[8px] font-black tracking-[.1em] text-black/35">BOTÃO DIREITO = COPIAR ESTA QUESTÃO COMO IMAGEM</div>
-            <svg viewBox={`0 ${current.y} ${current.w} ${current.h}`} role="img" aria-label={`Questão ${current.number}`} className="mx-auto block h-auto w-full max-w-[760px]">
+            <svg viewBox={`0 ${current.y} ${current.w} ${current.h}`} role="img" aria-label={`Questão ${currentOriginalNumber}`} className="mx-auto block h-auto w-full max-w-[760px]">
               <image href={current.sheet} x="0" y="0" width={current.sheetW} height={current.sheetH} preserveAspectRatio="xMinYMin meet" />
             </svg>
           </div>
@@ -339,7 +342,7 @@ export function EnemQuestionSnapshotViewer({
             <button type="button" disabled={index === 0} onClick={() => setIndex((value) => Math.max(0, value - 1))} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/[.10] px-4 text-[9px] font-black text-white/55 disabled:opacity-25">
               <ChevronLeft size={17} /> ANTERIOR
             </button>
-            <div className="hidden text-center text-[8px] font-black tracking-[.1em] text-white/30 sm:block">SELECIONE O NÚMERO ACIMA OU USE AS SETAS · A ORDEM DA AULA É CONTÍNUA</div>
+            <div className="hidden text-center text-[8px] font-black tracking-[.1em] text-white/30 sm:block">SELETOR = NUMERAÇÃO ORIGINAL DA LISTA · USE AS SETAS PARA NAVEGAR ENTRE AS QUESTÕES DA AULA</div>
             <button type="button" disabled={index >= questions.length - 1} onClick={() => setIndex((value) => Math.min(questions.length - 1, value + 1))} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/[.10] px-4 text-[9px] font-black text-white/55 disabled:opacity-25">
               PRÓXIMA <ChevronRight size={17} />
             </button>
