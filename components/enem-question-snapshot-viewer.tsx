@@ -39,6 +39,26 @@ type EnemQuestionSnapshotViewerProps = {
   context?: "lesson" | "revision";
 };
 
+function groupQuestionsBySection(questions: EnemQuestionSnapshot[]) {
+  const groups: Array<{ section: string; items: Array<{ question: EnemQuestionSnapshot; index: number }> }> = [];
+  const groupIndex = new Map<string, number>();
+
+  questions.forEach((question, index) => {
+    const section = String(question.section || "Questões").trim() || "Questões";
+    const existingIndex = groupIndex.get(section);
+
+    if (existingIndex === undefined) {
+      groupIndex.set(section, groups.length);
+      groups.push({ section, items: [{ question, index }] });
+      return;
+    }
+
+    groups[existingIndex].items.push({ question, index });
+  });
+
+  return groups;
+}
+
 export function EnemQuestionSnapshotViewer({
   subjectSlug,
   lessonSlug,
@@ -58,7 +78,6 @@ export function EnemQuestionSnapshotViewer({
 
   const [questions, setQuestions] = useState<EnemQuestionSnapshot[]>([]);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
-  const [lessonNumberById, setLessonNumberById] = useState<Record<string, number>>({});
   const [index, setIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -93,16 +112,20 @@ export function EnemQuestionSnapshotViewer({
         );
       }
 
+      const uniquePrintedNumbers = new Set(
+        lessonQuestions.map((question) => `${question.section}::${question.number}`),
+      );
+      if (uniquePrintedNumbers.size !== lessonQuestions.length) {
+        throw new Error(
+          `Lista de ${lessonTitle} tem numeração impressa duplicada dentro da mesma seção. Corrija o pacote antes de estudar.`,
+        );
+      }
+
       if (expectedLessonCount > 0 && lessonQuestions.length !== expectedLessonCount) {
         throw new Error(
           `LISTA INCOMPLETA: ${lessonTitle} deveria ter ${expectedLessonCount} questões, mas foram carregadas ${lessonQuestions.length}. Corrija o pacote antes de estudar para não pular nenhuma questão.`,
         );
       }
-
-      const nextLessonNumberById = Object.fromEntries(
-        lessonQuestions.map((question, questionIndex) => [question.id, questionIndex + 1]),
-      );
-      setLessonNumberById(nextLessonNumberById);
 
       const sourceSeed = lessonQuestions[0] ?? null;
       if (sourceSeed) {
@@ -117,7 +140,6 @@ export function EnemQuestionSnapshotViewer({
       }
 
       let saved = new Set<string>();
-
       if (auth.user) {
         const { data, error } = await supabase
           .from("user_enem_saved_questions")
@@ -140,7 +162,6 @@ export function EnemQuestionSnapshotViewer({
       setErrorMessage(null);
     } catch (error) {
       setQuestions([]);
-      setLessonNumberById({});
       setSourceAudit(null);
       setErrorMessage(
         error instanceof Error
@@ -174,11 +195,7 @@ export function EnemQuestionSnapshotViewer({
   const current = questions[index] ?? null;
   const isSaved = current ? savedIds.has(current.id) : false;
   const sourceInfo = current ? getEnemQuestionSourceInfo(current) : null;
-  const currentLessonNumber = current
-    ? lessonNumberById[current.id] ?? index + 1
-    : index + 1;
-  const currentOriginalNumber = sourceInfo?.position ?? current?.number ?? currentLessonNumber;
-  const fullLessonCount = expectedLessonCount || sourceAudit?.total || questions.length;
+  const pickerGroups = useMemo(() => groupQuestionsBySection(questions), [questions]);
 
   async function toggleSaved() {
     if (!current || saving) return;
@@ -320,10 +337,10 @@ export function EnemQuestionSnapshotViewer({
       : "LISTA VISUAL · SALVE O QUE QUER REVER";
 
   const description = savedOnly
-    ? "Estas são as questões que você marcou durante o estudo. O número mostrado continua sendo o número absoluto da questão dentro da lista da aula."
+    ? "O número exibido é sempre o mesmo número que está impresso na imagem original da questão."
     : context === "revision"
-      ? "A lista da aula mantém numeração absoluta e contínua: se ela possui 50 questões, o seletor mostra obrigatoriamente 1 até 50, sem pular nenhum número."
-      : "Numeração absoluta da aula: se esta lista possui 50 questões, ela vai de 1 até 50 sem lacunas. Use as setas ou escolha diretamente o número desejado.";
+      ? "A lista da revisão preserva exatamente a numeração impressa nas imagens. Se a imagem diz Questão 13, o seletor também mostra 13."
+      : "A numeração do seletor é a numeração impressa na própria imagem. Nenhuma questão é renumerada artificialmente ao separar P1 e P2.";
 
   return (
     <div
@@ -362,7 +379,7 @@ export function EnemQuestionSnapshotViewer({
         {sourceAudit ? (
           <div className="mt-4 flex flex-wrap items-center gap-2 rounded-2xl border border-emerald-400/15 bg-emerald-400/[.045] px-4 py-3 text-[9px] font-black tracking-[.06em] text-emerald-200/80">
             <CheckCircle2 size={14} className="text-emerald-300" />
-            LISTA DA AULA COMPLETA · {sourceAudit.loaded}/{sourceAudit.total} QUESTÕES · NUMERAÇÃO 1–{sourceAudit.total} · {sourceAudit.label.toUpperCase()}
+            QUANTIDADE CONFERIDA · {sourceAudit.loaded}/{sourceAudit.total} QUESTÕES NESTA AULA · NÚMERO = O MESMO IMPRESSO NA IMAGEM · {sourceAudit.label.toUpperCase()}
           </div>
         ) : null}
       </section>
@@ -384,14 +401,14 @@ export function EnemQuestionSnapshotViewer({
           <Images className="mx-auto text-white/25" size={30} />
           <h2 className="mt-4 font-serif text-2xl text-[var(--ink)]">
             {errorMessage
-              ? "A lista foi bloqueada porque está incompleta."
+              ? "A lista foi bloqueada porque está incompleta ou inconsistente."
               : savedOnly
                 ? "Nenhuma questão salva nesta aula."
                 : "Lista visual ainda não instalada."}
           </h2>
           <p className="mx-auto mt-2 max-w-xl text-xs leading-6 text-[var(--muted)]">
             {errorMessage
-              ? "Não vou esconder nem pular questões silenciosamente. A lista só abre quando a quantidade carregada bater exatamente com a quantidade cadastrada para a aula."
+              ? "A lista só abre quando a quantidade e a identificação das questões estiverem coerentes."
               : savedOnly
                 ? "Quando você salvar uma questão durante a lista, ela aparece aqui automaticamente na revisão."
                 : "Quando o pacote visual desta aula estiver instalado, as questões aparecem aqui automaticamente, inclusive dentro da revisão."}
@@ -405,13 +422,11 @@ export function EnemQuestionSnapshotViewer({
                 {current.section}
               </span>
               <strong className="mt-1 block text-sm text-white">
-                Questão {currentLessonNumber} de {fullLessonCount}
+                Questão {current.number}
               </strong>
-              {sourceInfo ? (
-                <span className="mt-1 block text-[8px] font-bold text-white/30">
-                  REFERÊNCIA NO MATERIAL ORIGINAL · {currentOriginalNumber}/{sourceInfo.total} · {sourceInfo.label.toUpperCase()}
-                </span>
-              ) : null}
+              <span className="mt-1 block text-[8px] font-bold text-white/30">
+                POSIÇÃO {index + 1} DE {questions.length} NESTA AULA{sourceInfo ? ` · ${sourceInfo.label.toUpperCase()}` : ""}
+              </span>
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -421,11 +436,7 @@ export function EnemQuestionSnapshotViewer({
                 onClick={() => void copyCurrentQuestionImage()}
                 className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-cyan-300/20 bg-cyan-300/[.05] px-4 text-[9px] font-black tracking-[.08em] text-cyan-200 transition hover:border-cyan-200/35 disabled:opacity-50"
               >
-                {copying ? (
-                  <LoaderCircle size={15} className="animate-spin" />
-                ) : (
-                  <Copy size={15} />
-                )}
+                {copying ? <LoaderCircle size={15} className="animate-spin" /> : <Copy size={15} />}
                 COPIAR IMAGEM
               </button>
 
@@ -472,45 +483,51 @@ export function EnemQuestionSnapshotViewer({
                     IR DIRETO PARA
                   </span>
                   <strong className="mt-1 block text-sm text-white">
-                    Selecione o número da questão da aula
+                    Selecione o número exatamente como aparece na imagem
                   </strong>
                   <span className="mt-1 block text-[8px] font-bold text-white/30">
-                    {savedOnly
-                      ? "QUESTÕES SALVAS MANTÊM O NÚMERO ABSOLUTO DA LISTA COMPLETA"
-                      : `NUMERAÇÃO ABSOLUTA E CONTÍNUA · 1 ATÉ ${fullLessonCount} · SEM PULOS`}
+                    NÃO EXISTE MAIS RENUMERAÇÃO ARTIFICIAL ENTRE P1 E P2
                   </span>
                 </div>
                 <span className="rounded-lg border border-white/[.08] bg-white/[.03] px-2.5 py-1 text-[8px] font-black text-white/35">
-                  {savedOnly
-                    ? `${questions.length} SALVAS DE ${fullLessonCount}`
-                    : `${fullLessonCount} QUESTÕES`}
+                  {questions.length} QUESTÕES NESTA AULA
                 </span>
               </div>
 
-              <div className="mt-4 grid max-h-64 grid-cols-6 gap-2 overflow-y-auto pr-1 sm:grid-cols-10 md:grid-cols-12">
-                {questions.map((question, questionIndex) => {
-                  const active = questionIndex === index;
-                  const absoluteNumber =
-                    lessonNumberById[question.id] ?? questionIndex + 1;
-                  const pickerSource = getEnemQuestionSourceInfo(question);
-
-                  return (
-                    <button
-                      key={`${question.id}-picker`}
-                      type="button"
-                      aria-current={active ? "true" : undefined}
-                      title={`Questão ${absoluteNumber} da aula · original ${pickerSource.position}`}
-                      onClick={() => selectQuestion(questionIndex)}
-                      className={`min-h-10 rounded-lg border text-[10px] font-black transition ${
-                        active
-                          ? "border-emerald-300/55 bg-emerald-400/15 text-emerald-200 shadow-[0_0_18px_rgba(52,211,153,.08)]"
-                          : "border-white/[.09] bg-white/[.025] text-white/55 hover:border-emerald-300/30 hover:text-white"
-                      }`}
-                    >
-                      {absoluteNumber}
-                    </button>
-                  );
-                })}
+              <div className="mt-4 max-h-72 space-y-4 overflow-y-auto pr-1">
+                {pickerGroups.map((group) => (
+                  <div key={`picker-section-${group.section}`}>
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <span className="text-[8px] font-black tracking-[.12em] text-white/35">
+                        {group.section.toUpperCase()}
+                      </span>
+                      <span className="text-[8px] font-bold text-white/25">
+                        {group.items.length} QUESTÕES
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-6 gap-2 sm:grid-cols-10 md:grid-cols-12">
+                      {group.items.map(({ question, index: questionIndex }) => {
+                        const active = questionIndex === index;
+                        return (
+                          <button
+                            key={`${question.id}-picker`}
+                            type="button"
+                            aria-current={active ? "true" : undefined}
+                            title={`${group.section} · Questão ${question.number}`}
+                            onClick={() => selectQuestion(questionIndex)}
+                            className={`min-h-10 rounded-lg border text-[10px] font-black transition ${
+                              active
+                                ? "border-emerald-300/55 bg-emerald-400/15 text-emerald-200 shadow-[0_0_18px_rgba(52,211,153,.08)]"
+                                : "border-white/[.09] bg-white/[.025] text-white/55 hover:border-emerald-300/30 hover:text-white"
+                            }`}
+                          >
+                            {question.number}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           ) : null}
@@ -529,7 +546,7 @@ export function EnemQuestionSnapshotViewer({
             <svg
               viewBox={`0 ${current.y} ${current.w} ${current.h}`}
               role="img"
-              aria-label={`Questão ${currentLessonNumber} de ${fullLessonCount}`}
+              aria-label={`${current.section} · Questão ${current.number}`}
               className="mx-auto block h-auto w-full max-w-[760px]"
             >
               <image
@@ -554,7 +571,7 @@ export function EnemQuestionSnapshotViewer({
             </button>
 
             <div className="hidden text-center text-[8px] font-black tracking-[.1em] text-white/30 sm:block">
-              LISTA DA AULA = 1 ATÉ {fullLessonCount} SEM PULOS · USE O SELETOR OU AS SETAS
+              NÚMERO DO SELETOR = NÚMERO IMPRESSO NA IMAGEM · SEM RENUMERAÇÃO
             </div>
 
             <button
