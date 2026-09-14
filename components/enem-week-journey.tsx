@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { EnemDailySideQuests } from "@/components/enem-daily-side-quests";
 import type { WeekJourneyMission } from "@/components/week-journey";
+import { getEnemLessonScope } from "@/lib/enem-lesson-scope";
 
 export type EnemWeekJourneyMission = WeekJourneyMission & {
   studyDay?: number;
@@ -29,11 +30,21 @@ function missionPlanDate(mission: EnemWeekJourneyMission) {
   }
 }
 
+function missionSubjectSlug(mission: EnemWeekJourneyMission) {
+  try {
+    const parts = new URL(mission.href, "https://mentoriatita.local").pathname.split("/").filter(Boolean);
+    const enemIndex = parts.indexOf("enem");
+    return enemIndex >= 0 ? parts[enemIndex + 2] ?? "" : "";
+  } catch {
+    return "";
+  }
+}
+
 function buildSerpentinePath(count: number, mobile = false) {
   if (count <= 0) return "";
   const leftX = mobile ? 370 : 230;
   const rightX = mobile ? 630 : 770;
-  const stepY = 260;
+  const stepY = 300;
   const firstY = 42;
   let d = `M ${leftX} ${firstY}`;
   for (let index = 1; index < count; index += 1) {
@@ -118,8 +129,8 @@ export function EnemWeekJourney({
           <div>
             <span className="inline-flex items-center gap-2 rounded-full border border-white/[.11] bg-white/[.045] px-3 py-1.5 text-[8px] font-black tracking-[.16em] text-white/65"><Flag size={13} /> ENEM 40 DIAS · SEMANA {String(weekNumber).padStart(2, "0")}</span>
             <h2 className="mt-5 max-w-3xl font-serif text-4xl leading-[.95] tracking-[-.04em] text-white sm:text-5xl">Sua Semana {weekNumber} está pronta.</h2>
-            <p className="mt-4 max-w-2xl text-xs leading-6 text-white/42">{title || "A plataforma já organizou a sequência da semana."} A partir do Dia 2, cada dia também recebe dois textos obrigatórios de Inglês e uma leitura de Redação Nota Mil.</p>
-            <div className="mt-6 flex flex-wrap gap-3 text-[8px] font-black tracking-[.11em] text-white/38"><span>{missions.length} MISSÕES</span><span>•</span><span>3 LEITURAS DIÁRIAS EXTRAS</span></div>
+            <p className="mt-4 max-w-2xl text-xs leading-6 text-white/42">{title || "A plataforma já organizou a sequência da semana."} Cada missão agora mostra também o escopo exato daquela parte, para você não precisar adivinhar o que entra em P1, P2 ou P3. A partir do Dia 2, entram ainda dois textos de Inglês e uma Redação Nota Mil.</p>
+            <div className="mt-6 flex flex-wrap gap-3 text-[8px] font-black tracking-[.11em] text-white/38"><span>{missions.length} MISSÕES</span><span>•</span><span>ESCOPO EXATO EM CADA AULA</span></div>
             <button type="button" onClick={() => { window.localStorage.setItem(storageKey, "1"); setStarted(true); }} className="tita-primary-button mt-7 min-w-[210px]"><Play size={15} fill="currentColor" /> INICIAR SEMANA {weekNumber}</button>
           </div>
           <div className="rounded-[26px] border border-white/[.08] bg-black/25 p-5">
@@ -133,8 +144,8 @@ export function EnemWeekJourney({
     );
   }
 
-  const rowHeight = 260;
-  const trackHeight = Math.max(rowHeight, 42 + (missions.length - 1) * rowHeight + 210);
+  const rowHeight = 300;
+  const trackHeight = Math.max(rowHeight, 42 + (missions.length - 1) * rowHeight + 230);
   const desktopPath = buildSerpentinePath(missions.length, false);
   const mobilePath = buildSerpentinePath(missions.length, true);
 
@@ -145,7 +156,7 @@ export function EnemWeekJourney({
         <div>
           <span className="tita-kicker">ENEM 40 DIAS · SEMANA {String(weekNumber).padStart(2, "0")}</span>
           <h2 className="mt-2 font-serif text-4xl tracking-[-.035em] text-white">Trilha da semana</h2>
-          <p className="mt-2 max-w-2xl text-[10px] leading-5 text-white/34">As matérias seguem pela trilha principal. Desde o Dia 2, Inglês 1/2, Inglês 2/2 e Redação Nota Mil saem em ramificações menores nas laterais.</p>
+          <p className="mt-2 max-w-2xl text-[10px] leading-5 text-white/34">Agora cada card diz exatamente o que estudar naquela parte. Nada de “continuação” solta: P1/P2/P3 mostram o conteúdo real do bloco. Inglês e Redação continuam nas ramificações laterais.</p>
         </div>
         <div className="min-w-[210px]">
           <div className="flex items-center justify-between text-[8px] font-black tracking-[.1em] text-white/35"><span>{completed}/{missions.length} MISSÕES</span><span>{progress}%</span></div>
@@ -171,9 +182,10 @@ export function EnemWeekJourney({
             const showDailyBranch = Boolean(mission.studyDay && mission.studyDay >= 2 && mission.studyDay !== previousDay);
             const branchSide = leftSide ? "right" : "left";
             const branchActive = dayDueNow(mission.studyDay);
+            const exactScope = getEnemLessonScope(mission.studyDay, missionSubjectSlug(mission));
 
             return (
-              <div key={mission.id} className="relative flex min-h-[260px] flex-col items-stretch pt-4 sm:block">
+              <div key={mission.id} className="relative flex min-h-[300px] flex-col items-stretch pt-4 sm:block">
                 {showDailyBranch ? (
                   <>
                     <svg className="pointer-events-none absolute inset-0 z-0 hidden h-[230px] w-full sm:block" viewBox="0 0 1000 230" preserveAspectRatio="none" aria-hidden="true">
@@ -204,14 +216,20 @@ export function EnemWeekJourney({
                     {done ? <Check size={16} strokeWidth={3} /> : active ? <Play size={13} fill="currentColor" /> : <span className="font-serif text-sm">{index + 1}</span>}
                   </span>
 
-                  <div className="relative flex min-h-[205px] flex-col justify-end p-5 pt-9 sm:p-6 sm:pt-10">
+                  <div className="relative flex min-h-[245px] flex-col justify-end p-5 pt-9 sm:p-6 sm:pt-10">
                     <div className="mb-auto flex items-start justify-between gap-3">
                       <span className="rounded-full border border-white/[.12] bg-black/35 px-2.5 py-1 text-[7px] font-black tracking-[.13em] text-white/68 backdrop-blur-md">{mission.shortName}</span>
                       <span className={`rounded-full border px-2.5 py-1 text-[7px] font-black tracking-[.1em] ${active ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-200" : done ? "border-violet-300/25 bg-violet-300/[.08] text-violet-200" : "border-white/[.08] bg-black/20 text-white/30"}`}>{active ? "HOJE" : done ? "CONCLUÍDA" : "OUTRO DIA"}</span>
                     </div>
                     <span className={`text-[8px] font-black tracking-[.13em] ${active ? "text-emerald-200/55" : done ? "text-violet-200/55" : "text-white/28"}`}>MISSÃO {String(index + 1).padStart(2, "0")}{mission.studyDay ? ` · DIA ${mission.studyDay}` : mission.dayLabel ? ` · ${mission.dayLabel}` : ""}</span>
                     <h3 className="mt-1 font-serif text-2xl leading-tight text-white sm:text-3xl">{mission.subject}</h3>
-                    <p className="mt-2 line-clamp-2 text-[10px] leading-5 text-white/45">{mission.lessonTitle}</p>
+                    <p className="mt-2 text-[10px] font-bold leading-5 text-white/60">{mission.lessonTitle}</p>
+                    {exactScope ? (
+                      <div className={`mt-2 rounded-xl border px-3 py-2.5 ${active ? "border-emerald-300/15 bg-emerald-300/[.055]" : done ? "border-violet-300/15 bg-violet-300/[.05]" : "border-white/[.07] bg-black/20"}`}>
+                        <span className={`block text-[7px] font-black tracking-[.13em] ${active ? "text-emerald-200/65" : done ? "text-violet-200/65" : "text-white/32"}`}>ESTUDAR NESTA PARTE</span>
+                        <p className="mt-1 text-[9px] leading-[1.55] text-white/48">{exactScope}</p>
+                      </div>
+                    ) : null}
                     <MissionStages mission={mission} dueNow={active} />
                     <span className={`mt-4 inline-flex items-center gap-2 text-[8px] font-black tracking-[.1em] ${active ? "text-emerald-200" : done ? "text-violet-200/80" : "text-white/50"}`}>ABRIR MISSÃO <ArrowRight size={12} /></span>
                   </div>
