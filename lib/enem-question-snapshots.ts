@@ -3,6 +3,7 @@ export type EnemQuestionSnapshot = {
   number: number;
   section: string;
   lessonKey: string;
+  textPreview?: string;
   x?: number;
   y: number;
   h: number;
@@ -87,12 +88,7 @@ function suffixNumber(id: string) {
 
 export function getEnemQuestionSourceInfo(question: EnemQuestionSnapshot): EnemQuestionSourceInfo {
   if (question.id.startsWith("razao-")) {
-    return {
-      source: "razao",
-      label: "Lista de Razão",
-      total: 80,
-      position: question.number,
-    };
+    return { source: "razao", label: "Lista de Razão", total: 80, position: question.number };
   }
 
   if (question.id.startsWith("sep-desafio-")) {
@@ -168,9 +164,31 @@ export function sortEnemQuestionSnapshots(items: EnemQuestionSnapshot[]) {
 
 function assertExactSequence(items: EnemQuestionSnapshot[], expected: number[], label: string) {
   const numbers = items.map((item) => item.number).sort((a, b) => a - b);
-  const valid = numbers.length === expected.length && numbers.every((value, index) => value === expected[index]);
+  const valid =
+    numbers.length === expected.length &&
+    numbers.every((value, index) => value === expected[index]);
+
   if (!valid) {
-    throw new Error(`Pacote de ${label} incompleto ou fora de ordem. Atualize os arquivos das questões.`);
+    throw new Error(
+      `Pacote de ${label} incompleto ou fora de ordem. Atualize os arquivos das questões.`,
+    );
+  }
+}
+
+function assertPrintedNumberMatchesManifest(items: EnemQuestionSnapshot[]) {
+  for (const item of items) {
+    const preview = String(item.textPreview ?? "").trim();
+    if (!preview) continue;
+
+    const match = preview.match(/Quest(?:ão|ao)\s*0*(\d+)/i);
+    if (!match) continue;
+
+    const printedNumber = Number(match[1]);
+    if (printedNumber !== item.number) {
+      throw new Error(
+        `Numeração inconsistente em ${item.id}: a imagem/texto indica Questão ${printedNumber}, mas o manifesto aponta ${item.number}. A lista foi bloqueada para evitar questão trocada.`,
+      );
+    }
   }
 }
 
@@ -184,26 +202,57 @@ export function validateEnemQuestionSnapshotManifest(items: EnemQuestionSnapshot
   const cinematicaQueda = items.filter((item) => item.id.startsWith("cin1-queda-"));
 
   if (razao.length) {
-    assertExactSequence(razao, Array.from({ length: 80 }, (_, index) => index + 1), "Razão");
+    assertExactSequence(
+      razao,
+      Array.from({ length: 80 }, (_, index) => index + 1),
+      "Razão",
+    );
   }
 
   if (separacaoMain.length || separacaoDesafios.length) {
-    assertExactSequence(separacaoMain, Array.from({ length: 135 }, (_, index) => index + 1), "Separação de Misturas");
-    assertExactSequence(separacaoDesafios, Array.from({ length: 15 }, (_, index) => index + 1), "Desafios de Separação de Misturas");
+    assertExactSequence(
+      separacaoMain,
+      Array.from({ length: 135 }, (_, index) => index + 1),
+      "Separação de Misturas",
+    );
+    assertExactSequence(
+      separacaoDesafios,
+      Array.from({ length: 15 }, (_, index) => index + 1),
+      "Desafios de Separação de Misturas",
+    );
   }
 
   if (cinematicaFund.length || cinematicaMu.length || cinematicaMuv.length || cinematicaQueda.length) {
-    assertExactSequence(cinematicaFund, Array.from({ length: 20 }, (_, index) => index + 1), "Cinemática I · Fundamentos");
-    assertExactSequence(cinematicaMu, Array.from({ length: 40 }, (_, index) => index + 1), "Cinemática I · Movimento Uniforme");
-    assertExactSequence(cinematicaMuv, Array.from({ length: 50 }, (_, index) => index + 1), "Cinemática I · MUV");
-    assertExactSequence(cinematicaQueda, Array.from({ length: 20 }, (_, index) => index + 1), "Cinemática I · Queda Livre/Lançamento Vertical");
+    assertExactSequence(
+      cinematicaFund,
+      Array.from({ length: 20 }, (_, index) => index + 1),
+      "Cinemática I · Fundamentos",
+    );
+    assertExactSequence(
+      cinematicaMu,
+      Array.from({ length: 40 }, (_, index) => index + 1),
+      "Cinemática I · Movimento Uniforme",
+    );
+    assertExactSequence(
+      cinematicaMuv,
+      Array.from({ length: 50 }, (_, index) => index + 1),
+      "Cinemática I · MUV",
+    );
+    assertExactSequence(
+      cinematicaQueda,
+      Array.from({ length: 20 }, (_, index) => index + 1),
+      "Cinemática I · Queda Livre/Lançamento Vertical",
+    );
   }
 
   const uniqueIds = new Set(items.map((item) => item.id));
   if (uniqueIds.size !== items.length) {
-    throw new Error("Pacote de questões contém imagens duplicadas. Atualize os arquivos das questões.");
+    throw new Error(
+      "Pacote de questões contém imagens duplicadas. Atualize os arquivos das questões.",
+    );
   }
 
+  assertPrintedNumberMatchesManifest(items);
   return true;
 }
 
