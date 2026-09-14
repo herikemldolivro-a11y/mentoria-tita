@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { EnemLessonJourney } from "@/components/enem-lesson-journey";
 import { EnemLessonResourceGuide } from "@/components/enem-lesson-resource-guide";
 import { EnemLessonWorkflow } from "@/components/enem-lesson-workflow";
+import { EnemVideoWatchGuide } from "@/components/enem-video-watch-guide";
 import { LessonJourney, type LessonStageId } from "@/components/lesson-journey";
 import { PrfLessonWorkflow } from "@/components/prf-lesson-workflow";
 import type { MatrixLesson, PrfSubject } from "@/lib/prf-week-one";
@@ -38,6 +39,7 @@ export function LessonStageExperience({
 
   return (
     <>
+      {trackingOnly ? <EnemVideoWatchGuide subject={subject} lesson={lesson} /> : null}
       {trackingOnly ? <EnemLessonResourceGuide subject={subject} lesson={lesson} /> : null}
 
       {trackingOnly ? (
