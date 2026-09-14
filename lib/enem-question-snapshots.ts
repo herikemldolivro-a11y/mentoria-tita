@@ -13,7 +13,7 @@ export type EnemQuestionSnapshot = {
 };
 
 export type EnemQuestionSourceInfo = {
-  source: "razao" | "separacao" | "unknown";
+  source: "razao" | "separacao" | "cinematica-i" | "unknown";
   label: string;
   total: number;
   position: number;
@@ -37,6 +37,11 @@ export function resolveEnemSnapshotLessonKey(subjectSlug: string, lessonTitle: s
     if (title.includes("separacao de misturas p2")) return "quimica:separacao-misturas-p2";
   }
 
+  if (subject === "fisica") {
+    if (title.includes("cinematica i p1")) return "fisica:cinematica-i-p1";
+    if (title.includes("cinematica i p2")) return "fisica:cinematica-i-p2";
+  }
+
   if (subject === "matematica") {
     if (title === "razao") return "matematica:razao";
     if (title.includes("proporcao") && title.includes("grandezas")) return "matematica:proporcao-grandezas";
@@ -56,6 +61,8 @@ export function resolveEnemSnapshotLessonKey(subjectSlug: string, lessonTitle: s
 const counts: Record<string, number> = {
   "quimica:separacao-misturas-p1": 40,
   "quimica:separacao-misturas-p2": 110,
+  "fisica:cinematica-i-p1": 60,
+  "fisica:cinematica-i-p2": 70,
   "matematica:razao": 28,
   "matematica:proporcao-grandezas": 17,
   "matematica:regra-tres-simples": 15,
@@ -71,6 +78,11 @@ const counts: Record<string, number> = {
 export function getEnemSnapshotCount(subjectSlug: string, lessonTitle: string) {
   const key = resolveEnemSnapshotLessonKey(subjectSlug, lessonTitle);
   return key ? counts[key] ?? 0 : 0;
+}
+
+function suffixNumber(id: string) {
+  const value = Number(id.match(/(\d+)$/)?.[1] ?? 0);
+  return Number.isFinite(value) ? value : 0;
 }
 
 export function getEnemQuestionSourceInfo(question: EnemQuestionSnapshot): EnemQuestionSourceInfo {
@@ -98,6 +110,42 @@ export function getEnemQuestionSourceInfo(question: EnemQuestionSnapshot): EnemQ
       label: "Separação de Misturas",
       total: 150,
       position: question.number,
+    };
+  }
+
+  if (question.id.startsWith("cin1-fund-")) {
+    return {
+      source: "cinematica-i",
+      label: "Cinemática I · P1/P2",
+      total: 130,
+      position: suffixNumber(question.id),
+    };
+  }
+
+  if (question.id.startsWith("cin1-mu-")) {
+    return {
+      source: "cinematica-i",
+      label: "Cinemática I · P1/P2",
+      total: 130,
+      position: 20 + suffixNumber(question.id),
+    };
+  }
+
+  if (question.id.startsWith("cin1-muv-")) {
+    return {
+      source: "cinematica-i",
+      label: "Cinemática I · P1/P2",
+      total: 130,
+      position: 60 + suffixNumber(question.id),
+    };
+  }
+
+  if (question.id.startsWith("cin1-queda-")) {
+    return {
+      source: "cinematica-i",
+      label: "Cinemática I · P1/P2",
+      total: 130,
+      position: 110 + suffixNumber(question.id),
     };
   }
 
@@ -130,27 +178,52 @@ export function validateEnemQuestionSnapshotManifest(items: EnemQuestionSnapshot
   const razao = items.filter((item) => item.id.startsWith("razao-"));
   const separacaoMain = items.filter((item) => /^sep-\d+$/.test(item.id));
   const separacaoDesafios = items.filter((item) => item.id.startsWith("sep-desafio-"));
+  const cinematicaFund = items.filter((item) => item.id.startsWith("cin1-fund-"));
+  const cinematicaMu = items.filter((item) => item.id.startsWith("cin1-mu-"));
+  const cinematicaMuv = items.filter((item) => item.id.startsWith("cin1-muv-"));
+  const cinematicaQueda = items.filter((item) => item.id.startsWith("cin1-queda-"));
 
-  assertExactSequence(razao, Array.from({ length: 80 }, (_, index) => index + 1), "Razão");
-  assertExactSequence(separacaoMain, Array.from({ length: 135 }, (_, index) => index + 1), "Separação de Misturas");
-  assertExactSequence(separacaoDesafios, Array.from({ length: 15 }, (_, index) => index + 1), "Desafios de Separação de Misturas");
+  if (razao.length) {
+    assertExactSequence(razao, Array.from({ length: 80 }, (_, index) => index + 1), "Razão");
+  }
+
+  if (separacaoMain.length || separacaoDesafios.length) {
+    assertExactSequence(separacaoMain, Array.from({ length: 135 }, (_, index) => index + 1), "Separação de Misturas");
+    assertExactSequence(separacaoDesafios, Array.from({ length: 15 }, (_, index) => index + 1), "Desafios de Separação de Misturas");
+  }
+
+  if (cinematicaFund.length || cinematicaMu.length || cinematicaMuv.length || cinematicaQueda.length) {
+    assertExactSequence(cinematicaFund, Array.from({ length: 20 }, (_, index) => index + 1), "Cinemática I · Fundamentos");
+    assertExactSequence(cinematicaMu, Array.from({ length: 40 }, (_, index) => index + 1), "Cinemática I · Movimento Uniforme");
+    assertExactSequence(cinematicaMuv, Array.from({ length: 50 }, (_, index) => index + 1), "Cinemática I · MUV");
+    assertExactSequence(cinematicaQueda, Array.from({ length: 20 }, (_, index) => index + 1), "Cinemática I · Queda Livre/Lançamento Vertical");
+  }
 
   const uniqueIds = new Set(items.map((item) => item.id));
   if (uniqueIds.size !== items.length) {
     throw new Error("Pacote de questões contém imagens duplicadas. Atualize os arquivos das questões.");
   }
 
-  if (razao.length !== 80 || separacaoMain.length + separacaoDesafios.length !== 150) {
-    throw new Error("A quantidade de imagens não confere com as listas originais.");
-  }
-
   return true;
 }
 
+async function loadManifest(path: string) {
+  const response = await fetch(path, { cache: "no-store" });
+  if (!response.ok) return [] as EnemQuestionSnapshot[];
+  return (await response.json()) as EnemQuestionSnapshot[];
+}
+
 export async function loadEnemQuestionSnapshotManifest() {
-  const response = await fetch("/question-sheets/questions.json", { cache: "no-store" });
-  if (!response.ok) throw new Error("Pacote visual das questões ainda não foi instalado.");
-  const manifest = (await response.json()) as EnemQuestionSnapshot[];
+  const manifests = await Promise.all([
+    loadManifest("/question-sheets/questions.json"),
+    loadManifest("/question-sheets/cinematica-i/cinematica-i.json"),
+  ]);
+
+  const manifest = manifests.flat();
+  if (!manifest.length) {
+    throw new Error("Pacote visual das questões ainda não foi instalado.");
+  }
+
   validateEnemQuestionSnapshotManifest(manifest);
   return sortEnemQuestionSnapshots(manifest);
 }
