@@ -192,6 +192,59 @@ function assertPrintedNumberMatchesManifest(items: EnemQuestionSnapshot[]) {
   }
 }
 
+function normalizeLessonAssignments(items: EnemQuestionSnapshot[]) {
+  return items.map((item) => {
+    if (/^sep-\d+$/.test(item.id)) {
+      return {
+        ...item,
+        lessonKey:
+          item.number <= 40
+            ? "quimica:separacao-misturas-p1"
+            : "quimica:separacao-misturas-p2",
+      };
+    }
+
+    if (item.id.startsWith("sep-desafio-")) {
+      return {
+        ...item,
+        lessonKey: "quimica:separacao-misturas-p2",
+      };
+    }
+
+    return item;
+  });
+}
+
+function assertSeparationSplit(items: EnemQuestionSnapshot[]) {
+  const p1Main = items.filter(
+    (item) => /^sep-\d+$/.test(item.id) && item.lessonKey === "quimica:separacao-misturas-p1",
+  );
+  const p2Main = items.filter(
+    (item) => /^sep-\d+$/.test(item.id) && item.lessonKey === "quimica:separacao-misturas-p2",
+  );
+  const p2Challenges = items.filter(
+    (item) => item.id.startsWith("sep-desafio-") && item.lessonKey === "quimica:separacao-misturas-p2",
+  );
+
+  if (p1Main.length || p2Main.length || p2Challenges.length) {
+    assertExactSequence(
+      p1Main,
+      Array.from({ length: 40 }, (_, index) => index + 1),
+      "Separação de Misturas P1 (Questões 1–40)",
+    );
+    assertExactSequence(
+      p2Main,
+      Array.from({ length: 95 }, (_, index) => index + 41),
+      "Separação de Misturas P2 (Questões 41–135)",
+    );
+    assertExactSequence(
+      p2Challenges,
+      Array.from({ length: 15 }, (_, index) => index + 1),
+      "Desafios de Separação de Misturas P2 (1–15)",
+    );
+  }
+}
+
 export function validateEnemQuestionSnapshotManifest(items: EnemQuestionSnapshot[]) {
   const razao = items.filter((item) => item.id.startsWith("razao-"));
   const separacaoMain = items.filter((item) => /^sep-\d+$/.test(item.id));
@@ -253,6 +306,7 @@ export function validateEnemQuestionSnapshotManifest(items: EnemQuestionSnapshot
   }
 
   assertPrintedNumberMatchesManifest(items);
+  assertSeparationSplit(items);
   return true;
 }
 
@@ -268,11 +322,12 @@ export async function loadEnemQuestionSnapshotManifest() {
     loadManifest("/question-sheets/cinematica-i/cinematica-i.json"),
   ]);
 
-  const manifest = manifests.flat();
-  if (!manifest.length) {
+  const rawManifest = manifests.flat();
+  if (!rawManifest.length) {
     throw new Error("Pacote visual das questões ainda não foi instalado.");
   }
 
+  const manifest = normalizeLessonAssignments(rawManifest);
   validateEnemQuestionSnapshotManifest(manifest);
   return sortEnemQuestionSnapshots(manifest);
 }
