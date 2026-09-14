@@ -4,6 +4,7 @@ import { ArrowRight, BookmarkCheck, Images, LoaderCircle } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { EnemQuestionSnapshotViewer } from "@/components/enem-question-snapshot-viewer";
+import { EnemQuestionSourceIndex } from "@/components/enem-question-source-index";
 import { getEnemSnapshotCount } from "@/lib/enem-question-snapshots";
 import { loadRevisionEvent } from "@/lib/study-database";
 import { createClient } from "@/lib/supabase/client";
@@ -87,7 +88,7 @@ export function RevisionEnemSavedQuestions({ revisionId }: { revisionId: string 
               <h2 className="mt-1 font-serif text-2xl text-[var(--ink)]">A lista da aula também fica disponível na revisão.</h2>
               <p className="mt-1 max-w-3xl text-[10px] leading-5 text-[var(--muted)]">
                 {state.snapshotCount > 0
-                  ? `Esta aula possui ${state.snapshotCount} questões visuais classificadas. Você pode navegar por todas aqui embaixo e usar Selecionar questão para ir direto ao número desejado.`
+                  ? `Esta aula possui ${state.snapshotCount} questões visuais classificadas. O índice completo da lista original aparece logo abaixo para você conferir também as questões que pertencem a outras partes.`
                   : "Esta revisão já está preparada para receber a lista visual desta aula. Quando o pacote de questões do assunto for instalado, ele aparece aqui automaticamente, sem precisar alterar a tela de revisão."}
               </p>
             </div>
@@ -102,13 +103,19 @@ export function RevisionEnemSavedQuestions({ revisionId }: { revisionId: string 
       </div>
 
       {state.snapshotCount > 0 ? (
-        <EnemQuestionSnapshotViewer
-          subjectSlug={state.subjectSlug}
-          lessonSlug={state.lessonSlug}
-          lessonTitle={state.lessonTitle}
-          embedded
-          context="revision"
-        />
+        <>
+          <EnemQuestionSourceIndex
+            subjectSlug={state.subjectSlug}
+            lessonTitle={state.lessonTitle}
+          />
+          <EnemQuestionSnapshotViewer
+            subjectSlug={state.subjectSlug}
+            lessonSlug={state.lessonSlug}
+            lessonTitle={state.lessonTitle}
+            embedded
+            context="revision"
+          />
+        </>
       ) : (
         <div className="rounded-[24px] border border-dashed border-white/10 bg-white/[.02] p-6 text-center">
           <Images className="mx-auto text-white/20" size={28} />
