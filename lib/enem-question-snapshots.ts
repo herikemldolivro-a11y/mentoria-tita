@@ -11,6 +11,13 @@ export type EnemQuestionSnapshot = {
   sheetH: number;
 };
 
+export type EnemQuestionSourceInfo = {
+  source: "razao" | "separacao" | "unknown";
+  label: string;
+  total: number;
+  position: number;
+};
+
 function normalized(value: string) {
   return value
     .normalize("NFD")
@@ -65,8 +72,84 @@ export function getEnemSnapshotCount(subjectSlug: string, lessonTitle: string) {
   return key ? counts[key] ?? 0 : 0;
 }
 
+export function getEnemQuestionSourceInfo(question: EnemQuestionSnapshot): EnemQuestionSourceInfo {
+  if (question.id.startsWith("razao-")) {
+    return {
+      source: "razao",
+      label: "Lista de Razão",
+      total: 80,
+      position: question.number,
+    };
+  }
+
+  if (question.id.startsWith("sep-desafio-")) {
+    return {
+      source: "separacao",
+      label: "Separação de Misturas",
+      total: 150,
+      position: 135 + question.number,
+    };
+  }
+
+  if (question.id.startsWith("sep-")) {
+    return {
+      source: "separacao",
+      label: "Separação de Misturas",
+      total: 150,
+      position: question.number,
+    };
+  }
+
+  return {
+    source: "unknown",
+    label: "Lista original",
+    total: 0,
+    position: question.number,
+  };
+}
+
+export function sortEnemQuestionSnapshots(items: EnemQuestionSnapshot[]) {
+  return [...items].sort((a, b) => {
+    const sourceA = getEnemQuestionSourceInfo(a);
+    const sourceB = getEnemQuestionSourceInfo(b);
+    if (sourceA.source !== sourceB.source) return sourceA.source.localeCompare(sourceB.source);
+    return sourceA.position - sourceB.position;
+  });
+}
+
+function assertExactSequence(items: EnemQuestionSnapshot[], expected: number[], label: string) {
+  const numbers = items.map((item) => item.number).sort((a, b) => a - b);
+  const valid = numbers.length === expected.length && numbers.every((value, index) => value === expected[index]);
+  if (!valid) {
+    throw new Error(`Pacote de ${label} incompleto ou fora de ordem. Atualize os arquivos das questões.`);
+  }
+}
+
+export function validateEnemQuestionSnapshotManifest(items: EnemQuestionSnapshot[]) {
+  const razao = items.filter((item) => item.id.startsWith("razao-"));
+  const separacaoMain = items.filter((item) => /^sep-\d+$/.test(item.id));
+  const separacaoDesafios = items.filter((item) => item.id.startsWith("sep-desafio-"));
+
+  assertExactSequence(razao, Array.from({ length: 80 }, (_, index) => index + 1), "Razão");
+  assertExactSequence(separacaoMain, Array.from({ length: 135 }, (_, index) => index + 1), "Separação de Misturas");
+  assertExactSequence(separacaoDesafios, Array.from({ length: 15 }, (_, index) => index + 1), "Desafios de Separação de Misturas");
+
+  const uniqueIds = new Set(items.map((item) => item.id));
+  if (uniqueIds.size !== items.length) {
+    throw new Error("Pacote de questões contém imagens duplicadas. Atualize os arquivos das questões.");
+  }
+
+  if (razao.length !== 80 || separacaoMain.length + separacaoDesafios.length !== 150) {
+    throw new Error("A quantidade de imagens não confere com as listas originais.");
+  }
+
+  return true;
+}
+
 export async function loadEnemQuestionSnapshotManifest() {
   const response = await fetch("/question-sheets/questions.json", { cache: "no-store" });
   if (!response.ok) throw new Error("Pacote visual das questões ainda não foi instalado.");
-  return (await response.json()) as EnemQuestionSnapshot[];
+  const manifest = (await response.json()) as EnemQuestionSnapshot[];
+  validateEnemQuestionSnapshotManifest(manifest);
+  return sortEnemQuestionSnapshots(manifest);
 }
