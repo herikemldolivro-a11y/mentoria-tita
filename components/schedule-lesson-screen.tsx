@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { BackButton } from "@/components/back-button";
 import { LessonStageExperience } from "@/components/lesson-stage-experience";
+import { getEnemLessonScope } from "@/lib/enem-lesson-scope";
 import { loadScheduleWeek } from "@/lib/schedule-server";
 
 function priorityPresentation(priority: string | null) {
@@ -28,6 +29,7 @@ export async function ScheduleLessonScreen({ weekNumber, subjectSlug, lessonSlug
   }
 
   const priority = priorityPresentation(lesson.priority);
+  const explicitScope = trackingOnly ? getEnemLessonScope(weekNumber, subject.slug) : null;
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 pb-24 pt-7 sm:px-6 sm:pt-9">
@@ -54,6 +56,14 @@ export async function ScheduleLessonScreen({ weekNumber, subjectSlug, lessonSlug
             ? "Este plano serve como painel de execução: veja exatamente o que estudar na sua plataforma externa, registre teoria e questões aqui e siga para revisão e nivelamento."
             : "Siga a trilha: apenas o passo que precisa ser feito agora fica verde. Clique nele para abrir o conteúdo da etapa."}
         </p>
+
+        {explicitScope ? (
+          <div className="mt-5 max-w-4xl rounded-[20px] border border-emerald-400/20 bg-emerald-400/[.055] p-4 sm:p-5">
+            <span className="text-[8px] font-black tracking-[.15em] text-emerald-300">ESTUDE EXATAMENTE ISTO NESTA PARTE</span>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[var(--ink)]">{explicitScope}</p>
+            <p className="mt-2 text-[10px] leading-5 text-[var(--muted)]">Use este escopo para escolher a videoaula correta. P1, P2 e P3 não significam “continuação genérica”: cada parte tem o conteúdo delimitado acima.</p>
+          </div>
+        ) : null}
       </header>
 
       <div className="mt-7">
@@ -69,7 +79,7 @@ export async function ScheduleLessonScreen({ weekNumber, subjectSlug, lessonSlug
             id: lesson.position,
             slug: lesson.slug,
             title: lesson.title,
-            topics: lesson.topics,
+            topics: explicitScope ? [explicitScope] : lesson.topics,
             priority: (lesson.priority || "Alta") as never,
             weekOne: weekNumber === 1,
             questionCount: lesson.questionCount,
