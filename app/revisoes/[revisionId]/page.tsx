@@ -1,5 +1,6 @@
 import { BackButton } from "@/components/back-button";
 import { PageShell } from "@/components/page-shell";
+import { RevisionEnemSavedQuestions } from "@/components/revision-enem-saved-questions";
 import { RevisionNotes } from "@/components/revision-notes";
 import { RevisionPendingQuestions } from "@/components/revision-pending-questions";
 import { RevisionSession } from "@/components/revision-session";
@@ -15,6 +16,7 @@ export default async function RevisionPage({ params }: { params: Promise<{ revis
         <div className="mt-5">
           <RevisionStudyTools revisionId={revisionId} />
           <RevisionNotes revisionId={revisionId} />
+          <RevisionEnemSavedQuestions revisionId={revisionId} />
           <RevisionPendingQuestions revisionId={revisionId} />
           <RevisionSession revisionId={revisionId} />
         </div>
