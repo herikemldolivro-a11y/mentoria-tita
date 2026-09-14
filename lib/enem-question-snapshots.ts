@@ -3,6 +3,7 @@ export type EnemQuestionSnapshot = {
   number: number;
   section: string;
   lessonKey: string;
+  x?: number;
   y: number;
   h: number;
   w: number;
