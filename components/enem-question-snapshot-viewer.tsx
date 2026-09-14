@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Bookmark, BookmarkCheck, CheckCircle2, ChevronLeft, ChevronRight, Copy, Images, LoaderCircle } from "lucide-react";
+import { ArrowLeft, Bookmark, BookmarkCheck, CheckCircle2, ChevronLeft, ChevronRight, Copy, Images, ListOrdered, LoaderCircle } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -18,17 +18,23 @@ type SourceAudit = {
   total: number;
 };
 
+type EnemQuestionSnapshotViewerProps = {
+  subjectSlug: string;
+  lessonSlug: string;
+  lessonTitle: string;
+  savedOnly?: boolean;
+  embedded?: boolean;
+  context?: "lesson" | "revision";
+};
+
 export function EnemQuestionSnapshotViewer({
   subjectSlug,
   lessonSlug,
   lessonTitle,
   savedOnly = false,
-}: {
-  subjectSlug: string;
-  lessonSlug: string;
-  lessonTitle: string;
-  savedOnly?: boolean;
-}) {
+  embedded = false,
+  context = "lesson",
+}: EnemQuestionSnapshotViewerProps) {
   const lessonKey = useMemo(() => resolveEnemSnapshotLessonKey(subjectSlug, lessonTitle), [subjectSlug, lessonTitle]);
   const [questions, setQuestions] = useState<EnemQuestionSnapshot[]>([]);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
@@ -36,6 +42,7 @@ export function EnemQuestionSnapshotViewer({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [copying, setCopying] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
   const [sourceAudit, setSourceAudit] = useState<SourceAudit | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -82,6 +89,7 @@ export function EnemQuestionSnapshotViewer({
       setSavedIds(saved);
       setQuestions(visible);
       setIndex((current) => Math.min(current, Math.max(visible.length - 1, 0)));
+      setPickerOpen(false);
       setErrorMessage(null);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Não foi possível carregar as questões desta aula.");
@@ -98,6 +106,7 @@ export function EnemQuestionSnapshotViewer({
     function handleKey(event: KeyboardEvent) {
       if (event.key === "ArrowLeft") setIndex((value) => Math.max(0, value - 1));
       if (event.key === "ArrowRight") setIndex((value) => Math.min(questions.length - 1, value + 1));
+      if (event.key === "Escape") setPickerOpen(false);
     }
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
@@ -171,12 +180,12 @@ export function EnemQuestionSnapshotViewer({
       const canvas = document.createElement("canvas");
       canvas.width = current.w;
       canvas.height = current.h;
-      const context = canvas.getContext("2d");
-      if (!context) throw new Error("Não foi possível preparar a imagem desta questão.");
+      const context2d = canvas.getContext("2d");
+      if (!context2d) throw new Error("Não foi possível preparar a imagem desta questão.");
 
-      context.fillStyle = "#ffffff";
-      context.fillRect(0, 0, canvas.width, canvas.height);
-      context.drawImage(
+      context2d.fillStyle = "#ffffff";
+      context2d.fillRect(0, 0, canvas.width, canvas.height);
+      context2d.drawImage(
         image,
         current.x ?? 0,
         current.y,
@@ -205,22 +214,39 @@ export function EnemQuestionSnapshotViewer({
     }
   }
 
+  function selectQuestion(questionIndex: number) {
+    setIndex(questionIndex);
+    setPickerOpen(false);
+  }
+
   if (loading) {
     return <div className="grid min-h-[420px] place-items-center"><LoaderCircle className="animate-spin text-violet-300" size={26} /></div>;
   }
 
-  return (
-    <div className="mx-auto w-full max-w-5xl px-4 pb-24 pt-7 sm:px-6">
-      <Link href="javascript:history.back()" onClick={(event) => { event.preventDefault(); history.back(); }} className="inline-flex min-h-10 items-center gap-2 text-[9px] font-black tracking-[.1em] text-[var(--muted)]">
-        <ArrowLeft size={15} /> VOLTAR PARA A AULA
-      </Link>
+  const eyebrow = savedOnly
+    ? "REVISÃO · QUESTÕES SALVAS"
+    : context === "revision"
+      ? "REVISÃO · LISTA COMPLETA DA AULA"
+      : "LISTA VISUAL · SALVE O QUE QUER REVER";
 
-      <section className="mt-4 rounded-[30px] border border-violet-400/20 bg-[radial-gradient(circle_at_90%_0%,rgba(139,92,246,.16),transparent_35%),var(--surface)] p-5 sm:p-7">
-        <span className="text-[9px] font-black tracking-[.16em] text-violet-300">{savedOnly ? "REVISÃO · QUESTÕES SALVAS" : "LISTA VISUAL · SALVE O QUE QUER REVER"}</span>
+  const description = savedOnly
+    ? "Estas são as questões que você marcou durante o estudo. Use as setas ou selecione diretamente o número que quer rever."
+    : context === "revision"
+      ? "A mesma lista visual da aula fica disponível dentro da revisão. Use Selecionar questão para ir direto ao número desejado, sem passar uma por uma."
+      : "Uma questão por vez, recortada diretamente da lista original. Use as setas, selecione diretamente o número desejado e marque com o favorito as questões que precisam reaparecer na revisão desta aula.";
+
+  return (
+    <div className={embedded ? "w-full" : "mx-auto w-full max-w-5xl px-4 pb-24 pt-7 sm:px-6"}>
+      {!embedded ? (
+        <Link href="javascript:history.back()" onClick={(event) => { event.preventDefault(); history.back(); }} className="inline-flex min-h-10 items-center gap-2 text-[9px] font-black tracking-[.1em] text-[var(--muted)]">
+          <ArrowLeft size={15} /> VOLTAR PARA A AULA
+        </Link>
+      ) : null}
+
+      <section className={`${embedded ? "mt-0" : "mt-4"} rounded-[30px] border border-violet-400/20 bg-[radial-gradient(circle_at_90%_0%,rgba(139,92,246,.16),transparent_35%),var(--surface)] p-5 sm:p-7`}>
+        <span className="text-[9px] font-black tracking-[.16em] text-violet-300">{eyebrow}</span>
         <h1 className="mt-2 font-serif text-3xl text-[var(--ink)] sm:text-4xl">{lessonTitle}</h1>
-        <p className="mt-2 max-w-3xl text-xs leading-6 text-[var(--muted)]">
-          Uma questão por vez, recortada diretamente da lista original. Use as setas e marque com o favorito as questões que precisam reaparecer na revisão desta aula.
-        </p>
+        <p className="mt-2 max-w-3xl text-xs leading-6 text-[var(--muted)]">{description}</p>
 
         {sourceAudit ? (
           <div className="mt-4 flex flex-wrap items-center gap-2 rounded-2xl border border-emerald-400/15 bg-emerald-400/[.045] px-4 py-3 text-[9px] font-black tracking-[.06em] text-emerald-200/80">
@@ -238,7 +264,7 @@ export function EnemQuestionSnapshotViewer({
           <Images className="mx-auto text-white/25" size={30} />
           <h2 className="mt-4 font-serif text-2xl text-[var(--ink)]">{savedOnly ? "Nenhuma questão salva nesta aula." : "Lista visual ainda não instalada."}</h2>
           <p className="mx-auto mt-2 max-w-xl text-xs leading-6 text-[var(--muted)]">
-            {savedOnly ? "Quando você salvar uma questão durante a lista, ela aparece aqui automaticamente na revisão." : "Instale o pacote de snapshots desta lista para abrir os recortes originais questão por questão."}
+            {savedOnly ? "Quando você salvar uma questão durante a lista, ela aparece aqui automaticamente na revisão." : "Quando o pacote visual desta aula estiver instalado, as questões aparecem aqui automaticamente, inclusive dentro da revisão."}
           </p>
         </section>
       ) : (
@@ -257,12 +283,43 @@ export function EnemQuestionSnapshotViewer({
               <button type="button" disabled={copying} onClick={() => void copyCurrentQuestionImage()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-cyan-300/20 bg-cyan-300/[.05] px-4 text-[9px] font-black tracking-[.08em] text-cyan-200 transition hover:border-cyan-200/35 disabled:opacity-50">
                 {copying ? <LoaderCircle size={15} className="animate-spin" /> : <Copy size={15} />} COPIAR IMAGEM
               </button>
+              <button type="button" onClick={() => setPickerOpen((value) => !value)} aria-expanded={pickerOpen} className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 text-[9px] font-black tracking-[.08em] transition ${pickerOpen ? "border-emerald-300/35 bg-emerald-400/10 text-emerald-200" : "border-emerald-300/20 bg-emerald-300/[.05] text-emerald-200 hover:border-emerald-200/35"}`}>
+                <ListOrdered size={15} /> SELECIONAR QUESTÃO
+              </button>
               <button type="button" disabled={saving} onClick={() => void toggleSaved()} className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 text-[9px] font-black tracking-[.08em] transition ${isSaved ? "border-violet-300/35 bg-violet-400/10 text-violet-200" : "border-white/[.12] bg-white/[.035] text-white/65 hover:border-violet-300/30"}`}>
                 {saving ? <LoaderCircle size={15} className="animate-spin" /> : isSaved ? <BookmarkCheck size={15} /> : <Bookmark size={15} />}
                 {isSaved ? "SALVA PARA REVISÃO" : "SALVAR PARA REVISÃO"}
               </button>
             </div>
           </header>
+
+          {pickerOpen ? (
+            <div className="border-b border-white/[.07] bg-[#0d0f12] p-4 sm:p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <span className="text-[8px] font-black tracking-[.14em] text-emerald-300">IR DIRETO PARA</span>
+                  <strong className="mt-1 block text-sm text-white">Selecione o número da questão</strong>
+                </div>
+                <span className="rounded-lg border border-white/[.08] bg-white/[.03] px-2.5 py-1 text-[8px] font-black text-white/35">{questions.length} QUESTÕES</span>
+              </div>
+              <div className="mt-4 grid max-h-56 grid-cols-6 gap-2 overflow-y-auto pr-1 sm:grid-cols-10 md:grid-cols-12">
+                {questions.map((question, questionIndex) => {
+                  const active = questionIndex === index;
+                  return (
+                    <button
+                      key={`${question.id}-picker`}
+                      type="button"
+                      aria-current={active ? "true" : undefined}
+                      onClick={() => selectQuestion(questionIndex)}
+                      className={`min-h-10 rounded-lg border text-[10px] font-black transition ${active ? "border-emerald-300/55 bg-emerald-400/15 text-emerald-200 shadow-[0_0_18px_rgba(52,211,153,.08)]" : "border-white/[.09] bg-white/[.025] text-white/55 hover:border-emerald-300/30 hover:text-white"}`}
+                    >
+                      {questionIndex + 1}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
 
           <div
             className="select-none bg-white p-3 sm:p-6"
@@ -282,7 +339,7 @@ export function EnemQuestionSnapshotViewer({
             <button type="button" disabled={index === 0} onClick={() => setIndex((value) => Math.max(0, value - 1))} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/[.10] px-4 text-[9px] font-black text-white/55 disabled:opacity-25">
               <ChevronLeft size={17} /> ANTERIOR
             </button>
-            <div className="hidden text-center text-[8px] font-black tracking-[.1em] text-white/30 sm:block">ORDEM DA AULA É CONTÍNUA · O Nº ORIGINAL PODE PULAR QUANDO A QUESTÃO FOI CLASSIFICADA EM OUTRA AULA</div>
+            <div className="hidden text-center text-[8px] font-black tracking-[.1em] text-white/30 sm:block">SELECIONE O NÚMERO ACIMA OU USE AS SETAS · A ORDEM DA AULA É CONTÍNUA</div>
             <button type="button" disabled={index >= questions.length - 1} onClick={() => setIndex((value) => Math.min(questions.length - 1, value + 1))} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/[.10] px-4 text-[9px] font-black text-white/55 disabled:opacity-25">
               PRÓXIMA <ChevronRight size={17} />
             </button>
