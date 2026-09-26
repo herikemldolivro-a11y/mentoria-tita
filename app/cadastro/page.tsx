@@ -6,7 +6,7 @@ import { RegistrationForm } from "@/components/registration-form";
 
 export const metadata: Metadata = {
   title: "Criar conta | Mentoria Titã",
-  description: "Cadastro de aluno por código de acesso.",
+  description: "Cadastro de aluno da Mentoria Titã.",
 };
 
 export const dynamic = "force-dynamic";
@@ -26,8 +26,8 @@ export default function CadastroPage() {
           <section>
             <span className="tita-kicker">ACESSO À MENTORIA</span>
             <h1 className="mt-4 max-w-2xl font-serif text-5xl leading-[.94] tracking-[-.045em] sm:text-6xl">Crie sua conta e monte sua trilha.</h1>
-            <p className="mt-5 max-w-xl text-sm leading-7 text-white/43">O cadastro exige um código liberado pela equipe. Depois, você escolhe o concurso, informa sua carga diária e a plataforma organiza o cronograma individual.</p>
-            <div className="mt-7 flex max-w-lg items-start gap-3 rounded-2xl border border-white/[.07] bg-white/[.02] p-4 text-[10px] leading-5 text-white/38"><ShieldCheck size={18} className="mt-0.5 shrink-0 text-[var(--tita-accent)]" /> O código é validado no banco e tem limite de uso. Não é possível criar conta pública sem convite válido.</div>
+            <p className="mt-5 max-w-xl text-sm leading-7 text-white/43">Crie sua conta com nome, e-mail e senha. Depois, você escolhe o concurso, informa sua carga diária e a plataforma organiza o cronograma individual.</p>
+            <div className="mt-7 flex max-w-lg items-start gap-3 rounded-2xl border border-white/[.07] bg-white/[.02] p-4 text-[10px] leading-5 text-white/38"><ShieldCheck size={18} className="mt-0.5 shrink-0 text-[var(--tita-accent)]" /> Use o mesmo e-mail utilizado na compra para manter seu acesso organizado na Mentoria Titã.</div>
           </section>
 
           <section className="tita-panel-strong rounded-[28px] p-5 sm:p-7">
