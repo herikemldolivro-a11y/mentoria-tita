@@ -1,12 +1,14 @@
 "use client";
 
-import { AlertCircle, CheckCircle2, LoaderCircle, LockKeyhole } from "lucide-react";
+import { AlertCircle, CheckCircle2, LoaderCircle, LockKeyhole, Mail } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export function AccountActivationForm() {
   const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [authorizedEmail, setAuthorizedEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [checkingSession, setCheckingSession] = useState(true);
@@ -19,7 +21,11 @@ export function AccountActivationForm() {
 
     async function checkSession() {
       const { data } = await supabase.auth.getSession();
+      const sessionEmail = data.session?.user.email?.trim().toLowerCase() ?? "";
+
       setHasSession(Boolean(data.session));
+      setAuthorizedEmail(sessionEmail);
+      setEmail(sessionEmail);
       setCheckingSession(false);
     }
 
@@ -29,7 +35,10 @@ export function AccountActivationForm() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
+        const sessionEmail = session.user.email?.trim().toLowerCase() ?? "";
         setHasSession(true);
+        setAuthorizedEmail(sessionEmail);
+        setEmail(sessionEmail);
         setCheckingSession(false);
       }
     });
@@ -42,6 +51,13 @@ export function AccountActivationForm() {
     if (loading) return;
 
     setErrorMessage(null);
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail || normalizedEmail !== authorizedEmail) {
+      setErrorMessage("Use o mesmo e-mail informado na compra da Mentoria Titã.");
+      return;
+    }
 
     if (password.length < 8) {
       setErrorMessage("Sua senha precisa ter pelo menos 8 caracteres.");
@@ -57,14 +73,25 @@ export function AccountActivationForm() {
 
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.updateUser({ password });
+
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData.user || userData.user.email?.trim().toLowerCase() !== normalizedEmail) {
+        throw new Error("E-mail não autorizado.");
+      }
+
+      const { error } = await supabase.auth.updateUser({
+        password,
+        data: {
+          activation_source: "hotmart",
+        },
+      });
 
       if (error) throw error;
 
       router.replace("/primeiro-acesso");
       router.refresh();
     } catch {
-      setErrorMessage("Não foi possível ativar sua conta. Abra novamente o link enviado para o seu e-mail.");
+      setErrorMessage("Não foi possível ativar sua conta. Abra novamente o link enviado para o e-mail usado na compra.");
     } finally {
       setLoading(false);
     }
@@ -95,13 +122,19 @@ export function AccountActivationForm() {
 
   return (
     <form className="mt-6 space-y-4" onSubmit={submit}>
+      <EmailField
+        value={email}
+        onChange={setEmail}
+      />
+
       <PasswordField
-        label="Nova senha"
+        label="Criar senha"
         value={password}
         onChange={setPassword}
         autoComplete="new-password"
         placeholder="Mínimo de 8 caracteres"
       />
+
       <PasswordField
         label="Confirmar senha"
         value={confirmPassword}
@@ -118,15 +151,41 @@ export function AccountActivationForm() {
       ) : (
         <div className="flex items-start gap-2 rounded-xl border border-emerald-400/15 bg-emerald-400/[.05] px-4 py-3 text-[10px] leading-5 text-emerald-100/65">
           <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
-          Seu acesso foi validado. Defina sua senha para continuar.
+          E-mail da compra validado. A senha criada aqui será a senha de acesso da sua conta Titã.
         </div>
       )}
 
       <button type="submit" disabled={loading} className="tita-primary-button w-full">
         {loading ? <LoaderCircle className="animate-spin" size={16} /> : null}
-        {loading ? "ATIVANDO..." : "ATIVAR MINHA CONTA"}
+        {loading ? "CRIANDO ACESSO..." : "CRIAR MEU ACESSO"}
       </button>
     </form>
+  );
+}
+
+function EmailField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-[8px] font-black tracking-[.12em] text-white/42">E-MAIL USADO NA COMPRA</span>
+      <span className="flex min-h-12 items-center gap-3 rounded-xl border border-white/[.09] bg-white/[.025] px-3 text-white/65 focus-within:border-white/[.2] focus-within:bg-white/[.04]">
+        <Mail size={16} className="shrink-0 text-[var(--tita-accent-dim)]" />
+        <input
+          className="min-w-0 flex-1 bg-transparent py-3 text-sm text-white outline-none placeholder:text-white/22"
+          type="email"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="voce@email.com"
+          autoComplete="email"
+          required
+        />
+      </span>
+    </label>
   );
 }
 
