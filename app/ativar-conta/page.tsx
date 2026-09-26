@@ -36,7 +36,7 @@ export default function AtivarContaPage() {
               Ative sua conta e comece sua preparação.
             </h1>
             <p className="mt-5 max-w-xl text-sm leading-7 text-white/43">
-              Se sua compra foi aprovada, este link confirma seu acesso à Mentoria Titã. Crie sua senha e siga para o primeiro acesso.
+              Se sua compra foi aprovada, confirme o e-mail usado na Hotmart, crie sua senha da Titã e siga para o primeiro acesso.
             </p>
 
             <div className="mt-7 flex max-w-lg items-start gap-3 rounded-2xl border border-white/[.07] bg-white/[.02] p-4 text-[10px] leading-5 text-white/38">
@@ -49,7 +49,7 @@ export default function AtivarContaPage() {
             <span className="tita-kicker">PRIMEIRO ACESSO</span>
             <h2 className="mt-2 font-serif text-3xl">Crie sua senha</h2>
             <p className="mt-2 text-xs leading-6 text-white/38">
-              Use uma senha exclusiva para sua conta Titã.
+              Use o mesmo e-mail da compra e crie uma senha exclusiva para sua conta Titã.
             </p>
             <AccountActivationForm />
           </section>
