@@ -26,7 +26,7 @@ export function DynamicOnboarding({ contests, displayName, initialContestSlug }:
   const initialIndex = initialContestSlug ? 1 : 0;
   const [step, setStep] = useState(initialIndex);
   const [contestSlug, setContestSlug] = useState(initialContestSlug ?? contests[0]?.slug ?? "");
-  const [dailyMinutes, setDailyMinutes] = useState(240);
+  const [dailyMinutes, setDailyMinutes] = useState(360);
   const [weights, setWeights] = useState<Record<string, number>>({});
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -38,7 +38,7 @@ export function DynamicOnboarding({ contests, displayName, initialContestSlug }:
     return Object.fromEntries(contest.subjects.map((subject) => [subject.slug, weights[subject.slug] ?? subject.recommendedWeight]));
   }, [contest, weights]);
 
-  const projectedWeeks = dailyMinutes <= 240 ? 12 : dailyMinutes <= 360 ? 8 : 6;
+  const lessonsPerDay = dailyMinutes < 240 ? 2 : dailyMinutes < 360 ? 3 : 4;
 
   function updateWeight(subject: OnboardingSubject, value: number) {
     setWeights((current) => ({ ...current, [subject.slug]: value }));
@@ -143,7 +143,7 @@ export function DynamicOnboarding({ contests, displayName, initialContestSlug }:
             <section>
               <span className="tita-kicker">PASSO 02 · CARGA DIÁRIA</span>
               <h2 className="mt-2 font-serif text-3xl text-white sm:text-4xl">Quanto tempo você consegue estudar por dia?</h2>
-              <p className="mt-3 max-w-2xl text-xs leading-6 text-white/43">A carga aceita vai de 2 a 8 horas. O sistema distribui teoria, questões e pausas dentro desse limite.</p>
+              <p className="mt-3 max-w-2xl text-xs leading-6 text-white/43">A carga aceita vai de 2 a 8 horas. A quantidade de aulas por dia é automática e o restante avança para os dias seguintes.</p>
               <div className="mt-7 grid gap-4 lg:grid-cols-[1fr_270px]">
                 <div className="rounded-[24px] border border-white/[.08] bg-white/[.02] p-5 sm:p-6">
                   <div className="flex items-end justify-between gap-4"><span className="flex items-center gap-2 text-[9px] font-black tracking-[.12em] text-white/42"><Clock3 size={15} /> TEMPO POR DIA</span><strong className="font-serif text-4xl text-white">{dailyMinutes / 60}h</strong></div>
@@ -153,8 +153,8 @@ export function DynamicOnboarding({ contests, displayName, initialContestSlug }:
                 <div className="rounded-[24px] border border-white/[.09] bg-white/[.035] p-5">
                   <Gauge size={20} className="text-[var(--tita-accent)]" />
                   <span className="mt-4 block text-[8px] font-black tracking-[.13em] text-white/35">PROJEÇÃO INICIAL</span>
-                  <strong className="mt-1 block font-serif text-3xl text-white">{projectedWeeks} semanas</strong>
-                  <p className="mt-2 text-[9px] leading-5 text-white/32">A duração real pode ajustar um pouco conforme a quantidade de aulas da matriz.</p>
+                  <strong className="mt-1 block font-serif text-3xl text-white">{lessonsPerDay} aulas/dia</strong>
+                  <p className="mt-2 text-[9px] leading-5 text-white/32">2–3h = 2 aulas · 4–5h = 3 aulas · 6h+ = 4 aulas. O excedente passa automaticamente para os próximos dias.</p>
                 </div>
               </div>
             </section>

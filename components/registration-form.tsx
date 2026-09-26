@@ -25,14 +25,20 @@ export function RegistrationForm() {
     try {
       const supabase = createClient();
       const cleanCode = code.trim().toUpperCase();
-      const { data: validCode, error: validationError } = await supabase.rpc("validate_registration_code", { p_code: cleanCode });
+      const normalizedEmail = email.trim().toLowerCase();
+
+      const { data: validCode, error: validationError } = await supabase.rpc(
+        "validate_registration_code",
+        { p_code: cleanCode },
+      );
+
       if (validationError || validCode !== true) {
         setErrorMessage("Código de acesso inválido, expirado ou já utilizado.");
         return;
       }
 
       const { data, error } = await supabase.auth.signUp({
-        email: email.trim().toLowerCase(),
+        email: normalizedEmail,
         password,
         options: {
           data: {
@@ -44,13 +50,33 @@ export function RegistrationForm() {
       });
 
       if (error) throw error;
-      if (data.session) {
-        router.replace("/onboarding");
-        router.refresh();
-        return;
+      if (!data.user) throw new Error("Conta criada sem usuário retornado.");
+
+      if (!data.session) {
+        const { data: confirmed, error: confirmError } = await supabase.rpc(
+          "confirm_registration_with_code",
+          {
+            p_user_id: data.user.id,
+            p_email: normalizedEmail,
+            p_code: cleanCode,
+          },
+        );
+
+        if (confirmError || confirmed !== true) {
+          throw new Error("Não foi possível liberar a conta com o código informado.");
+        }
+
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: normalizedEmail,
+          password,
+        });
+
+        if (signInError) throw signInError;
       }
 
-      setSuccessMessage("Conta criada. Confirme o e-mail para entrar e montar sua trilha.");
+      router.replace("/onboarding");
+      router.refresh();
+      return;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Não foi possível criar sua conta.";
       if (/Código de acesso/i.test(message)) setErrorMessage(message);
@@ -60,7 +86,6 @@ export function RegistrationForm() {
       setLoading(false);
     }
   }
-
   return (
     <form className="mt-6 space-y-4" onSubmit={submit}>
       <Field icon={UserRound} label="Nome" value={name} onChange={setName} type="text" placeholder="Seu nome" autoComplete="name" />
@@ -69,7 +94,6 @@ export function RegistrationForm() {
       <Field icon={KeyRound} label="Código de acesso" value={code} onChange={(value) => setCode(value.toUpperCase())} type="text" placeholder="TITA-XXXXXXXX" autoComplete="off" />
 
       {errorMessage ? <div className="flex items-start gap-2 rounded-xl border border-red-400/20 bg-red-400/[.07] px-4 py-3 text-xs text-red-200" role="alert"><AlertCircle size={16} className="mt-0.5 shrink-0" /> {errorMessage}</div> : null}
-      {successMessage ? <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/[.07] px-4 py-3 text-xs text-emerald-200">{successMessage}</div> : null}
 
       <button type="submit" disabled={loading} className="tita-primary-button w-full">
         {loading ? <LoaderCircle className="animate-spin" size={16} /> : null}

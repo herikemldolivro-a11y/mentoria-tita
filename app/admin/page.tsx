@@ -16,6 +16,7 @@ export default async function AdminPage() {
     { href: "/admin/cronograma", title: "Cronograma e Semanas", description: "Criar semanas, matérias, aulas, tópicos e importar matrizes semanais.", icon: CalendarRange },
     { href: "/admin/conteudos", title: "Conteúdos", description: "Gerenciar PDFs e materiais das aulas.", icon: FileText },
     { href: "/admin/questoes", title: "Questões", description: "Adicionar, importar e administrar o banco de questões.", icon: BookOpenCheck },
+    { href: "/admin/questoes-problemas", title: "Questões com Problemas", description: "Reportes, auditoria automática, seleção em lote e fluxo de copiar/colar correções.", icon: BookOpenCheck },
     { href: "/admin/nivelamentos", title: "Nivelamentos", description: "Definir quantidade de questões e meta de aprovação por aula.", icon: Target },
   ];
 
@@ -40,3 +41,4 @@ export default async function AdminPage() {
     </PageShell>
   );
 }
+

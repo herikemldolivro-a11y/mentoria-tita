@@ -1,0 +1,9 @@
+-- TITÃ — Calendário + completo V1
+-- Migration já aplicada ao Supabase conectado nesta sessão.
+-- Adiciona user_principal_calendar_manual_items e RPCs:
+-- mt_list_principal_calendar_manual_items
+-- mt_create_principal_calendar_manual_item
+-- mt_toggle_principal_calendar_manual_item
+-- mt_delete_principal_calendar_manual_item
+-- mt_set_principal_revision_notes
+-- mt_schedule_principal_leveling_manual

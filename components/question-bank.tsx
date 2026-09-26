@@ -1,13 +1,18 @@
 "use client";
 
 import { ChevronLeft, ChevronRight, Filter, LoaderCircle, RotateCcw, Search, SlidersHorizontal } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { QuestionCard } from "@/components/question-card";
+import { LevelingQuestionBank } from "@/components/leveling-question-bank";
+import { ReviewQuestionCard } from "@/components/review-question-card";
+import { setQuestionStarPriority } from "@/lib/starred-questions";
+import { LessonNotebookDock } from "@/components/lesson-notebook-dock";
 import {
   loadQuestionBankPage,
   loadStudyTaxonomy,
   setQuestionMark,
   submitBankAnswer,
+  submitReviewAnswer,
   type QuestionBankPage,
   type QuestionStatusFilter,
   type StudyTaxonomy,
@@ -34,6 +39,8 @@ export function QuestionBank({
   initialSubjectId?: string;
   initialLessonId?: string;
 }) {
+  const searchParams = useSearchParams();
+  const levelingAttempt = searchParams.get("levelingAttempt");
   const [taxonomy, setTaxonomy] = useState<StudyTaxonomy | null>(null);
   const [data, setData] = useState<QuestionBankPage>(emptyPage);
   const [status, setStatus] = useState<QuestionStatusFilter>(initialStatus);
@@ -48,6 +55,7 @@ export function QuestionBank({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const selectedSubject = taxonomy?.subjects.find((subject) => subject.id === subjectId) ?? null;
+  const selectedLesson = selectedSubject?.lessons.find((lesson) => lesson.id === lessonId) ?? null;
   const totalPages = Math.max(1, Math.ceil(data.total / data.page_size));
 
   useEffect(() => {
@@ -101,8 +109,32 @@ export function QuestionBank({
     return next;
   }
 
+  // MT_STAR_PRIORITY_BANK_V1
+  async function setStarPriority(questionId: string, priority: 1 | 2 | 3 | null) {
+    const next = await setQuestionStarPriority(questionId, priority);
+    setData((current) => ({
+      ...current,
+      items: current.items.map((item) => item.id === questionId ? { ...item, ...next } : item),
+    }));
+    return next;
+  }
+
+
+  if (levelingAttempt) {
+    return <LevelingQuestionBank attemptId={levelingAttempt} />;
+  }
+
   return (
     <div className="space-y-5">
+      {/* MT_NOTEBOOK_BANK_DOCK_V1 */}
+      {selectedLesson ? (
+        <LessonNotebookDock
+          lessonId={selectedLesson.id}
+          lessonTitle={selectedLesson.title}
+          subjectName={selectedSubject?.name ?? null}
+          contextLabel="BANCO DE QUESTÕES"
+        />
+      ) : null}
       <section className="overflow-hidden rounded-[24px] border border-[var(--border)] bg-[var(--surface)]">
         <button type="button" onClick={() => setFiltersOpen((value) => !value)} className="flex min-h-14 w-full items-center justify-between gap-3 border-b border-[var(--border)] bg-[#0a0b0d] px-5 text-left text-white sm:pointer-events-none">
           <span className="inline-flex items-center gap-2 text-[10px] font-black tracking-[.18em]"><SlidersHorizontal size={16} className="text-[#d2a64e]" /> FILTROS</span>
@@ -134,12 +166,13 @@ export function QuestionBank({
 
       <div className="space-y-4">
         {data.items.map((question, index) => (
-          <QuestionCard
+          <ReviewQuestionCard reviewMode={status === "review"}
             key={question.id}
             question={question}
             number={(data.page - 1) * data.page_size + index + 1}
-            onAnswer={(answer) => submitBankAnswer(question.id, answer)}
+            onAnswer={(answer) => status === "review" ? submitReviewAnswer(question.id, answer) : submitBankAnswer(question.id, answer)}
             onToggleMark={(mark, value) => toggleQuestionMark(question.id, mark, value)}
+            onSetStarPriority={(priority) => setStarPriority(question.id, priority)}
             hidePreviousResolution
           />
         ))}
@@ -159,3 +192,4 @@ export function QuestionBank({
 function FilterSelect({ label, value, onChange, options, empty, disabled = false }: { label: string; value: string; onChange: (value: string) => void; options: Array<{ value: string; label: string }>; empty: string; disabled?: boolean }) {
   return <label className="text-[9px] font-black tracking-[.13em] text-[var(--muted)]">{label}<select disabled={disabled} value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 min-h-12 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 text-sm font-semibold tracking-normal text-[var(--ink)] outline-none disabled:opacity-50"><option value="">{empty}</option>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>;
 }
+

@@ -8,7 +8,7 @@ import {
   LockKeyhole,
 } from "lucide-react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { BackButton } from "@/components/back-button";
 import { loadScheduleWeek } from "@/lib/schedule-server";
 
@@ -34,6 +34,8 @@ export async function ScheduleSubjectScreen({
   const week = await loadScheduleWeek(weekNumber);
   const subject = week?.subjects.find((item) => item.slug === subjectSlug);
   if (!week || !subject) notFound();
+  if (week.contestSlug === "cfo-pmal") redirect("/cronograma"); // MT_PMAL_SUBJECT_REDIRECT_V7
+  if (week.contestSlug === "cfo-pmal") redirect("/cronograma"); // MT_PMAL_SUBJECT_REDIRECT_V6
 
   const allDates = Array.from(new Set(week.blocks.map((block) => block.studyDate))).sort();
   const subjectBlocks = week.blocks.filter((block) => block.lessons.some((lesson) => lesson.subjectId === subject.id));

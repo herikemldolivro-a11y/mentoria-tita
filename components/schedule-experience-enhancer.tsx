@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { canRunLegacyDomEffect } from "@/lib/legacy-dom-scope";
 
 const DAY_RE=/\bDIA\s*(\d{1,3})\b/i;
 const WEEKDAY_RE=/^(segunda|terça|terca|quarta|quinta|sexta|sábado|sabado|domingo)(-feira)?$/i;
@@ -17,18 +18,27 @@ export function ScheduleExperienceEnhancer(){
   const pathname=usePathname();
   useEffect(()=>{
     let alive=true;let observer:MutationObserver|null=null;let frame=0;let previews:LessonPreview[]=[];
+    if(!pathname)return;
     const relevant=pathname.startsWith("/cronograma")||pathname.startsWith("/desempenho")||pathname.startsWith("/revisoes/");
-    if(!relevant)return;
+    if(!relevant||!canRunLegacyDomEffect(pathname))return;
+    const main=document.querySelector("main");
+    if(!main)return;
 
     async function loadPreviews(){if(!pathname.startsWith("/cronograma"))return;try{const supabase=createClient();const {data:auth}=await supabase.auth.getUser();if(!auth.user)return;const {data:profile}=await supabase.from("profiles").select("active_study_plan_id").eq("id",auth.user.id).maybeSingle();if(!profile?.active_study_plan_id)return;const {data}=await supabase.from("study_lesson_catalog").select("lesson_title,pdf_path").eq("plan_id",profile.active_study_plan_id);previews=(data??[]) as LessonPreview[];}catch{}}
 
-    function apply(){cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{const main=document.querySelector("main");if(!main)return;const all=leaves(main);const mainText=main.textContent??"";
+    function apply(){
+      if(!alive||!canRunLegacyDomEffect(pathname,main))return;
+      cancelAnimationFrame(frame);
+      frame=requestAnimationFrame(()=>{
+        if(!main||!alive||!canRunLegacyDomEffect(pathname,main))return;
+        const all=leaves(main);const mainText=main.textContent??"";
       if(pathname.startsWith("/cronograma")){
         const lessonDetailPath=/^\/cronograma\/semana-\d+\/[^/]+\/[^/]+\/?$/.test(pathname); // MT_NO_PREVIEW_ON_LESSON_DETAIL_V1
         const previewAllowed=/^\/cronograma(?:\/semana-\d+)?(?:\/[^/]+)?\/?$/.test(pathname);
         const isLessonDetail=lessonDetailPath||/ETAPA\s*0?1\s*[·•-]\s*TEORIA|Escolha como estudar esta aula/i.test(mainText);
+        const mtPmalGamified=Boolean(main.querySelector('[data-mt-pmal-gamified-path="1"]')); // MT_PMAL_KEEP_REAL_DAY_V46
         const nums=[...new Set(all.map(el=>el.textContent?.match(DAY_RE)?.[1]).filter(Boolean).map(Number))].sort((a,b)=>a-b);const local=new Map(nums.map((n,i)=>[n,i+1]));
-        for(const el of all){const text=el.textContent?.trim()??"";const m=text.match(DAY_RE);if(m){const mapped=local.get(Number(m[1]))??Number(m[1]);const cleaned=text.replace(DAY_RE,`DIA ${mapped}`).replace(DATE_RE,"").replace(/[•·|—–-]\s*$/g,"").replace(/\s{2,}/g," ").trim();if(cleaned!==text)el.textContent=cleaned;el.classList.add("mt-day-title-v18");}if(WEEKDAY_RE.test(text)){el.style.display="none";el.dataset.mtWeekdayHidden="1";}if(DATE_TEST_RE.test(text)&&!/DIA\s*\d+/i.test(text)){const cleaned=text.replace(DATE_RE,"").replace(/^\s*[•·|—–-]\s*/,"").replace(/\s{2,}/g," ").trim();if(!cleaned)el.style.display="none";else if(cleaned!==text)el.textContent=cleaned;}}
+        for(const el of all){const text=el.textContent?.trim()??"";const m=text.match(DAY_RE);if(m&&!mtPmalGamified){const mapped=local.get(Number(m[1]))??Number(m[1]);const cleaned=text.replace(DAY_RE,`DIA ${mapped}`).replace(DATE_RE,"").replace(/[•·|—–-]\s*$/g,"").replace(/\s{2,}/g," ").trim();if(cleaned!==text)el.textContent=cleaned;el.classList.add("mt-day-title-v18");}if(WEEKDAY_RE.test(text)){el.style.display="none";el.dataset.mtWeekdayHidden="1";}if(DATE_TEST_RE.test(text)&&!/DIA\s*\d+/i.test(text)){const cleaned=text.replace(DATE_RE,"").replace(/^\s*[•·|—–-]\s*/,"").replace(/\s{2,}/g," ").trim();if(!cleaned)el.style.display="none";else if(cleaned!==text)el.textContent=cleaned;}}
 
         const mtPprnCleanScreen=/PPRN|POL[IÍ]CIA PENAL RN|Pol[Ií]cia Penal RN/i.test(mainText); // MT_PPRN_NO_STRETCHED_PREVIEWS_V14
         if(isLessonDetail||mtPprnCleanScreen){main.querySelectorAll<HTMLElement>(".mt-pdf-thumb-v17,.mt-pdf-thumb-v18").forEach(el=>el.remove());main.querySelectorAll<HTMLElement>(".mt-lesson-card-v17,.mt-lesson-card-v18").forEach(el=>{el.classList.remove("mt-lesson-card-v17","mt-lesson-card-v18");el.style.paddingLeft="";el.style.paddingTop="";});}
@@ -48,7 +58,7 @@ export function ScheduleExperienceEnhancer(){
       }
     });}
 
-    void loadPreviews().finally(()=>alive&&apply());apply();const main=document.querySelector("main");if(main){observer=new MutationObserver(apply);observer.observe(main,{childList:true,subtree:true,characterData:true});}return()=>{alive=false;observer?.disconnect();cancelAnimationFrame(frame);};
+    void loadPreviews().finally(()=>alive&&apply());apply();observer=new MutationObserver(apply);observer.observe(main,{childList:true,subtree:true,characterData:true});return()=>{alive=false;observer?.disconnect();cancelAnimationFrame(frame);};
   },[pathname]);
 
   return <style>{`

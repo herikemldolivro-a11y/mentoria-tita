@@ -40,16 +40,16 @@ export default async function LessonPage({ params }: { params: Promise<{ materia
   const { subject, lesson } = result;
 
   return (
-    <PageShell>
-      <div className="mx-auto w-full max-w-6xl px-4 pb-24 pt-7 sm:px-6 sm:pt-9">
-        <BackButton fallback={`/cronograma/semana-1/${subject.slug}`} label={`Voltar para ${subject.shortName}`} />
-        <header className="mt-5 border-b border-[var(--border)] pb-7">
-          <span className="text-[10px] font-black tracking-[0.2em] text-[var(--gold-bright)]">PRF · SEMANA 1 · {subject.shortName}</span>
-          <h1 className="mt-3 max-w-4xl font-serif text-4xl leading-[.98] tracking-[-.035em] text-[var(--ink)] sm:text-6xl">Aula {String(lesson.id).padStart(2, "0")} — {lesson.title}</h1>
-          <p className="mt-4 max-w-2xl text-sm leading-7 text-[var(--muted)]">Escolha PDF da plataforma ou videoaula do seu cursinho. Depois conclua a teoria e a lista de 35 questões para liberar a próxima aula.</p>
-        </header>
-        <div className="mt-7"><PrfLessonWorkflow subject={subject} lesson={lesson} /></div>
+    <PageShell compactViewport>
+      <div data-mt-prf-lesson-v57="1" className="mx-auto flex h-auto w-full max-w-[1500px] flex-col px-3 pb-3 pt-3 sm:px-4 lg:h-screen lg:overflow-hidden">
+        <div className="shrink-0">
+          <BackButton fallback={`/cronograma/semana-1/${subject.slug}`} label={`Voltar para ${subject.shortName}`} />
+        </div>
+        <div className="mt-2 min-h-0 flex-1 lg:overflow-hidden">
+          <PrfLessonWorkflow subject={subject} lesson={lesson} contestLabel="PRF" />
+        </div>
       </div>
     </PageShell>
   );
+
 }

@@ -13,7 +13,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { getEnglishTranslation, normalizeEnglishWord } from "@/lib/english-dictionary";
 import type { EnglishReaderData, EnglishReaderQuestion, EnglishVocabularyWord } from "@/lib/english-types";
@@ -27,6 +27,8 @@ function tokenize(value: string) {
 
 export function EnglishReader({ textId }: { textId: string }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnToPmal = searchParams.get("return") === "pmal"; // MT_PMAL_ENGLISH_RETURN_V12_7
   const [data, setData] = useState<EnglishReaderData | null>(null);
   const [loading, setLoading] = useState(true);
   const [phase, setPhase] = useState<Phase>("reading");
@@ -149,8 +151,8 @@ export function EnglishReader({ textId }: { textId: string }) {
 
   return (
     <div className="mx-auto w-full max-w-[1000px] px-4 pb-24 pt-6 sm:px-6 sm:pt-8">
-      <Link href={`/ingles/semana/${data.text.week_number}`} className="inline-flex min-h-10 items-center gap-2 text-[9px] font-black text-[var(--muted)]">
-        <ArrowLeft size={15} /> SEMANA {data.text.week_number}
+      <Link href={returnToPmal ? "/cronograma" : `/ingles/semana/${data.text.week_number}`} className="inline-flex min-h-10 items-center gap-2 text-[9px] font-black text-[var(--muted)]">
+        <ArrowLeft size={15} /> {returnToPmal ? "VOLTAR AO CFO PMAL" : `SEMANA ${data.text.week_number}`}
       </Link>
 
       {errorMessage ? <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-xs text-red-400">{errorMessage}</div> : null}

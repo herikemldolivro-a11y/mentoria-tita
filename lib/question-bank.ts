@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/client";
 
 export type QuestionType = "true_false" | "multiple_choice";
-export type QuestionOrigin = "bank" | "lesson_list" | "leveling" | "list_review";
+export type QuestionOrigin = "bank" | "lesson_list" | "leveling" | "list_review" | "review";
 export type QuestionStatusFilter = "all" | "resolved" | "unresolved" | "correct" | "incorrect" | "starred" | "review";
 export type QuestionChoiceMap = Record<string, string>;
 
@@ -28,12 +28,27 @@ export type BankQuestion = {
   explanation: string | null;
   starred: boolean;
   saved_for_review: boolean;
+  star_priority?: 1 | 2 | 3 | null;
+  star_hidden?: boolean;
+  star_correct_streak?: number;
+  star_has_error?: boolean;
+  review_last_reviewed_at: string | null;
+  review_last_result: boolean | null;
 };
 
 export type QuestionResult = {
   is_correct: boolean;
   correct_answer: string;
   explanation: string | null;
+  leveling?: boolean;
+  leveling_reset?: boolean;
+  next_attempt_id?: string | null;
+  block_answered?: number;
+  block_errors?: number;
+  remaining_in_block?: number;
+  required_correct?: number;
+  block_complete?: boolean;
+  block_passed?: boolean;
 };
 
 export type QuestionBankPage = {
@@ -171,6 +186,17 @@ export async function submitBankAnswer(questionId: string, answer: string) {
   return data as QuestionResult;
 }
 
+export async function submitReviewAnswer(questionId: string, answer: string) {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("submit_question_answer", {
+    p_question_id: questionId,
+    p_answer: answer,
+    p_origin: "review",
+  });
+  if (error) throw error;
+  return data as QuestionResult;
+}
+
 export async function setQuestionMark(questionId: string, mark: "starred" | "review", value: boolean) {
   const supabase = createClient();
   const { data, error } = await supabase.rpc("set_question_mark", {
@@ -286,5 +312,125 @@ export async function finalizeLevelingAttempt(attemptId: string) {
     passed: boolean;
     round: number;
     percentage: number;
+  };
+}
+
+export async function excludeQuestionForUser(questionId: string) {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("exclude_question_for_user", {
+    p_question_id: questionId,
+  });
+
+  if (error) throw error;
+
+  return data as {
+    ok: boolean;
+    question_id: string;
+    excluded: boolean;
+    attempt_changed: boolean;
+    replaced_attempts: number;
+    removed_attempts: number;
+  };
+}
+
+
+
+export type QuestionHighlightColor = "purple" | "yellow" | "pink" | "green" | "blue" | "orange";
+
+export type QuestionHighlight = {
+  id: string;
+  start_offset: number;
+  end_offset: number;
+  color: QuestionHighlightColor;
+};
+
+export async function loadQuestionHighlights(questionId: string) {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("get_question_highlights", {
+    p_question_id: questionId,
+  });
+  if (error) throw error;
+  return (data ?? []) as QuestionHighlight[];
+}
+
+export async function addQuestionHighlight(
+  questionId: string,
+  startOffset: number,
+  endOffset: number,
+  color: QuestionHighlightColor,
+) {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("add_question_highlight", {
+    p_question_id: questionId,
+    p_start_offset: startOffset,
+    p_end_offset: endOffset,
+    p_color: color,
+  });
+  if (error) throw error;
+  return data as QuestionHighlight;
+}
+
+export async function clearQuestionHighlights(questionId: string) {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("clear_question_highlights", {
+    p_question_id: questionId,
+  });
+  if (error) throw error;
+  return Number(data ?? 0);
+}
+
+export type QuestionReportReason =
+  | "wrong_answer_key"
+  | "missing_context"
+  | "other";
+
+export async function reportQuestionForUser(
+  questionId: string,
+  reason: QuestionReportReason,
+  details?: string,
+) {
+  const supabase = createClient() as any;
+  const { data, error } = await supabase.rpc("report_question_for_user", {
+    p_question_id: questionId,
+    p_reason: reason,
+    p_details: details?.trim() || null,
+  });
+
+  if (error) throw error;
+
+  return data as {
+    ok: boolean;
+    report_id: string;
+    question_id: string;
+    reason: QuestionReportReason;
+    reported: boolean;
+    exclusion: {
+      ok: boolean;
+      excluded: boolean;
+      attempt_changed: boolean;
+      replaced_attempts: number;
+      removed_attempts: number;
+      leveling_total?: number | null;
+      leveling_required_correct?: number | null;
+    };
+  };
+}
+
+
+
+// MT_RESTART_QUESTION_ATTEMPT_V47_2
+export async function restartQuestionAttempt(attemptId: string) {
+  const supabase = createClient();
+
+  const { data, error } = await supabase.rpc("restart_question_attempt", {
+    p_attempt_id: attemptId,
+  });
+
+  if (error) throw error;
+
+  return data as {
+    ok: boolean;
+    attempt_id?: string;
+    continued?: boolean;
   };
 }

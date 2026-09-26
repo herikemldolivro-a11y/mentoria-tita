@@ -1,9 +1,7 @@
 import {
   BarChart3,
   BookOpenCheck,
-  CalendarClock,
   CalendarDays,
-  FileText,
   Target,
   Languages,
 } from "lucide-react";
@@ -28,12 +26,6 @@ export const navigationItems = [
     icon: CalendarDays,
   },
   {
-    href: "/revisoes",
-    title: "Calendário de Revisões",
-    description: "Veja o que precisa revisar e organize sua agenda.",
-    icon: CalendarClock,
-  },
-  {
     href: "/nivelamentos",
     title: "Nivelamentos",
     description: "Acompanhe as metas de domínio ligadas às suas revisões.",
@@ -44,12 +36,6 @@ export const navigationItems = [
     title: "Banco de Questões",
     description: "Treine por matéria, assunto e nível.",
     icon: BookOpenCheck,
-  },
-  {
-    href: "/materiais",
-    title: "Materiais",
-    description: "PDFs, resumos e materiais selecionados para sua preparação.",
-    icon: FileText,
   },
   {
     href: "/desempenho",

@@ -2,9 +2,7 @@
 
 import {
   BookOpenCheck,
-  CalendarClock,
   CalendarDays,
-  FileText,
   Home,
   Languages,
   Menu,
@@ -25,12 +23,10 @@ const items = [
   { href: "/", label: "Início", icon: Home },
   { href: "/cronograma", label: "Plano de Estudos", icon: CalendarDays },
   { href: "/calendario", label: "Calendário", icon: CalendarDays },
-  { href: "/revisoes", label: "Revisões", icon: CalendarClock },
   { href: "/questoes", label: "Banco de Questões", icon: BookOpenCheck },
+  { href: "/caderno", label: "Caderno de Anotações", icon: NotebookPen },
   { href: "/ranking", label: "Ranking", icon: Trophy },
-  { href: "/materiais", label: "Materiais", icon: FileText },
   { href: "/ingles", label: "Inglês", icon: Languages },
-  { href: "/erros", label: "Caderno de Erros", icon: NotebookPen },
 ] as const;
 
 function FireRail() {

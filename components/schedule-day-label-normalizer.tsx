@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
+import { canRunLegacyDomEffect } from "@/lib/legacy-dom-scope";
 
 const DAY_RE = /\bDIA\s*(\d{1,3})\b/i;
 const DATE_ONLY_RE = /^\s*(?:\d{1,2}[\/.\-]\d{1,2}(?:[\/.\-]\d{2,4})?|(?:seg|ter|qua|qui|sex|s[aá]b|dom)(?:unda|ça|rta|nta|xta|ado|ingo)?(?:-feira)?\s*,?\s*\d{1,2}[\/.\-]\d{1,2}(?:[\/.\-]\d{2,4})?)\s*$/i;
@@ -19,14 +20,17 @@ export function ScheduleDayLabelNormalizer() {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!pathname.startsWith("/cronograma")) return;
+    if (!pathname || !pathname.startsWith("/cronograma") || !canRunLegacyDomEffect(pathname)) return;
+    const main = document.querySelector("main");
+    if (!main) return;
 
+    let active = true;
     let frame = 0;
     const normalize = () => {
+      if (!active || !canRunLegacyDomEffect(pathname, main)) return;
       window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(() => {
-        const main = document.querySelector("main");
-        if (!main) return;
+        if (!active || !canRunLegacyDomEffect(pathname, main)) return;
 
         const leaves = Array.from(main.querySelectorAll<HTMLElement>("*"))
           .filter((element) => element.children.length === 0 && Boolean(element.textContent?.trim()));
@@ -76,10 +80,10 @@ export function ScheduleDayLabelNormalizer() {
 
     normalize();
     const observer = new MutationObserver(normalize);
-    const main = document.querySelector("main");
-    if (main) observer.observe(main, { childList: true, subtree: true, characterData: true });
+    observer.observe(main, { childList: true, subtree: true, characterData: true });
 
     return () => {
+      active = false;
       observer.disconnect();
       window.cancelAnimationFrame(frame);
     };

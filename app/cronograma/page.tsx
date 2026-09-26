@@ -2,6 +2,8 @@ import Link from "next/link";
 import { ArrowRight, CalendarDays, CheckCircle2, Clock3, LockKeyhole, SlidersHorizontal } from "lucide-react";
 import { EnemDailySideQuests } from "@/components/enem-daily-side-quests";
 import { PageShell } from "@/components/page-shell";
+import { PmalScheduleExperience } from "@/components/pmal-schedule-experience";
+import { PmalStudyPath } from "@/components/pmal-study-path";
 import { PprnRetaFinalSchedule } from "@/components/pprn-reta-final-schedule";
 import { requireAuthenticatedUser } from "@/lib/auth";
 import { loadMySchedule } from "@/lib/schedule-server";
@@ -45,6 +47,154 @@ function EditPlanButton() {
 export default async function CronogramaPage() {
   const { focusContest, profile } = await requireAuthenticatedUser();
   const personal = await loadPersonalSchedule().catch(() => null);
+
+  // MT_PMAL_SINGLE_TRACK_V7
+  if (focusContest?.slug === "cfo-pmal") {
+    return (
+      <PageShell>
+        <div data-mt-pmal-plan-v50="1" className="mx-auto w-full max-w-[1480px] px-2 pb-20 pt-2 sm:px-4 sm:pt-3">
+          <PmalScheduleExperience contestSigla={focusContest.sigla ?? "CFO PMAL"} />
+        </div>
+      </PageShell>
+    );
+  }
+
+  // MT_UNIFIED_STUDY_TRACK_V53 — mesma trilha visual para todos os planos pessoais.
+  if (personal?.items.length && focusContest?.slug !== "cfo-pmal" && focusContest?.slug !== "enem-40-dias") {
+    const unifiedItems = personal.items.map((item) => ({
+      id: item.id,
+      lessonId: item.lesson.id,
+      scheduledFor: item.scheduledFor,
+      studyDay: item.studyDay,
+      weekNumber: item.weekNumber,
+      position: item.position,
+      estimatedMinutes: item.estimatedMinutes,
+      subjectName: item.subject.name,
+      subjectShortName: item.subject.shortName,
+      lessonTitle: item.lesson.title,
+      questionCount: item.lesson.questionCount,
+      questionListEnabled: item.lesson.questionListEnabled,
+      theoryCompleted: item.theoryCompleted,
+      listCompleted: item.listCompleted,
+      imagePath: item.visual.imagePath,
+      href: personalLessonHref(item),
+    }));
+
+    return (
+      <PageShell>
+        <div data-mt-unified-plan-v53="1" className="mx-auto w-full max-w-[1480px] px-2 pb-20 pt-2 sm:px-4 sm:pt-3">
+          <PmalStudyPath
+            items={unifiedItems}
+            contestSigla={focusContest?.sigla ?? "MENTORIA TITÃ"}
+            dailyStudyMinutes={personal.dailyStudyMinutes}
+            preserveScheduleDays
+          />
+        </div>
+      </PageShell>
+    );
+  }
+
+  // MT_PMAL_SINGLE_TRACK_V4
+  if (focusContest?.slug === "cfo-pmal" && personal?.items.length) {
+    const pmalItems = personal.items.map((item) => ({
+      id: item.id,
+      lessonId: item.lesson.id,
+      scheduledFor: item.scheduledFor,
+      studyDay: item.studyDay,
+      weekNumber: item.weekNumber,
+      position: item.position,
+      estimatedMinutes: item.estimatedMinutes,
+      subjectName: item.subject.name,
+      subjectShortName: item.subject.shortName,
+      lessonTitle: item.lesson.title,
+      questionCount: item.lesson.questionCount,
+      questionListEnabled: item.lesson.questionListEnabled,
+      theoryCompleted: item.theoryCompleted,
+      listCompleted: item.listCompleted,
+      imagePath: item.visual.imagePath,
+      href: `/cronograma/pmal/aula/${item.lesson.id}`,
+    }));
+
+    return (
+      <PageShell>
+        <div className="mx-auto w-full max-w-[1120px] px-4 pb-24 pt-5 sm:px-6 sm:pt-7">
+          <PmalStudyPath
+            items={pmalItems}
+            contestSigla={focusContest.sigla ?? "CFO PMAL"}
+            dailyStudyMinutes={personal.dailyStudyMinutes}
+          />
+        </div>
+      </PageShell>
+    );
+  }
+
+  // MT_PMAL_COMPACT_DIRECT_V3
+  if (focusContest?.slug === "cfo-pmal" && personal?.items.length) {
+    const pmalItems = personal.items.map((item) => ({
+      id: item.id,
+      lessonId: item.lesson.id,
+      scheduledFor: item.scheduledFor,
+      studyDay: item.studyDay,
+      weekNumber: item.weekNumber,
+      position: item.position,
+      estimatedMinutes: item.estimatedMinutes,
+      subjectName: item.subject.name,
+      subjectShortName: item.subject.shortName,
+      lessonTitle: item.lesson.title,
+      questionCount: item.lesson.questionCount,
+      questionListEnabled: item.lesson.questionListEnabled,
+      theoryCompleted: item.theoryCompleted,
+      listCompleted: item.listCompleted,
+      imagePath: item.visual.imagePath,
+      href: `/cronograma/pmal/aula/${item.lesson.id}`,
+    }));
+
+    return (
+      <PageShell>
+        <div className="mx-auto w-full max-w-[1120px] px-4 pb-24 pt-5 sm:px-6 sm:pt-7">
+          <PmalStudyPath
+            items={pmalItems}
+            contestSigla={focusContest.sigla ?? "CFO PMAL"}
+            dailyStudyMinutes={personal.dailyStudyMinutes}
+          />
+        </div>
+      </PageShell>
+    );
+  }
+  // MT_PMAL_DUOLINGO_PERSONAL_V2
+  if (personal?.items.length && focusContest?.slug === "cfo-pmal") {
+    const pmalItems = personal.items.map((item) => ({
+      id: item.id,
+      lessonId: item.lesson.id,
+      scheduledFor: item.scheduledFor,
+      studyDay: item.studyDay,
+      weekNumber: item.weekNumber,
+      position: item.position,
+      estimatedMinutes: item.estimatedMinutes,
+      subjectName: item.subject.name,
+      subjectShortName: item.subject.shortName,
+      lessonTitle: item.lesson.title,
+      questionCount: item.lesson.questionCount,
+      questionListEnabled: item.lesson.questionListEnabled,
+      theoryCompleted: item.theoryCompleted,
+      listCompleted: item.listCompleted,
+      imagePath: item.visual.imagePath,
+      href: personalLessonHref(item),
+    }));
+
+    return (
+      <PageShell>
+        <div className="mx-auto w-full max-w-[1180px] px-4 pb-24 pt-7 sm:px-6 sm:pt-10">
+          <PmalStudyPath
+            items={pmalItems}
+            contestSigla={focusContest.sigla ?? "CFO PMAL"}
+            dailyStudyMinutes={personal.dailyStudyMinutes}
+          />
+        </div>
+      </PageShell>
+    );
+  }
+
 
   if (personal?.items.length) {
     const weeks = groupWeeks(personal.items);

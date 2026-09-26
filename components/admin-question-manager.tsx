@@ -68,6 +68,18 @@ type FormState = {
 
 const blankChoices = { A: "", B: "", C: "", D: "", E: "" };
 
+function importErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message.trim()) return error.message;
+  if (error && typeof error === "object") {
+    const candidate = error as { message?: unknown; details?: unknown; hint?: unknown; code?: unknown };
+    const parts = [candidate.message, candidate.details, candidate.hint, candidate.code]
+      .filter((value) => typeof value === "string" && value.trim())
+      .map((value) => String(value).trim());
+    if (parts.length) return Array.from(new Set(parts)).join(" · ");
+  }
+  return fallback;
+}
+
 function createBlankForm(catalog: AdminQuestionCatalogRow[]): FormState {
   const first = catalog[0];
   return {
@@ -481,9 +493,7 @@ export function AdminQuestionManager({ catalog }: { catalog: AdminQuestionCatalo
       setJsonInput("");
       await Promise.all([refreshOverview(), refreshQuestions()]);
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Não foi possível importar o lote.",
-      );
+      setErrorMessage(importErrorMessage(error, "Não foi possível importar o lote."));
     } finally {
       setLoading(false);
       const restoreStableScroll = () => window.scrollTo({ top: stableScrollY, left: 0, behavior: "auto" });
@@ -539,11 +549,7 @@ export function AdminQuestionManager({ catalog }: { catalog: AdminQuestionCatalo
       setMultiInput("");
       await Promise.all([refreshOverview(), refreshQuestions()]);
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível importar o lote multiaulas.",
-      );
+      setErrorMessage(importErrorMessage(error, "Não foi possível importar o lote multiaulas."));
     } finally {
       setLoading(false);
     }

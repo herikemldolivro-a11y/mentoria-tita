@@ -24,6 +24,7 @@ export type PersonalScheduleItem = {
     slug: string;
     title: string;
     questionCount: number;
+    questionListEnabled: boolean;
     pdfPath: string | null;
     sourceWeekNumber: number;
   };
@@ -110,7 +111,7 @@ export async function loadPersonalSchedule(): Promise<PersonalScheduleSnapshot> 
       .in("id", subjectIds),
     supabase
       .from("study_lessons")
-      .select("id,slug,title,question_count,pdf_path,week_id")
+      .select("id,slug,title,question_count,question_list_enabled,pdf_path,week_id")
       .in("id", lessonIds),
     supabase
       .from("user_lesson_progress")
@@ -172,6 +173,7 @@ export async function loadPersonalSchedule(): Promise<PersonalScheduleSnapshot> 
         slug: lesson.slug,
         title: lesson.title,
         questionCount: Number(lesson.question_count ?? 0),
+        questionListEnabled: lesson.question_list_enabled !== false,
         pdfPath: lesson.pdf_path ?? null,
         sourceWeekNumber: weekMap.get(lesson.week_id) ?? 1,
       },
@@ -184,11 +186,12 @@ export async function loadPersonalSchedule(): Promise<PersonalScheduleSnapshot> 
   return { ...emptySnapshot, items };
 }
 
+// MT_DIRECT_LESSON_ALL_PLANS_V55
 export function personalLessonHref(item: PersonalScheduleItem) {
   const isEnemLesson = /^dia-\d+-bloco-\d+-/u.test(item.lesson.slug);
   const base = isEnemLesson
     ? `/cronograma/enem/dia-${item.lesson.sourceWeekNumber}/${item.subject.slug}/${item.lesson.slug}`
-    : `/cronograma/semana-${item.lesson.sourceWeekNumber}/${item.subject.slug}/${item.lesson.slug}`;
+    : `/cronograma/aula/${item.lesson.id}`;
   const query = new URLSearchParams({ planoDia: item.scheduledFor, planoSemana: String(item.weekNumber) });
   return `${base}?${query.toString()}`;
 }

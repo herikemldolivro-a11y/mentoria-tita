@@ -1,10 +1,10 @@
+import { GlobalUiPruner } from "@/components/global-ui-pruner";
 import type { Metadata, Viewport } from "next";
+import { ThemeBootstrap } from "@/components/theme-bootstrap";
 import "./globals.css";
 import "./tita-v3.css";
 import "./tita-fire-v2.css";
-import "./tita-lesson-stage.css";
-
-const themeScript = `try { document.documentElement.dataset.theme = 'dark'; localStorage.setItem('tita-theme', 'dark'); } catch (_) { document.documentElement.dataset.theme = 'dark'; }`;
+import "./tita-lesson-stage.css";
 
 export const metadata: Metadata = {
   title: "Mentoria Titã — Foco 95+",
@@ -20,8 +20,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="pt-BR" suppressHydrationWarning data-scroll-behavior="smooth">
-      <head><script dangerouslySetInnerHTML={{ __html: themeScript }} /></head>
-      <body>{children}</body>
+      
+      <body><ThemeBootstrap />
+      <GlobalUiPruner />
+      {children}</body>
     </html>
   );
 }

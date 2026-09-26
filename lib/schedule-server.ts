@@ -293,13 +293,28 @@ export async function loadMySchedule(): Promise<ScheduleWeek[]> {
 
     const progress = progressByLesson.get(row.lesson_id);
 
+    // MT_CITOLOGIA_TITLE_COUNT_V1
+    const rawLessonTitle = cleanDisplayText(row.lesson_title);
+    const lessonTitleKey = rawLessonTitle
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLocaleLowerCase("pt-BR")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+    const isCitologiaLesson =
+      row.subject_slug === "biologia" &&
+      (lessonTitleKey.includes("citologia") ||
+        (lessonTitleKey.includes("celula") && lessonTitleKey.includes("membrana")));
+
     const lesson: ScheduleLesson = {
       id: row.lesson_id,
       slug: row.lesson_slug,
-      title: cleanDisplayText(row.lesson_title),
+      title: isCitologiaLesson
+        ? "Citologia: Células + Membrana"
+        : rawLessonTitle,
       priority: cleanDisplayText(row.priority) || null,
       position: Number(row.lesson_position),
-      questionCount: Number(row.question_count ?? 35),
+      questionCount: isCitologiaLesson ? 171 : Number(row.question_count ?? 35),
       pdfPath: row.pdf_path ?? null,
       topics: topicsByLesson.get(row.lesson_id) ?? [],
       theoryCompleted: Boolean(progress?.theory_completed_at),
@@ -364,6 +379,56 @@ export async function loadMySchedule(): Promise<ScheduleWeek[]> {
           .map((item) => lessonMap.get(item.lesson_id))
           .filter((item): item is ScheduleLesson => Boolean(item)),
       });
+    }
+  }
+
+  // MT_CITOLOGIA_DAY4_V1
+  for (const week of weeks.values()) {
+    const dates = Array.from(
+      new Set(week.blocks.map((block) => block.studyDate).filter(Boolean)),
+    ).sort();
+
+    if (dates.length >= 4) {
+      const targetDate = dates[3];
+      const movedLessons: ScheduleLesson[] = [];
+
+      for (const block of week.blocks) {
+        block.lessons = block.lessons.filter((lesson) => {
+          const lessonTitle = cleanDisplayText(lesson.title);
+          const key = lessonTitle
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLocaleLowerCase("pt-BR")
+            .replace(/[^a-z0-9]+/g, " ")
+            .trim();
+
+          const isCitologia =
+            lesson.subjectSlug === "biologia" &&
+            (key.includes("citologia") ||
+              (key.includes("celula") && key.includes("membrana")));
+
+          if (isCitologia) movedLessons.push(lesson);
+          return !isCitologia;
+        });
+      }
+
+      if (movedLessons.length) {
+        const targetBlock = week.blocks
+          .filter((block) => block.studyDate === targetDate)
+          .sort((a, b) => a.position - b.position)[0];
+
+        if (targetBlock) {
+          for (const lesson of movedLessons) {
+            if (!targetBlock.lessons.some((item) => item.id === lesson.id)) {
+              targetBlock.lessons.push({
+                ...lesson,
+                title: "Citologia: Células + Membrana",
+                questionCount: 171,
+              });
+            }
+          }
+        }
+      }
     }
   }
 

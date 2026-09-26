@@ -403,6 +403,85 @@ function mapDraft(row: DbRevisionRow): RevisionDraft {
   };
 }
 
+// MT_REVISION_DAY_RESCHEDULE_V1
+export async function loadLessonStudyDay(
+  subjectSlug: string,
+  lessonSlug: string,
+): Promise<number | null> {
+  const context = await getContext();
+  const lesson = await resolveLesson(context, subjectSlug, lessonSlug);
+
+  // MT_CITOLOGIA_REVISION_DAY4_V1
+  const lessonTitleKey = String(lesson.lesson_title ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pt-BR")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+  if (
+    subjectSlug === "biologia" &&
+    (lessonTitleKey.includes("citologia") ||
+      (lessonTitleKey.includes("celula") && lessonTitleKey.includes("membrana")))
+  ) {
+    return 4;
+  }
+
+  const { data: weekRows, error: weekError } = await context.supabase
+    .from("study_weeks")
+    .select("id")
+    .eq("plan_id", context.activePlanId)
+    .order("position", { ascending: true });
+
+  if (weekError) throw weekError;
+
+  const weekIds = (weekRows ?? []).map((row) => row.id);
+  if (!weekIds.length) return null;
+
+  const { data: blockRows, error: blockError } = await context.supabase
+    .from("study_schedule_blocks")
+    .select("id,study_date")
+    .in("week_id", weekIds)
+    .order("study_date", { ascending: true })
+    .order("position", { ascending: true });
+
+  if (blockError) {
+    if (blockError.code === "42P01") return null;
+    throw blockError;
+  }
+
+  const blocks = (blockRows ?? []) as Array<{ id: string; study_date: string }>;
+  if (!blocks.length) return null;
+
+  const blockIds = blocks.map((block) => block.id);
+  const { data: assignmentRows, error: assignmentError } = await context.supabase
+    .from("study_schedule_block_lessons")
+    .select("block_id")
+    .eq("lesson_id", lesson.lesson_id)
+    .in("block_id", blockIds);
+
+  if (assignmentError) {
+    if (assignmentError.code === "42P01") return null;
+    throw assignmentError;
+  }
+
+  const lessonBlockIds = new Set((assignmentRows ?? []).map((row) => row.block_id));
+  const lessonDates = blocks
+    .filter((block) => lessonBlockIds.has(block.id))
+    .map((block) => block.study_date)
+    .filter(Boolean)
+    .sort();
+
+  if (!lessonDates.length) return null;
+
+  const allDates = Array.from(
+    new Set(blocks.map((block) => block.study_date).filter(Boolean)),
+  ).sort();
+
+  const index = allDates.indexOf(lessonDates[0]);
+  return index >= 0 ? index + 1 : null;
+}
+
 export async function loadRevisionEvents(): Promise<RevisionEvent[]> {
   const context = await getContext();
   const { data, error } = await context.supabase
@@ -502,6 +581,130 @@ export async function queueRevisionDraft(input: {
   if (error) throw error;
   notifyStudyUpdated();
   return mapDraft(data as DbRevisionRow);
+}
+
+// MT_REVISION_NEXT_DRAFT_V1
+export async function queueNextRevisionFromCompletedRevision(revisionId: string) {
+  const context = await getContext();
+
+  const { data, error } = await context.supabase
+    .from("user_revisions")
+    .select("*")
+    .eq("id", revisionId)
+    .eq("user_id", context.userId)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) throw new Error("Revisão concluída não encontrada.");
+  if (data.status !== "completed") {
+    throw new Error("A revisão precisa estar concluída antes de agendar a próxima.");
+  }
+
+  const source = data as DbRevisionRow;
+  const nextRevisionNumber = Number(source.revision_number) + 1;
+
+  const completed = source.completed_at ? new Date(source.completed_at) : new Date();
+  completed.setHours(12, 0, 0, 0);
+  completed.setDate(completed.getDate() + 4);
+
+  const recommendedDate = [
+    completed.getFullYear(),
+    String(completed.getMonth() + 1).padStart(2, "0"),
+    String(completed.getDate()).padStart(2, "0"),
+  ].join("-");
+
+  return queueRevisionDraft({
+    subjectSlug: source.subject_slug,
+    subjectName: source.subject_name,
+    lessonSlug: source.lesson_slug,
+    lessonTitle: source.lesson_title,
+    revisionNumber: nextRevisionNumber,
+    recommendedDate,
+  });
+}
+
+// MT_SCHEDULE_NEXT_COMPLETED_REVISION_V1
+export async function scheduleNextRevisionFromCompletedRevision(
+  revisionId: string,
+  date: string,
+) {
+  const context = await getContext();
+
+  const { data: sourceRow, error: sourceError } = await context.supabase
+    .from("user_revisions")
+    .select("*")
+    .eq("id", revisionId)
+    .eq("user_id", context.userId)
+    .maybeSingle();
+
+  if (sourceError) throw sourceError;
+  if (!sourceRow) throw new Error("Revisão concluída não encontrada.");
+  if (sourceRow.status !== "completed") {
+    throw new Error("Esta revisão ainda não foi concluída.");
+  }
+
+  const source = sourceRow as DbRevisionRow;
+  const lesson = await resolveLesson(
+    context,
+    source.subject_slug,
+    source.lesson_slug,
+  );
+  const nextRevisionNumber = Number(source.revision_number) + 1;
+
+  const { data: existingRow, error: existingError } = await context.supabase
+    .from("user_revisions")
+    .select("*")
+    .eq("user_id", context.userId)
+    .eq("lesson_id", lesson.lesson_id)
+    .eq("revision_number", nextRevisionNumber)
+    .maybeSingle();
+
+  if (existingError) throw existingError;
+
+  if (existingRow?.status === "completed") {
+    throw new Error(
+      `A ${nextRevisionNumber}ª revisão desta aula já foi concluída.`,
+    );
+  }
+
+  if (existingRow) {
+    const { data, error } = await context.supabase
+      .from("user_revisions")
+      .update({
+        scheduled_for: date,
+        status: "scheduled",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", existingRow.id)
+      .eq("user_id", context.userId)
+      .select("*")
+      .single();
+
+    if (error) throw error;
+    notifyStudyUpdated();
+    return mapRevision(data as DbRevisionRow);
+  }
+
+  const { data, error } = await context.supabase
+    .from("user_revisions")
+    .insert({
+      user_id: context.userId,
+      lesson_id: lesson.lesson_id,
+      subject_slug: source.subject_slug,
+      subject_name: source.subject_name,
+      lesson_slug: source.lesson_slug,
+      lesson_title: source.lesson_title,
+      revision_number: nextRevisionNumber,
+      recommended_for: date,
+      scheduled_for: date,
+      status: "scheduled",
+    })
+    .select("*")
+    .single();
+
+  if (error) throw error;
+  notifyStudyUpdated();
+  return mapRevision(data as DbRevisionRow);
 }
 
 export async function scheduleRevisionById(id: string, date: string) {

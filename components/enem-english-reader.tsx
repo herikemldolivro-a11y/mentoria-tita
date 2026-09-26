@@ -81,7 +81,7 @@ export function EnemEnglishReader({ readingId }:{ readingId:string }) {
   }
 
   async function finishReading() {
-    if (!userId || busy) return;
+    if (!userId || busy || !reading) return;
     setBusy(true); setError(null);
     const now = new Date().toISOString();
     const supabase = createClient();
@@ -94,7 +94,7 @@ export function EnemEnglishReader({ readingId }:{ readingId:string }) {
   }
 
   async function answer(key:"A"|"B"|"C"|"D"|"E") {
-    if (!userId || !progress.reading_completed_at || progress.answer || busy) return;
+    if (!userId || !reading || !progress.reading_completed_at || progress.answer || busy) return;
     setBusy(true); setError(null);
     const now = new Date().toISOString();
     const correct = key === reading.correct;

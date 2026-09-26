@@ -1,266 +1,331 @@
 "use client";
 
-import { useId } from "react";
+import { Crown, Diamond, Gem, Shield, Sparkles, Star, Zap } from "lucide-react";
+import type { CSSProperties } from "react";
 import type { RankInfo } from "@/lib/xp-system";
 
-type TierVisual = {
-  edgeA: string;
-  edgeB: string;
-  edgeC: string;
-  coreA: string;
-  coreB: string;
-  starA: string;
-  starB: string;
+type TierStyle = {
+  frame: string;
+  core: string;
+  icon: typeof Shield;
+  clip: string;
   glow: string;
-  wings?: boolean;
-  spikes?: boolean;
-  crystal?: boolean;
-  prism?: boolean;
+  shine: string;
 };
 
-const tierVisuals: Record<number, TierVisual> = {
+const tierStyles: Record<number, TierStyle> = {
   1: {
-    edgeA: "#efb568",
-    edgeB: "#8b542a",
-    edgeC: "#3f2719",
-    coreA: "#3b2a1d",
-    coreB: "#17100b",
-    starA: "#f5c278",
-    starB: "#8a5124",
-    glow: "rgba(216,143,64,.30)",
+    frame: "from-[#4f2d1c] via-[#965a32] to-[#2b160d]",
+    core: "bg-[#17100b]",
+    icon: Shield,
+    clip: "polygon(50% 0,88% 16%,92% 66%,50% 100%,8% 66%,12% 16%)",
+    glow: "rgba(180,110,64,.18)",
+    shine: "rgba(255,218,180,.34)",
   },
   2: {
-    edgeA: "#ffb25b",
-    edgeB: "#c15c20",
-    edgeC: "#57230c",
-    coreA: "#55240f",
-    coreB: "#190a05",
-    starA: "#ffc874",
-    starB: "#b84e17",
-    glow: "rgba(255,126,40,.34)",
-    spikes: true,
+    frame: "from-[#606a76] via-[#d4dce5] to-[#414955]",
+    core: "bg-[#10151b]",
+    icon: Star,
+    clip: "polygon(50% 0,80% 10%,100% 40%,88% 78%,50% 100%,12% 78%,0 40%,20% 10%)",
+    glow: "rgba(196,208,220,.20)",
+    shine: "rgba(255,255,255,.38)",
   },
   3: {
-    edgeA: "#f4f8fc",
-    edgeB: "#9aa8b7",
-    edgeC: "#44505e",
-    coreA: "#303b47",
-    coreB: "#0f151b",
-    starA: "#f7fbff",
-    starB: "#8394a5",
-    glow: "rgba(187,211,235,.30)",
+    frame: "from-[#8d6517] via-[#ffd05a] to-[#5d3e0e]",
+    core: "bg-[#191205]",
+    icon: Sparkles,
+    clip: "polygon(50% 0,70% 12%,94% 12%,86% 40%,100% 68%,76% 74%,66% 100%,34% 100%,24% 74%,0 68%,14% 40%,6% 12%,30% 12%)",
+    glow: "rgba(255,207,78,.24)",
+    shine: "rgba(255,244,196,.48)",
   },
   4: {
-    edgeA: "#fbfdff",
-    edgeB: "#9caec1",
-    edgeC: "#465463",
-    coreA: "#34414e",
-    coreB: "#10161c",
-    starA: "#ffffff",
-    starB: "#8ba0b3",
-    glow: "rgba(205,226,244,.36)",
-    wings: true,
+    frame: "from-[#0b7750] via-[#43df9b] to-[#034a30]",
+    core: "bg-[#051810]",
+    icon: Zap,
+    clip: "polygon(50% 0,82% 10%,100% 36%,92% 72%,66% 100%,34% 100%,8% 72%,0 36%,18% 10%)",
+    glow: "rgba(67,223,155,.28)",
+    shine: "rgba(211,255,235,.50)",
   },
   5: {
-    edgeA: "#fff0a0",
-    edgeB: "#e8a514",
-    edgeC: "#764500",
-    coreA: "#85520a",
-    coreB: "#241500",
-    starA: "#fff6b7",
-    starB: "#d88700",
-    glow: "rgba(255,190,42,.42)",
-    wings: true,
-    spikes: true,
+    frame: "from-[#a45a00] via-[#ffd43b] via-[#fff2a8] to-[#a85c00]",
+    core: "bg-[#241202]",
+    icon: Crown,
+    clip: "polygon(50% 0,60% 13%,76% 5%,80% 21%,97% 18%,88% 40%,100% 56%,83% 66%,90% 92%,64% 82%,50% 100%,36% 82%,10% 92%,17% 66%,0 56%,12% 40%,3% 18%,20% 21%,24% 5%,40% 13%)",
+    glow: "rgba(255,207,56,.54)",
+    shine: "rgba(255,248,200,.76)",
   },
   6: {
-    edgeA: "#f7feff",
-    edgeB: "#8adfff",
-    edgeC: "#327ca4",
-    coreA: "#21485e",
-    coreB: "#07151f",
-    starA: "#effdff",
-    starB: "#5cccf2",
-    glow: "rgba(89,211,255,.46)",
-    wings: true,
-    crystal: true,
+    frame: "from-[#32106e] via-[#7c3aed] via-[#d4b4ff] to-[#4c1d95]",
+    core: "bg-[#11051d]",
+    icon: Diamond,
+    clip: "polygon(50% 0,64% 14%,84% 7%,80% 29%,100% 42%,83% 58%,92% 84%,64% 79%,50% 100%,36% 79%,8% 84%,17% 58%,0 42%,20% 29%,16% 7%,36% 14%)",
+    glow: "rgba(150,86,255,.72)",
+    shine: "rgba(233,216,255,.84)",
   },
   7: {
-    edgeA: "#ffb1c0",
-    edgeB: "#e52d58",
-    edgeC: "#64091e",
-    coreA: "#5a1022",
-    coreB: "#1b050b",
-    starA: "#ffd2dc",
-    starB: "#d51f4c",
-    glow: "rgba(240,50,91,.48)",
-    wings: true,
-    spikes: true,
-    crystal: true,
+    frame: "from-[#21003e] via-[#a21caf] via-[#f06cff] to-[#3b0764]",
+    core: "bg-[#0d0214]",
+    icon: Gem,
+    clip: "polygon(50% 0,58% 12%,72% 2%,76% 18%,92% 11%,86% 34%,100% 50%,84% 62%,93% 92%,64% 80%,50% 100%,36% 80%,7% 92%,16% 62%,0 50%,14% 34%,8% 11%,24% 18%,28% 2%,42% 12%)",
+    glow: "rgba(217,70,239,.90)",
+    shine: "rgba(255,218,252,.94)",
   },
   8: {
-    edgeA: "#ffffff",
-    edgeB: "#77eaff",
-    edgeC: "#7f55ff",
-    coreA: "#25104b",
-    coreB: "#080412",
-    starA: "#f3ffff",
-    starB: "#80e8ff",
-    glow: "rgba(141,91,255,.58)",
-    wings: true,
-    spikes: true,
-    crystal: true,
-    prism: true,
+    frame: "from-[#250043] via-[#6d28d9] via-[#ec4899] via-[#ffd166] to-[#4c1d95]",
+    core: "bg-[#090210]",
+    icon: Crown,
+    clip: "polygon(50% 0,59% 9%,72% 2%,78% 16%,94% 11%,89% 31%,100% 44%,88% 56%,96% 82%,70% 77%,50% 100%,30% 77%,4% 82%,12% 56%,0 44%,11% 31%,6% 11%,22% 16%,28% 2%,41% 9%)",
+    glow: "rgba(196,116,255,1)",
+    shine: "rgba(255,241,182,1)",
   },
 };
 
-const starPoints = "60,27 68,48 91,49 73,63 80,86 60,73 40,86 47,63 29,49 52,48";
-const shieldPoints = "60,7 100,29 96,82 60,112 24,82 20,29";
-const innerShieldPoints = "60,18 91,36 88,77 60,100 32,77 29,36";
-
-function sunburstPoints(spikes = 12) {
-  return Array.from({ length: spikes * 2 }, (_, index) => {
-    const angle = -Math.PI / 2 + (Math.PI * index) / spikes;
-    const radius = index % 2 === 0 ? 56 : 45;
-    const x = 60 + Math.cos(angle) * radius;
-    const y = 60 + Math.sin(angle) * radius;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(" ");
-}
-
-function Wing({ side, fillId, highlightId }: { side: "left" | "right"; fillId: string; highlightId: string }) {
-  const transform = side === "right" ? "translate(120 0) scale(-1 1)" : undefined;
+function ShapeGlow({
+  clip,
+  background,
+  scale,
+  blur,
+  opacity,
+  pulse = false,
+}: {
+  clip: string;
+  background: string;
+  scale: number;
+  blur: number;
+  opacity: number;
+  pulse?: boolean;
+}) {
   return (
-    <g transform={transform}>
-      <path d="M42 39 24 25 5 20 14 39 2 48 24 55 7 72 31 68 38 91 48 63Z" fill={`url(#${fillId})`} stroke="rgba(255,255,255,.34)" strokeWidth="1.1" />
-      <path d="M39 45 19 36 9 35 24 49 12 51 31 57 18 67 36 62 41 77 45 59Z" fill={`url(#${highlightId})`} opacity=".72" />
-      <path d="M11 34 38 48M12 51 39 56M18 67 41 63" fill="none" stroke="rgba(255,255,255,.34)" strokeWidth="1.15" strokeLinecap="round" />
-    </g>
+    <div
+      className={`pointer-events-none absolute inset-0 ${pulse ? "animate-pulse" : ""}`}
+      style={{
+        clipPath: clip,
+        background,
+        transform: `scale(${scale})`,
+        filter: `blur(${blur}px)`,
+        opacity,
+      }}
+    />
   );
 }
 
-export function XpRankInsignia({ rank, level, size = "md" }: { rank: RankInfo; level: number; size?: "sm" | "md" | "lg" }) {
-  const visual = tierVisuals[rank.tier] ?? tierVisuals[1];
-  const uid = useId().replace(/:/g, "");
-  const edgeId = `rank-edge-${uid}`;
-  const coreId = `rank-core-${uid}`;
-  const starId = `rank-star-${uid}`;
-  const wingId = `rank-wing-${uid}`;
-  const wingHighlightId = `rank-wing-hi-${uid}`;
-  const prismId = `rank-prism-${uid}`;
-  const shadowId = `rank-shadow-${uid}`;
-  const shineId = `rank-shine-${uid}`;
+export function XpRankInsignia({
+  rank,
+  level,
+  size = "md",
+}: {
+  rank: RankInfo;
+  level: number;
+  size?: "sm" | "md" | "lg";
+}) {
+  const style = tierStyles[rank.tier] ?? tierStyles[1];
+  const Icon = style.icon;
 
-  const dimensions = size === "sm" ? "h-11 w-11" : size === "lg" ? "h-28 w-28" : "h-[74px] w-[74px]";
-  const sparkle = rank.tier >= 6;
+  const dimensions =
+    size === "sm" ? "h-12 w-12" : size === "lg" ? "h-28 w-28" : "h-[72px] w-[72px]";
+  const iconSize = size === "sm" ? 18 : size === "lg" ? 40 : 28;
+  const clipStyle: CSSProperties = { clipPath: style.clip };
+
+  const isElite = rank.tier === 5;
+  const isMini = rank.tier === 6;
+  const isTita = rank.tier === 7;
+  const isSupreme = rank.tier === 8;
+
+  const auraScale =
+    isSupreme ? 1.54 :
+    isTita ? 1.37 :
+    isMini ? 1.22 :
+    isElite ? 1.14 :
+    rank.tier >= 3 ? 1.08 : 1.04;
+
+  const auraOpacity =
+    isSupreme ? 1 :
+    isTita ? 0.91 :
+    isMini ? 0.72 :
+    isElite ? 0.54 :
+    rank.tier >= 3 ? 0.28 : 0.18;
+
+  const auraBlur =
+    isSupreme ? 13 :
+    isTita ? 10 :
+    isMini ? 7 :
+    isElite ? 5 : 4;
 
   return (
     <div
       className={`relative ${dimensions} shrink-0 overflow-visible bg-transparent`}
-      title={`${rank.title} · Nível ${level}`}
-      data-rank-insignia={`tier-${rank.tier}`}
+      title={`${rank.title} - N\u00edvel ${level}`}
+      data-rank-insignia={rank.slug}
     >
-      <svg viewBox="0 0 120 120" className="h-full w-full overflow-visible" aria-hidden="true">
-        <defs>
-          <linearGradient id={edgeId} x1="18" y1="10" x2="102" y2="112" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stopColor={visual.edgeA} />
-            <stop offset=".48" stopColor={visual.edgeB} />
-            <stop offset="1" stopColor={visual.edgeC} />
-          </linearGradient>
-          <linearGradient id={coreId} x1="35" y1="25" x2="86" y2="99" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stopColor={visual.coreA} />
-            <stop offset="1" stopColor={visual.coreB} />
-          </linearGradient>
-          <linearGradient id={starId} x1="39" y1="35" x2="82" y2="83" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stopColor={visual.starA} />
-            <stop offset=".52" stopColor={visual.starB} />
-            <stop offset="1" stopColor={visual.edgeC} />
-          </linearGradient>
-          <linearGradient id={wingId} x1="5" y1="22" x2="49" y2="83" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stopColor={visual.edgeA} />
-            <stop offset=".55" stopColor={visual.edgeB} />
-            <stop offset="1" stopColor={visual.edgeC} />
-          </linearGradient>
-          <linearGradient id={wingHighlightId} x1="10" y1="35" x2="43" y2="67" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stopColor="#ffffff" stopOpacity=".72" />
-            <stop offset="1" stopColor={visual.edgeB} stopOpacity=".2" />
-          </linearGradient>
-          <linearGradient id={prismId} x1="13" y1="16" x2="105" y2="106" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stopColor="#ff5ccf" />
-            <stop offset=".18" stopColor="#a866ff" />
-            <stop offset=".38" stopColor="#45dfff" />
-            <stop offset=".58" stopColor="#58ffc7" />
-            <stop offset=".77" stopColor="#ffd85b" />
-            <stop offset="1" stopColor="#ff6b9d" />
-          </linearGradient>
-          <linearGradient id={shineId} x1="30" y1="20" x2="78" y2="82" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stopColor="#ffffff" stopOpacity=".72" />
-            <stop offset=".34" stopColor="#ffffff" stopOpacity=".14" />
-            <stop offset="1" stopColor="#ffffff" stopOpacity="0" />
-          </linearGradient>
-          <filter id={shadowId} x="-45%" y="-45%" width="190%" height="190%">
-            <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor={visual.glow} floodOpacity="1" />
-            <feDropShadow dx="0" dy="2" stdDeviation="1.5" floodColor="#000000" floodOpacity=".75" />
-          </filter>
-        </defs>
+      <ShapeGlow
+        clip={style.clip}
+        background={style.glow}
+        scale={auraScale}
+        blur={auraBlur}
+        opacity={auraOpacity}
+        pulse={rank.tier >= 6}
+      />
 
-        <g filter={`url(#${shadowId})`}>
-          {visual.wings ? (
-            <g opacity=".98">
-              <Wing side="left" fillId={visual.prism ? prismId : wingId} highlightId={wingHighlightId} />
-              <Wing side="right" fillId={visual.prism ? prismId : wingId} highlightId={wingHighlightId} />
-            </g>
-          ) : null}
-
-          {visual.spikes ? (
-            <polygon
-              points={sunburstPoints(rank.tier === 8 ? 14 : 12)}
-              fill={visual.prism ? `url(#${prismId})` : `url(#${edgeId})`}
-              stroke="rgba(255,255,255,.30)"
-              strokeWidth="1"
-            />
-          ) : rank.tier === 3 ? (
-            <polygon points={sunburstPoints(8)} fill={`url(#${edgeId})`} opacity=".82" />
-          ) : null}
-
-          <polygon
-            points={shieldPoints}
-            fill={visual.prism ? `url(#${prismId})` : `url(#${edgeId})`}
-            stroke="rgba(255,255,255,.44)"
-            strokeWidth="1.35"
+      {isMini ? (
+        <>
+          <div
+            className="pointer-events-none absolute left-[-34%] top-[25%] h-[44%] w-[47%] -rotate-[13deg]"
+            style={{
+              clipPath: "polygon(100% 20%,64% 0,0 28%,58% 47%,10% 74%,70% 70%,35% 100%,100% 80%)",
+              background: "linear-gradient(90deg,rgba(139,92,246,.10),rgba(220,196,255,.82),rgba(91,33,182,.22))",
+              filter: "drop-shadow(0 0 8px rgba(139,92,246,.58))",
+            }}
           />
-          <polygon points={innerShieldPoints} fill={`url(#${coreId})`} stroke="rgba(255,255,255,.18)" strokeWidth="1" />
+          <div
+            className="pointer-events-none absolute right-[-34%] top-[25%] h-[44%] w-[47%] rotate-[13deg]"
+            style={{
+              clipPath: "polygon(0 20%,36% 0,100% 28%,42% 47%,90% 74%,30% 70%,65% 100%,0 80%)",
+              background: "linear-gradient(270deg,rgba(139,92,246,.10),rgba(220,196,255,.82),rgba(91,33,182,.22))",
+              filter: "drop-shadow(0 0 8px rgba(139,92,246,.58))",
+            }}
+          />
+        </>
+      ) : null}
 
-          <path d="M60 18 91 36 83 40 60 28 37 40 29 36Z" fill={`url(#${shineId})`} opacity=".72" />
-          <path d="M29 36 37 40 38 74 60 93 60 100 32 77Z" fill="#ffffff" opacity=".045" />
-          <path d="M91 36 83 40 82 74 60 93 60 100 88 77Z" fill="#000000" opacity=".22" />
+      {isTita ? (
+        <>
+          <div
+            className="pointer-events-none absolute left-1/2 top-1/2 h-[128%] w-[128%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-fuchsia-300/35"
+            style={{
+              boxShadow:
+                "0 0 16px rgba(217,70,239,.40), 0 0 28px rgba(126,34,206,.28), inset 0 0 12px rgba(168,85,247,.20)",
+            }}
+          />
+          <div
+            className="pointer-events-none absolute -left-[29%] top-[15%] h-[67%] w-[35%] -rotate-[8deg]"
+            style={{
+              clipPath: "polygon(100% 0,52% 12%,6% 34%,48% 50%,0 72%,46% 89%,100% 100%,76% 50%)",
+              background: "linear-gradient(90deg,rgba(92,18,123,.10),rgba(247,171,255,.95),rgba(126,34,206,.28))",
+              filter: "drop-shadow(0 0 12px rgba(217,70,239,.78))",
+            }}
+          />
+          <div
+            className="pointer-events-none absolute -right-[29%] top-[15%] h-[67%] w-[35%] rotate-[8deg]"
+            style={{
+              clipPath: "polygon(0 0,48% 12%,94% 34%,52% 50%,100% 72%,54% 89%,0 100%,24% 50%)",
+              background: "linear-gradient(270deg,rgba(92,18,123,.10),rgba(247,171,255,.95),rgba(126,34,206,.28))",
+              filter: "drop-shadow(0 0 12px rgba(217,70,239,.78))",
+            }}
+          />
+          <Sparkles className="pointer-events-none absolute -right-3 top-0 z-40 animate-pulse text-fuchsia-100" size={13} />
+          <Sparkles className="pointer-events-none absolute -left-2 bottom-0 z-40 text-violet-100" size={11} />
+        </>
+      ) : null}
 
-          {visual.crystal ? (
-            <g opacity={visual.prism ? .72 : .48}>
-              <polygon points="60,18 83,40 60,50 37,40" fill={visual.prism ? `url(#${prismId})` : visual.edgeA} opacity=".34" />
-              <polygon points="37,40 60,50 48,77 32,77" fill="#ffffff" opacity=".13" />
-              <polygon points="83,40 60,50 72,77 88,77" fill={visual.prism ? "#59dfff" : visual.edgeB} opacity=".22" />
-              <polygon points="48,77 60,50 72,77 60,100" fill="#ffffff" opacity=".08" />
-            </g>
+      {isSupreme ? (
+        <>
+          <div
+            className="pointer-events-none absolute left-1/2 top-[-24%] h-[38%] w-[62%] -translate-x-1/2"
+            style={{
+              clipPath: "polygon(50% 0,61% 40%,88% 14%,81% 70%,100% 100%,0 100%,19% 70%,12% 14%,39% 40%)",
+              background: "linear-gradient(180deg,#fff2af 0%,#ff8ad8 42%,#a78bfa 72%,#5b21b6 100%)",
+              filter: "drop-shadow(0 0 5px rgba(255,242,175,.9)) drop-shadow(0 0 14px rgba(255,138,216,.85))",
+            }}
+          />
+          <div
+            className="pointer-events-none absolute left-[-40%] top-[18%] h-[58%] w-[54%] -rotate-[14deg]"
+            style={{
+              clipPath: "polygon(100% 18%,66% 0,0 22%,54% 45%,8% 72%,68% 68%,31% 100%,100% 80%)",
+              background: "linear-gradient(90deg,rgba(255,209,102,.10),rgba(255,156,228,.98),rgba(124,58,237,.25))",
+              filter: "drop-shadow(0 0 15px rgba(255,156,228,.90))",
+            }}
+          />
+          <div
+            className="pointer-events-none absolute right-[-40%] top-[18%] h-[58%] w-[54%] rotate-[14deg]"
+            style={{
+              clipPath: "polygon(0 18%,34% 0,100% 22%,46% 45%,92% 72%,32% 68%,69% 100%,0 80%)",
+              background: "linear-gradient(270deg,rgba(255,209,102,.10),rgba(255,156,228,.98),rgba(124,58,237,.25))",
+              filter: "drop-shadow(0 0 15px rgba(255,156,228,.90))",
+            }}
+          />
+          <Sparkles className="pointer-events-none absolute -right-3 -top-2 z-40 animate-pulse text-[#fff1b5]" size={14} />
+          <Sparkles className="pointer-events-none absolute -left-3 bottom-0 z-40 text-[#ffd0f2]" size={12} />
+        </>
+      ) : null}
+
+      {isElite ? (
+        <>
+          <Sparkles className="pointer-events-none absolute -right-2 top-[4%] z-40 text-[#fff1a6]" size={11} />
+          <Sparkles className="pointer-events-none absolute -left-2 bottom-[8%] z-40 text-[#ffe58a]" size={9} />
+        </>
+      ) : null}
+
+      <div
+        className={`absolute inset-0 bg-gradient-to-br ${style.frame}`}
+        style={{
+          ...clipStyle,
+          filter:
+            isSupreme
+              ? "drop-shadow(0 0 5px rgba(255,255,255,.72)) drop-shadow(0 0 18px rgba(236,72,153,.82))"
+              : isTita
+              ? "drop-shadow(0 0 5px rgba(255,255,255,.66)) drop-shadow(0 0 15px rgba(217,70,239,.82))"
+              : isMini
+              ? "drop-shadow(0 0 4px rgba(255,255,255,.54)) drop-shadow(0 0 10px rgba(139,92,246,.68))"
+              : isElite
+              ? "drop-shadow(0 0 4px rgba(255,245,185,.68)) drop-shadow(0 0 9px rgba(255,197,40,.58))"
+              : undefined,
+        }}
+      />
+      <div className={`absolute inset-[4px] ${style.core}`} style={clipStyle} />
+      <div
+        className="absolute inset-[4px] border border-white/24"
+        style={{
+          ...clipStyle,
+          background:
+            "linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.03) 44%,rgba(255,255,255,.01))",
+        }}
+      />
+      <div
+        className="pointer-events-none absolute inset-[3px]"
+        style={{
+          ...clipStyle,
+          background: `radial-gradient(circle at 50% 18%,${style.shine} 0%,rgba(255,255,255,0) 57%)`,
+        }}
+      />
+
+      {rank.tier >= 6 ? (
+        <div
+          className="pointer-events-none absolute left-1/2 top-[42%] z-20 h-[24%] w-[24%] -translate-x-1/2 -translate-y-1/2 rotate-45 border"
+          style={{
+            borderColor: isSupreme
+              ? "rgba(255,242,175,.95)"
+              : isTita
+              ? "rgba(255,210,252,.95)"
+              : "rgba(242,225,255,.88)",
+            background: isSupreme
+              ? "linear-gradient(135deg,#fff 0%,#ffd166 32%,#ff82cf 62%,#7c3aed 100%)"
+              : isTita
+              ? "linear-gradient(135deg,#fff 0%,#f6b8ff 38%,#d946ef 68%,#701a75 100%)"
+              : "linear-gradient(135deg,#fff 0%,#d7b6ff 42%,#8b5cf6 70%,#4c1d95 100%)",
+            filter: isSupreme
+              ? "drop-shadow(0 0 12px rgba(255,209,102,.88)) drop-shadow(0 0 17px rgba(255,130,207,.75))"
+              : isTita
+              ? "drop-shadow(0 0 14px rgba(217,70,239,.86))"
+              : "drop-shadow(0 0 10px rgba(196,140,255,.72))",
+          }}
+        />
+      ) : null}
+
+      <div
+        className={`absolute inset-0 z-30 grid place-items-center ${
+          isSupreme ? "text-white" : isTita ? "text-fuchsia-50" : isMini ? "text-violet-50" : "text-white"
+        }`}
+        style={clipStyle}
+      >
+        <div className="grid place-items-center">
+          <Icon size={iconSize} strokeWidth={rank.tier >= 7 ? 2.25 : 1.95} />
+          {size !== "sm" ? (
+            <span className="mt-0.5 text-[8px] font-black tracking-[.08em] text-white/82">
+              LV {level}
+            </span>
           ) : null}
-
-          <polygon points={starPoints} fill={visual.prism ? `url(#${prismId})` : `url(#${starId})`} stroke="rgba(255,255,255,.58)" strokeWidth="1.05" />
-          <polygon points="60,27 60,73 52,48 29,49" fill="#ffffff" opacity=".24" />
-          <polygon points="60,27 68,48 91,49 60,73" fill="#ffffff" opacity=".08" />
-          <polygon points="29,49 47,63 40,86 60,73" fill="#000000" opacity=".16" />
-          <polygon points="91,49 73,63 80,86 60,73" fill="#000000" opacity=".28" />
-
-          {rank.tier >= 5 ? <circle cx="60" cy="60" r="31" fill="none" stroke="rgba(255,255,255,.16)" strokeWidth="1.15" /> : null}
-        </g>
-
-        {sparkle ? (
-          <g fill="#ffffff">
-            <circle cx="91" cy="24" r={rank.tier === 8 ? 2.1 : 1.5} opacity=".9" />
-            <circle cx="24" cy="79" r="1.25" opacity=".62" />
-            {rank.tier === 8 ? <circle cx="102" cy="72" r="1.4" opacity=".8" /> : null}
-          </g>
-        ) : null}
-      </svg>
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,8 +1,8 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { BackButton } from "@/components/back-button";
 import { LessonStageExperience } from "@/components/lesson-stage-experience";
 import { getEnemLessonScope } from "@/lib/enem-lesson-scope";
-import { loadScheduleWeek } from "@/lib/schedule-server";
+import { loadScheduleWeek, loadMySchedule } from "@/lib/schedule-server";
 
 function priorityPresentation(priority: string | null) {
   const value = (priority ?? "").toLowerCase();
@@ -13,12 +13,40 @@ function priorityPresentation(priority: string | null) {
 }
 
 export async function ScheduleLessonScreen({ weekNumber, subjectSlug, lessonSlug }: { weekNumber: number; subjectSlug: string; lessonSlug: string }) {
-  const week = await loadScheduleWeek(weekNumber);
-  const subject = week?.subjects.find((item) => item.slug === subjectSlug);
-  const lesson = subject?.lessons.find((item) => item.slug === lessonSlug);
+  /* TITA_404_AULAS_V1 */
+  let week = await loadScheduleWeek(weekNumber);
+  let subject = week?.subjects.find((item) => item.slug === subjectSlug);
+  let lesson = subject?.lessons.find((item) => item.slug === lessonSlug);
+
+  // Algumas aulas podem vir da trilha/calendário com um week_number administrativo
+  // diferente do agrupamento em que a aula está disponível. Antes de devolver 404,
+  // procura a mesma matéria + aula no plano ativo inteiro.
+  if (!week || !subject || !lesson) {
+    const weeks = await loadMySchedule();
+
+    for (const candidateWeek of weeks) {
+      const candidateSubject = candidateWeek.subjects.find((item) => item.slug === subjectSlug);
+      const candidateLesson = candidateSubject?.lessons.find((item) => item.slug === lessonSlug);
+
+      if (candidateSubject && candidateLesson) {
+        week = candidateWeek;
+        subject = candidateSubject;
+        lesson = candidateLesson;
+        break;
+      }
+    }
+  }
+
   if (!week || !subject || !lesson) notFound();
 
+  // O bloqueio sequencial continua existindo na tela da matéria.
+  // Aqui não devolvemos 404 para um link legítimo vindo do calendário/trilha.
   const trackingOnly = week.contestSlug === "enem-40-dias";
+
+  // MT_UNIFIED_LESSON_ROUTE_V57
+  // Todo plano normal usa a mesma tela de aula por lessonId. O ENEM mantém
+  // o fluxo próprio porque suas aulas são unidades de acompanhamento externo.
+  if (!trackingOnly) redirect(`/cronograma/aula/${lesson.id}`);
 
   // O ENEM usa cada Dia como unidade independente. Não bloqueia uma aula do dia
   // por progresso de outra aula/matéria, porque teoria/lista são executadas fora.
@@ -81,7 +109,7 @@ export async function ScheduleLessonScreen({ weekNumber, subjectSlug, lessonSlug
             title: lesson.title,
             topics: explicitScope ? [explicitScope] : lesson.topics,
             priority: (lesson.priority || "Alta") as never,
-            weekOne: weekNumber === 1,
+            weekOne: week.weekNumber === 1,
             questionCount: lesson.questionCount,
           }}
           questionCount={lesson.questionCount ?? 35}

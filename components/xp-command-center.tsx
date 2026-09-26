@@ -3,7 +3,6 @@
 import { Award, LoaderCircle, Target, Trophy, Zap } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { StudyTimeStatus } from "@/components/study-time-status";
 import { XpRankInsignia } from "@/components/xp-rank-insignia";
 import { loadXpDashboard, type RankInfo, type XpDashboard } from "@/lib/xp-system";
 import { listenStudyUpdated } from "@/lib/study-database";
@@ -14,11 +13,12 @@ const allRanks: RankInfo[] = [
   { tier: 3, slug: "operacional", title: "Operacional", min_level: 11, max_level: 15 },
   { tier: 4, slug: "especialista", title: "Especialista", min_level: 16, max_level: 20 },
   { tier: 5, slug: "elite", title: "Elite", min_level: 21, max_level: 25 },
-  { tier: 6, slug: "diamante", title: "Diamante", min_level: 26, max_level: 30 },
-  { tier: 7, slug: "rubi", title: "Rubi", min_level: 31, max_level: 35 },
-  { tier: 8, slug: "tita-violeta", title: "Titã", min_level: 36, max_level: null },
+  { tier: 6, slug: "mini-tita", title: "Mini-Tit\u00e3", min_level: 26, max_level: 30 },
+  { tier: 7, slug: "tita", title: "Tit\u00e3", min_level: 31, max_level: 35 },
+  { tier: 8, slug: "tita-supremo", title: "Tit\u00e3 Supremo", min_level: 36, max_level: null },
 ];
 
+// MT_NO_STUDY_PERIOD_V55
 export function XpCommandCenter() {
   const [data, setData] = useState<XpDashboard | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,13 +48,12 @@ export function XpCommandCenter() {
   );
 
   if (loading && !data) {
-    return <><StudyTimeStatus /><section className="mb-7 grid min-h-28 place-items-center rounded-[24px] border border-[var(--border)] bg-[var(--surface)]"><LoaderCircle className="animate-spin text-[var(--gold-bright)]" size={20} /></section></>;
+    return <section className="mb-7 grid min-h-28 place-items-center rounded-[24px] border border-[var(--border)] bg-[var(--surface)]"><LoaderCircle className="animate-spin text-[var(--gold-bright)]" size={20} /></section>;
   }
-  if (!data) return <StudyTimeStatus />;
+  if (!data) return null;
 
   return (
     <>
-      <StudyTimeStatus />
       <section className="mb-7 overflow-hidden rounded-[28px] border border-[var(--border-strong)] bg-[#0a0b0d] text-white shadow-[0_24px_70px_rgba(0,0,0,.22)]">
         <div className="grid xl:grid-cols-[1.32fr_.68fr]">
           <div className="relative p-5 sm:p-7">
@@ -92,7 +91,7 @@ export function XpCommandCenter() {
                     <div key={rank.slug} className="flex min-w-[108px] items-center gap-2 bg-transparent">
                       <XpRankInsignia rank={rank} level={rank.min_level} size="sm" />
                       <div className="min-w-0">
-                        <strong className={`block truncate text-[9px] ${rank.tier === 8 ? "text-violet-200" : rank.tier === 7 ? "text-rose-300" : rank.tier === 6 ? "text-sky-200" : "text-white/72"}`}>{rank.title}</strong>
+                        <strong className={`block truncate text-[9px] ${rank.tier === 8 ? "text-amber-100" : rank.tier === 7 ? "text-fuchsia-200" : rank.tier === 6 ? "text-violet-300" : "text-white/72"}`}>{rank.title}</strong>
                         <span className="mt-1 block text-[7px] font-bold tracking-[.06em] text-white/30">{rank.max_level ? `NÍVEIS ${rank.min_level}–${rank.max_level}` : `NÍVEL ${rank.min_level}+`}</span>
                       </div>
                     </div>
@@ -139,6 +138,7 @@ function rankForTier(tier: number, title: string) {
   const safeTier = Math.min(8, Math.max(1, tier));
   const min = [1, 1, 6, 11, 16, 21, 26, 31, 36][safeTier];
   const max = safeTier >= 8 ? null : min + 4;
-  const slugs = ["", "recruta", "iniciante", "operacional", "especialista", "elite", "diamante", "rubi", "tita-violeta"];
-  return { tier: safeTier, slug: slugs[safeTier] || "recruta", title: safeTier === 8 ? "Titã" : title, min_level: min, max_level: max };
+  const slugs = ["", "recruta", "iniciante", "operacional", "especialista", "elite", "mini-tita", "tita", "tita-supremo"];
+  const titles = ["", "Recruta", "Iniciante", "Operacional", "Especialista", "Elite", "Mini-Tit\u00e3", "Tit\u00e3", "Tit\u00e3 Supremo"];
+  return { tier: safeTier, slug: slugs[safeTier] || "recruta", title: titles[safeTier] || title, min_level: min, max_level: max };
 }

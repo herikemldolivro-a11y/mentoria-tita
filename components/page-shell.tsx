@@ -3,27 +3,24 @@ import { AppTopbar } from "@/components/app-topbar";
 import { UserFocusStrip } from "@/components/user-focus-strip";
 import { requireAuthenticatedUser } from "@/lib/auth";
 import { ScheduleExperienceEnhancer } from "@/components/schedule-experience-enhancer";
-import { LuisDiagnosticPreview } from "@/components/luis-diagnostic-preview";
-
-export async function PageShell({ children }: { children: React.ReactNode }) {
+export async function PageShell({ children, compactViewport = false }: { children: React.ReactNode; compactViewport?: boolean }) {
   const { displayName, focusContest, loginStreak, isAdmin } = await requireAuthenticatedUser();
 
   if (!focusContest) redirect("/onboarding");
 
   return (
-    <div className="min-h-screen bg-[var(--background)] text-[var(--ink)]">
+    <div className={`min-h-screen bg-[var(--background)] text-[var(--ink)] ${compactViewport ? "lg:h-screen lg:overflow-hidden" : ""}`}>
       <AppTopbar isAdmin={isAdmin} />
-      <div className="min-h-screen lg:pl-[238px]">
-        <UserFocusStrip displayName={displayName} focusContest={focusContest} loginStreak={loginStreak} />
+<div className={`${compactViewport ? "lg:h-screen lg:overflow-hidden" : "min-h-screen"} lg:pl-[238px]`}>
+        {compactViewport ? null : <UserFocusStrip displayName={displayName} focusContest={focusContest} loginStreak={loginStreak} />}
         <ScheduleExperienceEnhancer />
-        <LuisDiagnosticPreview displayName={displayName} contestSigla={focusContest.sigla} />
-        <main>{children}</main>
-        <footer className="border-t border-[var(--border)] bg-[var(--surface)] px-4 py-7">
+        <main className={compactViewport ? "lg:h-screen lg:overflow-hidden" : ""}>{children}</main>
+        {compactViewport ? null : <footer className="border-t border-[var(--border)] bg-[var(--surface)] px-4 py-7">
           <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-2 text-center text-[9px] font-bold tracking-[0.12em] text-[var(--muted)] sm:flex-row sm:justify-between sm:text-left">
             <span>MENTORIA TITÃ · FOCO 95+</span>
             <span>PLATAFORMA INDEPENDENTE · SEM VÍNCULO OFICIAL COM AS INSTITUIÇÕES EXIBIDAS</span>
           </div>
-        </footer>
+        </footer>}
       </div>
     </div>
   );

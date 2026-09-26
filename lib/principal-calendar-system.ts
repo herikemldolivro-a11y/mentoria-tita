@@ -42,12 +42,41 @@ export type PrincipalLeveling = {
   subject_slug: string;
   source_completed: boolean;
   attempt_id: string | null;
+  daily_limit_base_date: string | null;
+  daily_limit_shifted: boolean;
+  daily_limit_shifted_from: string | null;
+};
+
+export type PrincipalNotebookReview = {
+  id: string;
+  notebook_id: string;
+  revision_id: string;
+  lesson_id: string;
+  review_number: number;
+  recommended_for: string;
+  scheduled_for: string;
+  status: "scheduled" | "completed";
+  completed_at: string | null;
+  lesson_title: string;
+  lesson_slug: string;
+  subject_name: string;
+  subject_slug: string;
+  card_count: number;
+};
+
+export type LevelingDailyLimitInfo = {
+  limit: number;
+  today_count: number;
+  shifted_total: number;
+  message: string | null;
 };
 
 export type PrincipalCalendarHub = {
   taxonomy: PrincipalTaxonomyRow[];
   revisions: PrincipalRevision[];
   levelings: PrincipalLeveling[];
+  notebooks: PrincipalNotebookReview[];
+  leveling_daily_limit: LevelingDailyLimitInfo;
 };
 
 export async function loadPrincipalCalendarHub() {
@@ -59,6 +88,8 @@ export async function loadPrincipalCalendarHub() {
     taxonomy: result?.taxonomy ?? [],
     revisions: result?.revisions ?? [],
     levelings: result?.levelings ?? [],
+    leveling_daily_limit: result?.leveling_daily_limit ?? { limit: 5, today_count: 0, shifted_total: 0, message: null },
+    notebooks: result?.notebooks ?? [],
   } satisfies PrincipalCalendarHub;
 }
 
@@ -97,13 +128,15 @@ export async function reschedulePrincipalRevision(revisionId: string, date: stri
   return data as PrincipalRevision;
 }
 
-export async function startPrincipalLeveling(levelingId: string) {
+export async function startPrincipalLeveling(levelingId: string, signal?: AbortSignal) {
   const supabase = createClient();
-  const { data, error } = await supabase.rpc("start_leveling_calendar_attempt", { p_leveling_id: levelingId });
+  let request = supabase.rpc("start_leveling_calendar_attempt", { p_leveling_id: levelingId });
+  if (signal) request = request.abortSignal(signal);
+  const { data, error } = await request;
   if (error) throw error;
   return data as {
     ok: boolean;
-    reason?: "revision_required" | "no_questions" | "not_scheduled";
+    reason?: "revision_required" | "no_questions" | "insufficient_questions" | "not_scheduled";
     required_revision?: number;
     attempt_id?: string | null;
     continued?: boolean;

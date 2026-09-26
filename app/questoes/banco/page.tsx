@@ -1,4 +1,4 @@
-import { ArrowLeft, BookOpenCheck } from "lucide-react";
+import { Star, ArrowLeft, BookOpenCheck } from "lucide-react";
 import Link from "next/link";
 import { PageShell } from "@/components/page-shell";
 import { QuestionBank } from "@/components/question-bank";
@@ -35,9 +35,29 @@ export default async function QuestionBankPage({
           <ArrowLeft size={14}/> {params.revision ? "VOLTAR À REVISÃO" : "CENTRAL DE QUESTÕES"}
         </Link>
         <header className="mt-5 border-b border-[var(--border)] pb-7">
-          <span className="inline-flex items-center gap-2 text-[10px] font-black tracking-[.2em] text-[var(--gold-bright)]"><BookOpenCheck size={16}/> TREINO INDIVIDUAL</span>
-          <h1 className="mt-3 font-serif text-4xl tracking-[-.04em] text-[var(--ink)] sm:text-6xl">Banco de Questões.</h1>
-          <p className="mt-4 max-w-3xl text-sm leading-7 text-[var(--muted)]">Filtre por matéria, assunto e nível. O gabarito e o comentário aparecem depois da resposta.</p>
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="min-w-0">
+              <span className="inline-flex items-center gap-2 text-[10px] font-black tracking-[.2em] text-[var(--gold-bright)]"><BookOpenCheck size={16}/> TREINO INDIVIDUAL</span>
+              <h1 className="mt-3 font-serif text-4xl tracking-[-.04em] text-[var(--ink)] sm:text-6xl">Banco de Questões.</h1>
+              <p className="mt-4 max-w-3xl text-sm leading-7 text-[var(--muted)]">Filtre por matéria, assunto e nível. O gabarito e o comentário aparecem depois da resposta.</p>
+            </div>
+
+            <Link
+              data-tita-starred-bank-header="1"
+              href="/questoes/banco?status=starred"
+              className="group flex w-full max-w-[360px] shrink-0 items-center gap-4 rounded-[22px] border border-yellow-400/25 bg-[radial-gradient(circle_at_90%_0%,rgba(250,204,21,.15),transparent_48%),rgba(250,204,21,.035)] p-4 text-left transition hover:-translate-y-0.5 hover:border-yellow-300/45 lg:w-[340px]"
+            >
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-yellow-300/25 bg-yellow-300/10 text-yellow-300">
+                <Star size={21} fill="currentColor" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[8px] font-black tracking-[.16em] text-yellow-400">PRIORIDADE PESSOAL</span>
+                <strong className="mt-1 block font-serif text-xl text-[var(--ink)]">Questões Estreladas</strong>
+                <span className="mt-1 block text-[9px] leading-4 text-[var(--muted)]">Abra suas questões marcadas com estrela.</span>
+              </span>
+              <span className="text-[9px] font-black tracking-[.1em] text-yellow-300 transition group-hover:translate-x-0.5">ABRIR</span>
+            </Link>
+          </div>
         </header>
         <div className="mt-7">
           <QuestionBank

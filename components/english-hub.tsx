@@ -60,12 +60,18 @@ export function EnglishHub() {
         </div>
       </section>
 
-      <div className="mt-5">
+      <div className="mt-5 flex flex-wrap gap-2">
         <Link
           href="/ingles/vocabulario"
           className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-4 text-[10px] font-black tracking-[.1em] text-[var(--gold-bright)]"
         >
           <Star size={15} /> MEU VOCABULÁRIO
+        </Link>
+        <Link
+          href="/ingles/conectivos"
+          className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-sky-300/20 bg-sky-300/[.045] px-4 text-[10px] font-black tracking-[.1em] text-sky-300"
+        >
+          <Sparkles size={15} /> CONECTIVOS
         </Link>
       </div>
 

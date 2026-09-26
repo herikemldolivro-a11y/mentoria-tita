@@ -36,6 +36,7 @@ const partRoutes: Record<string, PartRoute> = {
 };
 
 function partLabel(lessonKey: string) {
+  if (lessonKey === "biologia:citologia-celulas-membrana") return "CITOLOGIA";
   if (lessonKey.endsWith("-p1")) return "P1";
   if (lessonKey.endsWith("-p2")) return "P2";
   if (lessonKey.endsWith("-p3")) return "P3";

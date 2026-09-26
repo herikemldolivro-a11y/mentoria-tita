@@ -1,3 +1,5 @@
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 import { ClipboardCheck } from "lucide-react";
 import { AttemptListControls } from "@/components/attempt-list-controls";
 import { BackButton } from "@/components/back-button";
@@ -10,14 +12,44 @@ export const dynamic = "force-dynamic";
 export default async function QuestionAttemptPage({ params }: { params: Promise<{ attemptId: string }> }) {
   await requireAuthenticatedUser();
   const { attemptId } = await params;
+
+  // MT_BLOCK_LEVELING_FROM_LESSON_LIST_V5
+  // Nivelamento JAMAIS pode renderizar a tela da lista pós-aula.
+  const supabase = await createClient();
+  const { data: levelingGuard } = await supabase.rpc("get_question_attempt", {
+    p_attempt_id: attemptId,
+  });
+
+  if (levelingGuard?.attempt?.kind === "leveling") {
+    redirect(`/questoes/banco/nivelamento/${attemptId}`);
+  }
+
   return (
     <PageShell>
       <div className="mx-auto w-full max-w-[900px] px-4 pb-24 pt-7 sm:px-6 sm:pt-9">
         <BackButton fallback="/cronograma/semana-1" label="Voltar ao cronograma" />
-        <header className="mt-5 border-b border-[var(--border)] pb-7"><span className="inline-flex items-center gap-2 text-[10px] font-black tracking-[.2em] text-[var(--gold-bright)]"><ClipboardCheck size={16} /> LISTA DE FIXAÇÃO</span><h1 className="mt-3 font-serif text-4xl tracking-[-.04em] text-[var(--ink)] sm:text-6xl">35 questões congeladas.</h1><p className="mt-4 max-w-2xl text-sm leading-7 text-[var(--muted)]">Suas respostas são salvas imediatamente. Você pode sair e continuar esta mesma lista depois.</p></header>
-        <div className="mt-7"><QuestionAttemptRunner attemptId={attemptId} /></div>
-        <AttemptListControls attemptId={attemptId} />
+
+        <header className="mt-5 border-b border-[var(--border)] pb-7">
+          <span className="inline-flex items-center gap-2 text-[10px] font-black tracking-[.2em] text-[var(--gold-bright)]">
+            <ClipboardCheck size={16} /> LISTA DE FIXAÇÃO
+          </span>
+          <h1 className="mt-3 font-serif text-4xl tracking-[-.04em] text-[var(--ink)] sm:text-6xl">
+            35 questões congeladas.
+          </h1>
+          <p className="mt-4 max-w-2xl text-sm leading-7 text-[var(--muted)]">
+            Suas respostas são salvas imediatamente. Você pode sair e continuar esta mesma lista depois.
+          </p>
+        </header>
+
+        <div className="mt-4">
+          <AttemptListControls attemptId={attemptId} />
+        </div>
+
+        <div className="mt-2">
+          <QuestionAttemptRunner attemptId={attemptId} />
+        </div>
       </div>
     </PageShell>
   );
 }
+

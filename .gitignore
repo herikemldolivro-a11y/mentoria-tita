@@ -25,3 +25,19 @@
 .hotfix-backups/
 .mentoria-*-backup/
 *.local
+
+# Backups e arquivos temporários TITA
+.tita-backups/
+.tita-hotfix-backups/
+.tita-razao-backup/
+.tita-*-backup/
+.tita-*-backups/
+.tita-*-last-error.log
+.tita-*-error.log
+.tita-*-report.txt
+.tita-*-report.json
+
+# Backups gerados pelos patches
+*.backup-*
+*.pre-hotfix-*
+*.promise-void-backup-*

@@ -4,6 +4,7 @@ import { ArrowRight, BookMarked, Database, FileText, LoaderCircle } from "lucide
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { LessonMaterialReader } from "@/components/lesson-material-reader";
+import { RevisionNotebookTool } from "@/components/revision-notebook-tool";
 import {
   loadQuestionBankPage,
   loadStudyTaxonomy,
@@ -11,6 +12,7 @@ import {
 } from "@/lib/question-bank";
 import {
   listenStudyUpdated,
+  loadLessonStudyDay,
   loadRevisionEvent,
   updateRevisionStudyMode,
 } from "@/lib/study-database";
@@ -22,6 +24,7 @@ type RevisionContext = {
   lessonId: string;
   savedCount: number;
   totalCount: number;
+  studyDay: number | null;
 };
 
 function resolveLessonContext(taxonomy: StudyTaxonomy, revision: RevisionEvent) {
@@ -50,7 +53,7 @@ export function RevisionStudyTools({ revisionId }: { revisionId: string }) {
         const ids = resolveLessonContext(taxonomy, revision);
         if (!ids) throw new Error("Não foi possível localizar a aula desta revisão no plano ativo.");
 
-        const [saved, total] = await Promise.all([
+        const [saved, total, studyDay] = await Promise.all([
           loadQuestionBankPage({
             status: "review",
             subjectId: ids.subjectId,
@@ -63,6 +66,7 @@ export function RevisionStudyTools({ revisionId }: { revisionId: string }) {
             lessonId: ids.lessonId,
             page: 1,
           }),
+          loadLessonStudyDay(revision.subjectSlug, revision.lessonSlug).catch(() => null),
         ]);
 
         if (!alive) return;
@@ -72,6 +76,7 @@ export function RevisionStudyTools({ revisionId }: { revisionId: string }) {
           lessonId: ids.lessonId,
           savedCount: saved.total,
           totalCount: total.total,
+          studyDay,
         });
         setErrorMessage(null);
 
@@ -136,9 +141,17 @@ export function RevisionStudyTools({ revisionId }: { revisionId: string }) {
   return (
     <section className="mb-6 rounded-[26px] border border-[var(--border-strong)] bg-[var(--surface)] p-5 sm:p-6">
       <span className="text-[9px] font-black tracking-[.18em] text-[var(--gold-bright)]">FERRAMENTAS DA REVISÃO</span>
-      <h2 className="mt-2 font-serif text-3xl text-[var(--ink)]">Tudo desta aula, no mesmo lugar.</h2>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <span className="rounded-full border border-[rgba(210,166,78,.35)] bg-[rgba(210,166,78,.08)] px-3 py-1.5 text-[9px] font-black tracking-[.12em] text-[var(--gold-bright)]">
+          {context.studyDay ? `AULA DO DIA ${context.studyDay}` : "AULA DO CRONOGRAMA"}
+        </span>
+        <span className="rounded-full border border-violet-400/25 bg-violet-400/[.07] px-3 py-1.5 text-[9px] font-black tracking-[.12em] text-violet-300">
+          {context.revision.revisionNumber}ª REVISÃO
+        </span>
+      </div>
+      <h2 className="mt-3 font-serif text-3xl text-[var(--ink)]">{context.revision.lessonTitle}</h2>
       <p className="mt-2 max-w-3xl text-xs leading-6 text-[var(--muted)]">
-        O PDF, as questões que você marcou para revisar e o treino livre abaixo pertencem somente a esta aula.
+        {context.revision.subjectName} · O PDF, as questões que você marcou para revisar e o treino livre abaixo pertencem somente a esta aula.
       </p>
 
       <div className="mt-5 grid gap-3 lg:grid-cols-3">
@@ -172,6 +185,12 @@ export function RevisionStudyTools({ revisionId }: { revisionId: string }) {
           <span className="mt-3 inline-flex items-center gap-2 text-[9px] font-black tracking-[.1em] text-cyan-300">TREINAR ESTA AULA <ArrowRight size={14} /></span>
         </Link>
       </div>
+
+      {/* MT_REVISION_NOTEBOOK_TOOL_V1 */}
+      <RevisionNotebookTool
+        lessonId={context.lessonId}
+        lessonTitle={context.revision.lessonTitle}
+      />
 
       {pdfOpen ? (
         <div id="revision-pdf-reader" className="mt-5 scroll-mt-24 border-t border-[var(--border)] pt-5">

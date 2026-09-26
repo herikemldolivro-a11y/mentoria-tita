@@ -1,26 +1,14 @@
 "use client";
 
-import { ArrowRight, Check, CircleDot, Flag, LockKeyhole, Play, RotateCcw } from "lucide-react";
+import { ArrowRight, Check, CircleDot, LockKeyhole, Play } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { EnemDailySideQuests } from "@/components/enem-daily-side-quests";
 import type { WeekJourneyMission } from "@/components/week-journey";
-import { getEnemLessonScope } from "@/lib/enem-lesson-scope";
 
 export type EnemWeekJourneyMission = WeekJourneyMission & {
   studyDay?: number;
 };
-
-function todayInBrazil() {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Sao_Paulo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
-  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return `${value.year}-${value.month}-${value.day}`;
-}
 
 function missionPlanDate(mission: EnemWeekJourneyMission) {
   try {
@@ -30,53 +18,99 @@ function missionPlanDate(mission: EnemWeekJourneyMission) {
   }
 }
 
-function missionSubjectSlug(mission: EnemWeekJourneyMission) {
-  try {
-    const parts = new URL(mission.href, "https://mentoriatita.local").pathname.split("/").filter(Boolean);
-    const enemIndex = parts.indexOf("enem");
-    return enemIndex >= 0 ? parts[enemIndex + 2] ?? "" : "";
-  } catch {
-    return "";
-  }
+function todayInBrazil() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
 }
 
-function buildSerpentinePath(count: number, mobile = false) {
-  if (count <= 0) return "";
-  const leftX = mobile ? 370 : 230;
-  const rightX = mobile ? 630 : 770;
-  const stepY = 300;
-  const firstY = 42;
-  let d = `M ${leftX} ${firstY}`;
+function buildPath(count: number) {
+  if (!count) return "";
+  const leftX = 235;
+  const rightX = 765;
+  const firstY = 74;
+  const stepY = 310;
+
+  let path = `M ${leftX} ${firstY}`;
+
   for (let index = 1; index < count; index += 1) {
     const fromX = (index - 1) % 2 === 0 ? leftX : rightX;
     const toX = index % 2 === 0 ? leftX : rightX;
     const fromY = firstY + (index - 1) * stepY;
     const toY = firstY + index * stepY;
-    const midY = (fromY + toY) / 2;
-    d += ` C ${fromX} ${midY}, ${toX} ${midY}, ${toX} ${toY}`;
+    const middleY = (fromY + toY) / 2;
+    path += ` C ${fromX} ${middleY}, ${toX} ${middleY}, ${toX} ${toY}`;
   }
-  return d;
+
+  return path;
 }
 
-function MissionStages({ mission, dueNow }: { mission: EnemWeekJourneyMission; dueNow: boolean }) {
-  const stages = [
-    { label: "AULA", done: Boolean(mission.theoryCompleted), active: dueNow && !mission.theoryCompleted },
-    { label: "QUESTÕES", done: Boolean(mission.listCompleted), active: dueNow && Boolean(mission.theoryCompleted) && !mission.listCompleted },
-    { label: "REVISÃO", done: false, active: false },
-    { label: "NIVELAMENTO", done: false, active: false },
+function MissionStages({
+  mission,
+  active,
+}: {
+  mission: EnemWeekJourneyMission;
+  active: boolean;
+}) {
+  const steps = [
+    { label: "AULA", done: Boolean(mission.theoryCompleted) },
+    { label: "QUESTÕES", done: Boolean(mission.listCompleted) },
+    { label: "REVISÃO", done: false },
+    { label: "NIVELAMENTO", done: false },
   ];
 
   return (
     <div className="mt-4 flex items-center gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      {stages.map((stage, index) => (
-        <div key={stage.label} className="flex shrink-0 items-center gap-1.5">
-          <span className={`grid h-6 min-w-6 place-items-center rounded-full border px-1 ${stage.active ? "border-emerald-300/40 bg-emerald-300/12 text-emerald-100" : stage.done ? "border-violet-300/35 bg-violet-300/10 text-violet-100 shadow-[0_0_16px_rgba(139,92,246,.16)]" : "border-white/[.08] bg-black/20 text-white/28"}`}>
-            {stage.done ? <Check size={11} strokeWidth={3} /> : stage.active ? <CircleDot size={10} /> : <LockKeyhole size={9} />}
-          </span>
-          <span className={`text-[7px] font-black tracking-[.11em] ${stage.active ? "text-emerald-200/85" : stage.done ? "text-violet-200/80" : "text-white/24"}`}>{stage.label}</span>
-          {index < stages.length - 1 ? <span className={`h-px w-4 ${stage.done ? "bg-violet-300/24" : stage.active ? "bg-emerald-300/22" : "bg-white/[.09]"}`} /> : null}
-        </div>
-      ))}
+      {steps.map((step, index) => {
+        const current =
+          active &&
+          ((index === 0 && !mission.theoryCompleted) ||
+            (index === 1 && Boolean(mission.theoryCompleted) && !mission.listCompleted));
+
+        return (
+          <div key={step.label} className="flex shrink-0 items-center gap-1.5">
+            <span
+              className={`grid h-6 min-w-6 place-items-center rounded-full border px-1 ${
+                current
+                  ? "border-emerald-300/40 bg-emerald-300/10 text-emerald-100"
+                  : step.done
+                    ? "border-violet-300/35 bg-violet-300/10 text-violet-100"
+                    : "border-white/[.08] bg-black/20 text-white/25"
+              }`}
+            >
+              {step.done ? (
+                <Check size={11} strokeWidth={3} />
+              ) : current ? (
+                <CircleDot size={10} />
+              ) : (
+                <LockKeyhole size={9} />
+              )}
+            </span>
+
+            <span
+              className={`text-[7px] font-black tracking-[.11em] ${
+                current
+                  ? "text-emerald-200/85"
+                  : step.done
+                    ? "text-violet-200/80"
+                    : "text-white/24"
+              }`}
+            >
+              {step.label}
+            </span>
+
+            {index < steps.length - 1 ? (
+              <span className={`h-px w-4 ${step.done ? "bg-violet-300/24" : "bg-white/[.09]"}`} />
+            ) : null}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -90,158 +124,276 @@ export function EnemWeekJourney({
   title?: string | null;
   missions: EnemWeekJourneyMission[];
 }) {
-  const storageKey = `tita-week-${weekNumber}-started-v1`;
-  const [started, setStarted] = useState(false);
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    setStarted(window.localStorage.getItem(storageKey) === "1");
-    setHydrated(true);
-  }, [storageKey]);
-
-  const completed = useMemo(() => missions.filter((mission) => mission.theoryCompleted && mission.listCompleted).length, [missions]);
-  const progress = missions.length ? Math.round((completed / missions.length) * 100) : 0;
-  const todayKey = todayInBrazil();
-  const hasExplicitToday = missions.some((mission) => mission.isToday || missionPlanDate(mission) === todayKey);
-  const fallbackActionIndex = missions.findIndex((mission) => !(mission.theoryCompleted && mission.listCompleted));
-
-  function dueNow(mission: EnemWeekJourneyMission, index: number) {
-    if (mission.theoryCompleted && mission.listCompleted) return false;
-    if (hasExplicitToday) return Boolean(mission.isToday) || missionPlanDate(mission) === todayKey;
-    return index === fallbackActionIndex;
-  }
-
-  function dayDueNow(studyDay?: number) {
-    if (!studyDay) return false;
-    if (hasExplicitToday) {
-      return missions.some((mission) => mission.studyDay === studyDay && (mission.isToday || missionPlanDate(mission) === todayKey));
-    }
-    return missions[fallbackActionIndex]?.studyDay === studyDay;
-  }
+  const completed = useMemo(
+    () => missions.filter((mission) => mission.theoryCompleted && mission.listCompleted).length,
+    [missions],
+  );
 
   if (!missions.length) return null;
 
-  if (!hydrated || !started) {
-    return (
-      <section id="trilha-semana" className="relative mt-8 overflow-hidden rounded-[32px] border border-white/[.11] bg-[#08090b] p-6 shadow-[0_28px_100px_rgba(0,0,0,.38)] sm:p-8">
-        <div className="tita-soft-grid pointer-events-none absolute inset-0 opacity-20" />
-        <div className="relative grid gap-7 lg:grid-cols-[1fr_370px] lg:items-center">
-          <div>
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/[.11] bg-white/[.045] px-3 py-1.5 text-[8px] font-black tracking-[.16em] text-white/65"><Flag size={13} /> ENEM 40 DIAS · SEMANA {String(weekNumber).padStart(2, "0")}</span>
-            <h2 className="mt-5 max-w-3xl font-serif text-4xl leading-[.95] tracking-[-.04em] text-white sm:text-5xl">Sua Semana {weekNumber} está pronta.</h2>
-            <p className="mt-4 max-w-2xl text-xs leading-6 text-white/42">{title || "A plataforma já organizou a sequência da semana."} Cada missão agora mostra também o escopo exato daquela parte, para você não precisar adivinhar o que entra em P1, P2 ou P3. A partir do Dia 2, entram ainda dois textos de Inglês e uma Redação Nota Mil.</p>
-            <div className="mt-6 flex flex-wrap gap-3 text-[8px] font-black tracking-[.11em] text-white/38"><span>{missions.length} MISSÕES</span><span>•</span><span>ESCOPO EXATO EM CADA AULA</span></div>
-            <button type="button" onClick={() => { window.localStorage.setItem(storageKey, "1"); setStarted(true); }} className="tita-primary-button mt-7 min-w-[210px]"><Play size={15} fill="currentColor" /> INICIAR SEMANA {weekNumber}</button>
-          </div>
-          <div className="rounded-[26px] border border-white/[.08] bg-black/25 p-5">
-            <span className="text-[8px] font-black tracking-[.13em] text-sky-200/70">RAMIFICAÇÕES OBRIGATÓRIAS</span>
-            <div className="mt-4 space-y-2">
-              {["INGLÊS · TEXTO 1/2", "INGLÊS · TEXTO 2/2", "REDAÇÃO · NOTA MIL"].map((label, index) => <div key={label} className="flex items-center gap-3 rounded-2xl border border-white/[.08] bg-white/[.025] px-4 py-3"><span className="grid h-7 w-7 place-items-center rounded-full border border-white/10 text-[9px] text-white/45">{index + 1}</span><strong className="text-[9px] tracking-[.08em] text-white/58">{label}</strong></div>)}
-            </div>
-          </div>
-        </div>
-      </section>
-    );
-  }
+  const progress = Math.round((completed / missions.length) * 100);
+  const today = todayInBrazil();
+  const explicitToday = missions.some(
+    (mission) => Boolean(mission.isToday) || missionPlanDate(mission) === today,
+  );
+  const fallbackIndex = missions.findIndex(
+    (mission) => !(mission.theoryCompleted && mission.listCompleted),
+  );
 
-  const rowHeight = 300;
-  const trackHeight = Math.max(rowHeight, 42 + (missions.length - 1) * rowHeight + 230);
-  const desktopPath = buildSerpentinePath(missions.length, false);
-  const mobilePath = buildSerpentinePath(missions.length, true);
+  const firstMissionIndexForDay = new Map<number, number>();
+  missions.forEach((mission, index) => {
+    if (mission.studyDay && !firstMissionIndexForDay.has(mission.studyDay)) {
+      firstMissionIndexForDay.set(mission.studyDay, index);
+    }
+  });
+
+  const isActive = (mission: EnemWeekJourneyMission, index: number) => {
+    if (mission.theoryCompleted && mission.listCompleted) return false;
+    if (explicitToday) {
+      return Boolean(mission.isToday) || missionPlanDate(mission) === today;
+    }
+    return index === fallbackIndex;
+  };
+
+  const dayIsActive = (day?: number) => {
+    if (!day) return false;
+    return missions.some((mission, index) => mission.studyDay === day && isActive(mission, index));
+  };
+
+  const rowHeight = 310;
+  const trackHeight = Math.max(420, 110 + (missions.length - 1) * rowHeight + 280);
+  const path = buildPath(missions.length);
 
   return (
-    <section id="trilha-semana" className="relative mt-8 overflow-hidden rounded-[32px] border border-white/[.11] bg-[#07080a] px-4 py-7 shadow-[0_28px_100px_rgba(0,0,0,.36)] sm:px-7 sm:py-8">
-      <div className="tita-soft-grid pointer-events-none absolute inset-0 opacity-[.11]" />
-      <header className="relative z-20 flex flex-col gap-4 border-b border-white/[.07] pb-6 sm:flex-row sm:items-end sm:justify-between">
+    <section
+      id="trilha-semana"
+      className="relative mt-8 overflow-hidden rounded-[32px] border border-white/[.10] bg-[#050608] px-4 py-7 shadow-[0_30px_110px_rgba(0,0,0,.46)] sm:px-7 sm:py-8"
+    >
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(109,40,217,.07),transparent_35%)]" />
+
+      <header className="relative z-20 flex flex-col gap-5 border-b border-white/[.07] pb-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <span className="tita-kicker">ENEM 40 DIAS · SEMANA {String(weekNumber).padStart(2, "0")}</span>
-          <h2 className="mt-2 font-serif text-4xl tracking-[-.035em] text-white">Trilha da semana</h2>
-          <p className="mt-2 max-w-2xl text-[10px] leading-5 text-white/34">Agora cada card diz exatamente o que estudar naquela parte. Nada de “continuação” solta: P1/P2/P3 mostram o conteúdo real do bloco. Inglês e Redação continuam nas ramificações laterais.</p>
+          <span className="text-[8px] font-black tracking-[.18em] text-violet-200/65">
+            ENEM 40 DIAS · SEMANA {String(weekNumber).padStart(2, "0")}
+          </span>
+          <h2 className="mt-2 font-serif text-4xl tracking-[-.035em] text-white">
+            Trilha da semana
+          </h2>
+          <p className="mt-2 max-w-2xl text-[10px] leading-5 text-white/34">
+            {title || "Siga a sequência do dia."} Os nomes e conteúdos continuam vindo do seu
+            cronograma. Em cada dia da trilha, o bloco lateral de Inglês fica fixado com 2 textos.
+          </p>
         </div>
+
         <div className="min-w-[210px]">
-          <div className="flex items-center justify-between text-[8px] font-black tracking-[.1em] text-white/35"><span>{completed}/{missions.length} MISSÕES</span><span>{progress}%</span></div>
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[.07]"><span className="block h-full rounded-full bg-[linear-gradient(90deg,#7c3aed,#a855f7,#d8b4fe)] shadow-[0_0_14px_rgba(168,85,247,.28)]" style={{ width: `${progress}%` }} /></div>
+          <div className="flex items-center justify-between text-[8px] font-black tracking-[.1em] text-white/35">
+            <span>{completed}/{missions.length} MISSÕES</span>
+            <span>{progress}%</span>
+          </div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[.07]">
+            <span
+              className="block h-full rounded-full bg-[linear-gradient(90deg,#7c3aed,#a855f7,#d8b4fe)] shadow-[0_0_14px_rgba(168,85,247,.28)]"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
         </div>
       </header>
 
-      <div className="relative z-0 mx-auto mt-10 max-w-5xl" style={{ minHeight: trackHeight }}>
-        <svg className="pointer-events-none absolute inset-0 hidden h-full w-full sm:block" viewBox={`0 0 1000 ${trackHeight}`} preserveAspectRatio="none" aria-hidden="true">
-          <path d={desktopPath} fill="none" stroke="rgba(255,255,255,.12)" strokeWidth="5" strokeLinecap="round" />
-          <path d={desktopPath} fill="none" stroke="rgba(255,255,255,.028)" strokeWidth="15" strokeLinecap="round" />
-        </svg>
-        <svg className="pointer-events-none absolute inset-0 h-full w-full sm:hidden" viewBox={`0 0 1000 ${trackHeight}`} preserveAspectRatio="none" aria-hidden="true">
-          <path d={mobilePath} fill="none" stroke="rgba(255,255,255,.10)" strokeWidth="5" strokeLinecap="round" />
+      <div
+        className="relative z-0 mx-auto mt-10 max-w-5xl"
+        style={{ minHeight: trackHeight }}
+      >
+        <svg
+          className="pointer-events-none absolute inset-0 hidden h-full w-full sm:block"
+          viewBox={`0 0 1000 ${trackHeight}`}
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          <path
+            d={path}
+            fill="none"
+            stroke="rgba(255,255,255,.10)"
+            strokeWidth="4"
+            strokeLinecap="round"
+          />
+          <path
+            d={path}
+            fill="none"
+            stroke="rgba(109,40,217,.045)"
+            strokeWidth="16"
+            strokeLinecap="round"
+          />
         </svg>
 
         <div className="relative">
           {missions.map((mission, index) => {
             const done = Boolean(mission.theoryCompleted && mission.listCompleted);
-            const active = dueNow(mission, index);
+            const active = isActive(mission, index);
             const leftSide = index % 2 === 0;
-            const previousDay = index > 0 ? missions[index - 1]?.studyDay : undefined;
-            const showDailyBranch = Boolean(mission.studyDay && mission.studyDay >= 2 && mission.studyDay !== previousDay);
-            const branchSide = leftSide ? "right" : "left";
-            const branchActive = dayDueNow(mission.studyDay);
-            const exactScope = getEnemLessonScope(mission.studyDay, missionSubjectSlug(mission));
+            const firstOfDay =
+              Boolean(mission.studyDay) &&
+              firstMissionIndexForDay.get(mission.studyDay as number) === index;
 
             return (
-              <div key={mission.id} className="relative flex min-h-[300px] flex-col items-stretch pt-4 sm:block">
-                {showDailyBranch ? (
+              <div
+                key={mission.id}
+                className="relative flex min-h-[310px] flex-col items-stretch pt-5 sm:block"
+              >
+                {firstOfDay && mission.studyDay ? (
                   <>
-                    <svg className="pointer-events-none absolute inset-0 z-0 hidden h-[230px] w-full sm:block" viewBox="0 0 1000 230" preserveAspectRatio="none" aria-hidden="true">
+                    <svg
+                      className="pointer-events-none absolute inset-0 z-0 hidden h-[235px] w-full sm:block"
+                      viewBox="0 0 1000 235"
+                      preserveAspectRatio="none"
+                      aria-hidden="true"
+                    >
                       {leftSide ? (
                         <>
-                          <path d="M455 108 C500 108 515 108 555 108" fill="none" stroke="rgba(125,211,252,.20)" strokeWidth="3" strokeLinecap="round" />
-                          <path d="M555 108 C575 108 575 45 600 45 M555 108 C575 108 575 108 600 108 M555 108 C575 108 575 171 600 171" fill="none" stroke="rgba(125,211,252,.13)" strokeWidth="2" strokeLinecap="round" />
+                          <path
+                            d="M455 110 C500 110 515 110 555 110"
+                            fill="none"
+                            stroke="rgba(125,211,252,.20)"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                          />
+                          <path
+                            d="M555 110 C580 110 580 65 610 65 M555 110 C580 110 580 150 610 150"
+                            fill="none"
+                            stroke="rgba(125,211,252,.13)"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                          />
                         </>
                       ) : (
                         <>
-                          <path d="M545 108 C500 108 485 108 445 108" fill="none" stroke="rgba(125,211,252,.20)" strokeWidth="3" strokeLinecap="round" />
-                          <path d="M445 108 C425 108 425 45 400 45 M445 108 C425 108 425 108 400 108 M445 108 C425 108 425 171 400 171" fill="none" stroke="rgba(125,211,252,.13)" strokeWidth="2" strokeLinecap="round" />
+                          <path
+                            d="M545 110 C500 110 485 110 445 110"
+                            fill="none"
+                            stroke="rgba(125,211,252,.20)"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                          />
+                          <path
+                            d="M445 110 C420 110 420 65 390 65 M445 110 C420 110 420 150 390 150"
+                            fill="none"
+                            stroke="rgba(125,211,252,.13)"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                          />
                         </>
                       )}
                     </svg>
-                    <div className={`relative z-10 order-2 mt-3 w-full sm:absolute sm:top-2 sm:mt-0 sm:w-[38%] ${leftSide ? "sm:right-0" : "sm:left-0"}`}>
-                      <EnemDailySideQuests day={mission.studyDay ?? 2} side={branchSide} dueNow={branchActive} />
+
+                    <div
+                      className={`relative z-10 order-2 mt-3 w-full sm:absolute sm:top-4 sm:mt-0 sm:w-[38%] ${
+                        leftSide ? "sm:right-0" : "sm:left-0"
+                      }`}
+                    >
+                      <EnemDailySideQuests
+                        day={mission.studyDay}
+                        side={leftSide ? "right" : "left"}
+                        dueNow={dayIsActive(mission.studyDay)}
+                      />
                     </div>
                   </>
                 ) : null}
 
-                <Link href={mission.href} className={`group relative z-10 order-1 w-full overflow-hidden rounded-[24px] border transition duration-300 sm:absolute sm:top-4 sm:w-[46%] ${leftSide ? "sm:left-0" : "sm:right-0"} ${active ? "border-emerald-300/30 shadow-[0_18px_60px_rgba(16,185,129,.10)]" : done ? "border-violet-300/30 shadow-[0_18px_62px_rgba(124,58,237,.16),0_0_34px_rgba(168,85,247,.08)]" : "border-white/[.08] hover:border-white/[.16]"}`}>
-                  {mission.imagePath ? <img src={mission.imagePath} alt="" className={`absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.025] ${active ? "opacity-82" : done ? "opacity-58" : "opacity-42"}`} /> : <div className="absolute inset-0 tita-soft-grid bg-[#0d0f12]" />}
-                  <div className={`absolute inset-0 ${active ? "bg-[linear-gradient(100deg,rgba(5,12,9,.97)_0%,rgba(7,28,20,.82)_50%,rgba(10,42,29,.36)_100%)]" : done ? "bg-[linear-gradient(100deg,rgba(12,7,22,.97)_0%,rgba(42,20,75,.82)_52%,rgba(76,29,149,.34)_100%)]" : "bg-[linear-gradient(100deg,rgba(5,6,7,.97)_0%,rgba(5,6,7,.84)_50%,rgba(5,6,7,.42)_100%)]"}`} />
-                  {done ? <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-violet-400/20 blur-3xl" /> : null}
+                <Link
+                  href={mission.href}
+                  className={`group relative z-10 order-1 w-full overflow-hidden rounded-[24px] border transition duration-300 sm:absolute sm:top-5 sm:w-[46%] ${
+                    leftSide ? "sm:left-0" : "sm:right-0"
+                  } ${
+                    active
+                      ? "border-violet-300/35 shadow-[0_18px_70px_rgba(109,40,217,.20)]"
+                      : done
+                        ? "border-violet-300/25 shadow-[0_18px_60px_rgba(76,29,149,.15)]"
+                        : "border-white/[.08] hover:border-white/[.16]"
+                  }`}
+                >
+                  {mission.imagePath ? (
+                    <img
+                      src={mission.imagePath}
+                      alt=""
+                      className={`absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.025] ${
+                        active ? "opacity-75" : done ? "opacity-54" : "opacity-36"
+                      }`}
+                    />
+                  ) : null}
 
-                  <span className={`absolute -top-[23px] left-1/2 z-20 grid h-[46px] w-[46px] -translate-x-1/2 place-items-center rounded-full border shadow-[0_0_0_7px_#07080a] ${active ? "border-emerald-200/45 bg-[#123c2e] text-emerald-100 shadow-[0_0_0_7px_#07080a,0_0_30px_rgba(52,211,153,.22)]" : done ? "border-violet-200/45 bg-[#2d1748] text-violet-100 shadow-[0_0_0_7px_#07080a,0_0_28px_rgba(139,92,246,.30)]" : "border-white/[.12] bg-[#121418] text-white/34"}`}>
-                    {done ? <Check size={16} strokeWidth={3} /> : active ? <Play size={13} fill="currentColor" /> : <span className="font-serif text-sm">{index + 1}</span>}
+                  <div
+                    className={`absolute inset-0 ${
+                      active
+                        ? "bg-[linear-gradient(100deg,rgba(16,7,30,.98)_0%,rgba(49,20,83,.88)_55%,rgba(76,29,149,.48)_100%)]"
+                        : done
+                          ? "bg-[linear-gradient(100deg,rgba(12,7,22,.98)_0%,rgba(42,20,75,.84)_55%,rgba(76,29,149,.34)_100%)]"
+                          : "bg-[linear-gradient(100deg,rgba(5,6,7,.98)_0%,rgba(5,6,7,.86)_55%,rgba(5,6,7,.54)_100%)]"
+                    }`}
+                  />
+
+                  <span
+                    className={`absolute -top-[22px] left-1/2 z-20 grid h-[44px] w-[44px] -translate-x-1/2 place-items-center rounded-full border shadow-[0_0_0_7px_#050608] ${
+                      active
+                        ? "border-violet-200/45 bg-[#3b1c5f] text-violet-100 shadow-[0_0_0_7px_#050608,0_0_28px_rgba(168,85,247,.30)]"
+                        : done
+                          ? "border-violet-200/40 bg-[#2a163f] text-violet-100"
+                          : "border-white/[.12] bg-[#111318] text-white/34"
+                    }`}
+                  >
+                    {done ? (
+                      <Check size={15} strokeWidth={3} />
+                    ) : active ? (
+                      <Play size={12} fill="currentColor" />
+                    ) : (
+                      <span className="font-serif text-sm">{index + 1}</span>
+                    )}
                   </span>
 
                   <div className="relative flex min-h-[245px] flex-col justify-end p-5 pt-9 sm:p-6 sm:pt-10">
                     <div className="mb-auto flex items-start justify-between gap-3">
-                      <span className="rounded-full border border-white/[.12] bg-black/35 px-2.5 py-1 text-[7px] font-black tracking-[.13em] text-white/68 backdrop-blur-md">{mission.shortName}</span>
-                      <span className={`rounded-full border px-2.5 py-1 text-[7px] font-black tracking-[.1em] ${active ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-200" : done ? "border-violet-300/25 bg-violet-300/[.08] text-violet-200" : "border-white/[.08] bg-black/20 text-white/30"}`}>{active ? "HOJE" : done ? "CONCLUÍDA" : "OUTRO DIA"}</span>
+                      <span className="rounded-full border border-white/[.12] bg-black/35 px-2.5 py-1 text-[7px] font-black tracking-[.13em] text-white/68 backdrop-blur-md">
+                        {mission.shortName}
+                      </span>
+                      <span
+                        className={`rounded-full border px-2.5 py-1 text-[7px] font-black tracking-[.1em] ${
+                          active
+                            ? "border-violet-300/30 bg-violet-300/10 text-violet-200"
+                            : done
+                              ? "border-violet-300/20 bg-violet-300/[.07] text-violet-200/70"
+                              : "border-white/[.08] bg-black/20 text-white/30"
+                        }`}
+                      >
+                        {active ? "HOJE" : done ? "CONCLUÍDA" : "OUTRO DIA"}
+                      </span>
                     </div>
-                    <span className={`text-[8px] font-black tracking-[.13em] ${active ? "text-emerald-200/55" : done ? "text-violet-200/55" : "text-white/28"}`}>MISSÃO {String(index + 1).padStart(2, "0")}{mission.studyDay ? ` · DIA ${mission.studyDay}` : mission.dayLabel ? ` · ${mission.dayLabel}` : ""}</span>
-                    <h3 className="mt-1 font-serif text-2xl leading-tight text-white sm:text-3xl">{mission.subject}</h3>
-                    <p className="mt-2 text-[10px] font-bold leading-5 text-white/60">{mission.lessonTitle}</p>
-                    {exactScope ? (
-                      <div className={`mt-2 rounded-xl border px-3 py-2.5 ${active ? "border-emerald-300/15 bg-emerald-300/[.055]" : done ? "border-violet-300/15 bg-violet-300/[.05]" : "border-white/[.07] bg-black/20"}`}>
-                        <span className={`block text-[7px] font-black tracking-[.13em] ${active ? "text-emerald-200/65" : done ? "text-violet-200/65" : "text-white/32"}`}>ESTUDAR NESTA PARTE</span>
-                        <p className="mt-1 text-[9px] leading-[1.55] text-white/48">{exactScope}</p>
-                      </div>
-                    ) : null}
-                    <MissionStages mission={mission} dueNow={active} />
-                    <span className={`mt-4 inline-flex items-center gap-2 text-[8px] font-black tracking-[.1em] ${active ? "text-emerald-200" : done ? "text-violet-200/80" : "text-white/50"}`}>ABRIR MISSÃO <ArrowRight size={12} /></span>
+
+                    <span className="text-[8px] font-black tracking-[.13em] text-violet-200/45">
+                      MISSÃO {String(index + 1).padStart(2, "0")}
+                      {mission.studyDay
+                        ? ` · DIA ${mission.studyDay}`
+                        : mission.dayLabel
+                          ? ` · ${mission.dayLabel}`
+                          : ""}
+                    </span>
+
+                    <h3 className="mt-1 font-serif text-2xl leading-tight text-white sm:text-3xl">
+                      {mission.subject}
+                    </h3>
+
+                    <p className="mt-2 text-[10px] font-bold leading-5 text-white/58">
+                      {mission.lessonTitle}
+                    </p>
+
+                    <MissionStages mission={mission} active={active} />
+
+                    <span className="mt-4 inline-flex items-center gap-2 text-[8px] font-black tracking-[.1em] text-violet-200/75">
+                      ABRIR MISSÃO <ArrowRight size={12} />
+                    </span>
                   </div>
                 </Link>
               </div>
             );
           })}
         </div>
-      </div>
-
-      <div className="relative z-20 mt-3 flex justify-end">
-        <button type="button" onClick={() => { window.localStorage.removeItem(storageKey); setStarted(false); }} className="inline-flex items-center gap-2 rounded-lg border border-white/[.07] bg-white/[.02] px-3 py-2 text-[7px] font-black tracking-[.08em] text-white/28 transition hover:text-white/55"><RotateCcw size={11} /> REINICIAR VISUALIZAÇÃO</button>
       </div>
     </section>
   );

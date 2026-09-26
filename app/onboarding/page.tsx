@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { Brand } from "@/components/brand";
 import { DynamicOnboarding, type OnboardingContest } from "@/components/dynamic-onboarding";
 import { requireAuthenticatedUser } from "@/lib/auth";
+import { contestOptions } from "@/lib/contests";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -19,11 +20,12 @@ export default async function OnboardingPage() {
     .order("is_default", { ascending: false })
     .order("created_at", { ascending: true });
 
+  const allowedContestSlugs = new Set(contestOptions.map((contest) => contest.slug));
   const selectedPlans = new Map<string, { planId: string; contest: { slug: string; sigla: string; nome: string } }>();
   for (const row of plans ?? []) {
     const relation = row.contests as { slug?: string; sigla?: string; nome?: string; ativo?: boolean } | Array<{ slug?: string; sigla?: string; nome?: string; ativo?: boolean }> | null;
     const contest = Array.isArray(relation) ? relation[0] : relation;
-    if (!contest?.slug || contest.ativo === false || selectedPlans.has(contest.slug)) continue;
+    if (!contest?.slug || contest.ativo === false || !allowedContestSlugs.has(contest.slug) || selectedPlans.has(contest.slug)) continue;
     selectedPlans.set(contest.slug, {
       planId: row.id,
       contest: { slug: contest.slug, sigla: contest.sigla ?? contest.slug.toUpperCase(), nome: contest.nome ?? contest.slug.toUpperCase() },

@@ -13,9 +13,9 @@ const allRanks: RankInfo[] = [
   { tier: 3, slug: "operacional", title: "Operacional", min_level: 11, max_level: 15 },
   { tier: 4, slug: "especialista", title: "Especialista", min_level: 16, max_level: 20 },
   { tier: 5, slug: "elite", title: "Elite", min_level: 21, max_level: 25 },
-  { tier: 6, slug: "diamante", title: "Diamante", min_level: 26, max_level: 30 },
-  { tier: 7, slug: "rubi", title: "Rubi", min_level: 31, max_level: 35 },
-  { tier: 8, slug: "tita-violeta", title: "Titã", min_level: 36, max_level: null },
+  { tier: 6, slug: "mini-tita", title: "Mini-Tit\u00e3", min_level: 26, max_level: 30 },
+  { tier: 7, slug: "tita", title: "Tit\u00e3", min_level: 31, max_level: 35 },
+  { tier: 8, slug: "tita-supremo", title: "Tit\u00e3 Supremo", min_level: 36, max_level: null },
 ];
 
 export function XpTopbarChip() {
@@ -67,7 +67,7 @@ export function XpTopbarChip() {
           <div>
             <span className="text-[9px] font-black tracking-[.2em] text-[#d9ab50]">JORNADA TITÃ</span>
             <h3 id="mt-rank-dialog-title" className="mt-1 font-serif text-2xl sm:text-3xl">Todos os rankings</h3>
-            <p className="mt-2 max-w-xl text-[10px] leading-5 text-white/48">A cada 5 níveis, uma nova insígnia. Diamante, Rubi e Titã fecham a progressão.</p>
+            <p className="mt-2 max-w-xl text-[10px] leading-5 text-white/48">A cada 5 n\u00edveis, uma nova ins\u00edgnia. Mini-Tit\u00e3, Tit\u00e3 e Tit\u00e3 Supremo fecham a progress\u00e3o.</p>
           </div>
           <button type="button" onClick={() => setOpen(false)} aria-label="Fechar rankings" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[.025] text-white/55 transition hover:border-white/20 hover:text-white"><X size={17} /></button>
         </div>
@@ -82,7 +82,7 @@ export function XpTopbarChip() {
                 <XpRankInsignia rank={rank} level={levelForBadge} size="sm" />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <strong className={`text-[12px] ${rank.tier === 8 ? "text-violet-300" : rank.tier === 7 ? "text-rose-300" : rank.tier === 6 ? "text-sky-200" : "text-white/90"}`}>{rank.title}</strong>
+                    <strong className={`text-[12px] ${rank.tier === 8 ? "text-amber-100" : rank.tier === 7 ? "text-fuchsia-200" : rank.tier === 6 ? "text-violet-300" : "text-white/90"}`}>{rank.title}</strong>
                     {current ? <span className="rounded-full bg-[#d2a64e]/15 px-2 py-1 text-[7px] font-black tracking-[.1em] text-[#e6bd67]">ATUAL</span> : null}
                   </div>
                   <span className="mt-1.5 block text-[9px] font-bold tracking-[.04em] text-white/38">{range}</span>

@@ -14,7 +14,7 @@ export type EnemQuestionSnapshot = {
 };
 
 export type EnemQuestionSourceInfo = {
-  source: "razao" | "separacao" | "cinematica-i" | "unknown";
+  source: "razao" | "separacao" | "cinematica-i" | "unknown" | "citologia" | "proporcao-grandezas" | "dinamica-i-p1" | "geografia-economica";
   label: string;
   total: number;
   position: number;
@@ -39,12 +39,16 @@ export function resolveEnemSnapshotLessonKey(subjectSlug: string, lessonTitle: s
   }
 
   if (subject === "fisica") {
+    if (title.includes("dinamica i p1")) return "fisica:dinamica-i-p1";
     if (title.includes("cinematica i p1")) return "fisica:cinematica-i-p1";
     if (title.includes("cinematica i p2")) return "fisica:cinematica-i-p2";
   }
 
   if (subject === "matematica") {
-    if (title === "razao") return "matematica:razao";
+    if (title === "razao" || (title.includes("razao") && title.includes("proporcao"))) return "matematica:razao";
+    if (title === "razao" || (title.includes("razao") && title.includes("proporcao"))) {
+      return "matematica:razao";
+    }
     if (title.includes("proporcao") && title.includes("grandezas")) return "matematica:proporcao-grandezas";
     if (title.includes("regra de tres simples")) return "matematica:regra-tres-simples";
     if (title.includes("escalas") || title.includes("vazao")) return "matematica:escalas-vazao";
@@ -56,6 +60,25 @@ export function resolveEnemSnapshotLessonKey(subjectSlug: string, lessonTitle: s
     if (title.includes("geometria espacial")) return "matematica:geometria-espacial";
   }
 
+  if (subject === "biologia") {
+    const citologia =
+      title.includes("citologia") ||
+      (title.includes("celula") && title.includes("membrana"));
+
+    if (citologia) return "biologia:citologia-celulas-membrana";
+  }
+
+  if (subject === "geografia") {
+    const economica =
+      title.includes("economica") &&
+      title.includes("industrializacao") &&
+      title.includes("globalizacao");
+
+    if (economica) {
+      return "geografia:economica-industrializacao-globalizacao";
+    }
+  }
+
   return null;
 }
 
@@ -64,16 +87,11 @@ const counts: Record<string, number> = {
   "quimica:separacao-misturas-p2": 110,
   "fisica:cinematica-i-p1": 60,
   "fisica:cinematica-i-p2": 70,
-  "matematica:razao": 28,
-  "matematica:proporcao-grandezas": 17,
-  "matematica:regra-tres-simples": 15,
-  "matematica:porcentagem-p1": 8,
-  "matematica:escalas-vazao": 6,
-  "matematica:graficos-tabelas": 1,
-  "matematica:equacoes-1-sistemas": 1,
-  "matematica:funcao-exponencial": 1,
-  "matematica:geometria-plana": 2,
-  "matematica:geometria-espacial": 1,
+  "matematica:razao": 80,
+  "biologia:citologia-celulas-membrana": 171,
+  "matematica:proporcao-grandezas": 64,
+  "fisica:dinamica-i-p1": 106,
+  "geografia:economica-industrializacao-globalizacao": 56,
 };
 
 export function getEnemSnapshotCount(subjectSlug: string, lessonTitle: string) {
@@ -87,8 +105,62 @@ function suffixNumber(id: string) {
 }
 
 export function getEnemQuestionSourceInfo(question: EnemQuestionSnapshot): EnemQuestionSourceInfo {
+  if (question.id.startsWith("dinamica-p1-")) {
+    return {
+      source: "dinamica-i-p1",
+      label: "Dinâmica I P1 · Leis de Newton, Forças Particulares e Atrito",
+      total: 106,
+      position: question.number,
+    };
+  }
+
+  if (question.id.startsWith("geo-capitalismo-")) {
+    return {
+      source: "geografia-economica",
+      label: "Geografia Econômica · Capitalismo",
+      total: 56,
+      position: question.number,
+    };
+  }
+
+  if (question.id.startsWith("geo-industrializacao-")) {
+    return {
+      source: "geografia-economica",
+      label: "Geografia Econômica · Industrialização",
+      total: 56,
+      position: 20 + question.number,
+    };
+  }
+
+  if (question.id.startsWith("geo-globalizacao-")) {
+    return {
+      source: "geografia-economica",
+      label: "Geografia Econômica · Globalização",
+      total: 56,
+      position: 40 + question.number,
+    };
+  }
+
+  if (question.id.startsWith("prop-grandezas-")) {
+    return {
+      source: "proporcao-grandezas",
+      label: "Proporção + Grandezas Proporcionais",
+      total: 64,
+      position: question.number,
+    };
+  }
+
+  if (question.id.startsWith("citologia-")) {
+    return {
+      source: "citologia",
+      label: "Citologia: Células + Membrana",
+      total: 171,
+      position: question.number,
+    };
+  }
+
   if (question.id.startsWith("razao-")) {
-    return { source: "razao", label: "Lista de Razão", total: 80, position: question.number };
+    return { source: "razao", label: "Razão e Proporção", total: 80, position: question.number };
   }
 
   if (question.id.startsWith("sep-desafio-")) {
@@ -192,8 +264,36 @@ function assertPrintedNumberMatchesManifest(items: EnemQuestionSnapshot[]) {
   }
 }
 
+function assertRazaoGrouping(items: EnemQuestionSnapshot[]) {
+  const razao = items.filter((item) => item.id.startsWith("razao-"));
+
+  for (const item of razao) {
+    const expectedSection =
+      item.number <= 20
+        ? "Fixação"
+        : item.number <= 40
+          ? "Treinamento"
+          : item.number <= 65
+            ? "Aprofundamento"
+            : "Desafios";
+
+    if (item.lessonKey !== "matematica:razao" || item.section !== expectedSection) {
+      throw new Error(
+        `Lista de Razão e Proporção inconsistente na Questão ${item.number}. Atualize o pacote antes de estudar.`,
+      );
+    }
+  }
+}
+
 function normalizeLessonAssignments(items: EnemQuestionSnapshot[]) {
   return items.map((item) => {
+    if (item.id.startsWith("razao-")) {
+      return {
+        ...item,
+        lessonKey: "matematica:razao",
+      };
+    }
+
     if (/^sep-\d+$/.test(item.id)) {
       return {
         ...item,
@@ -246,6 +346,22 @@ function assertSeparationSplit(items: EnemQuestionSnapshot[]) {
 }
 
 export function validateEnemQuestionSnapshotManifest(items: EnemQuestionSnapshot[]) {
+  const dinamicaP1 = items.filter((item) =>
+    item.id.startsWith("dinamica-p1-"),
+  );
+  const geoCapitalismo = items.filter((item) =>
+    item.id.startsWith("geo-capitalismo-"),
+  );
+  const geoIndustrializacao = items.filter((item) =>
+    item.id.startsWith("geo-industrializacao-"),
+  );
+  const geoGlobalizacao = items.filter((item) =>
+    item.id.startsWith("geo-globalizacao-"),
+  );
+  const proporcaoGrandezas = items.filter((item) =>
+    item.id.startsWith("prop-grandezas-"),
+  );
+  const citologia = items.filter((item) => item.id.startsWith("citologia-"));
   const razao = items.filter((item) => item.id.startsWith("razao-"));
   const separacaoMain = items.filter((item) => /^sep-\d+$/.test(item.id));
   const separacaoDesafios = items.filter((item) => item.id.startsWith("sep-desafio-"));
@@ -298,6 +414,54 @@ export function validateEnemQuestionSnapshotManifest(items: EnemQuestionSnapshot
     );
   }
 
+  if (citologia.length) {
+    assertExactSequence(
+      citologia,
+      Array.from({ length: 171 }, (_, index) => index + 1),
+      "Citologia: Células + Membrana (1–171)",
+    );
+  }
+
+  if (proporcaoGrandezas.length) {
+    assertExactSequence(
+      proporcaoGrandezas,
+      Array.from({ length: 64 }, (_, index) => index + 1),
+      "Proporção + Grandezas Proporcionais (Questões 1–64)",
+    );
+  }
+
+  if (dinamicaP1.length) {
+    assertExactSequence(
+      dinamicaP1,
+      Array.from({ length: 106 }, (_, index) => index + 1),
+      "Dinâmica I P1 (Questões 1–106)",
+    );
+  }
+
+  if (geoCapitalismo.length) {
+    assertExactSequence(
+      geoCapitalismo,
+      Array.from({ length: 20 }, (_, index) => index + 1),
+      "Geografia Econômica · Capitalismo (Questões 1–20)",
+    );
+  }
+
+  if (geoIndustrializacao.length) {
+    assertExactSequence(
+      geoIndustrializacao,
+      Array.from({ length: 20 }, (_, index) => index + 1),
+      "Geografia Econômica · Industrialização (Questões 1–20)",
+    );
+  }
+
+  if (geoGlobalizacao.length) {
+    assertExactSequence(
+      geoGlobalizacao,
+      Array.from({ length: 16 }, (_, index) => index + 1),
+      "Geografia Econômica · Globalização (Questões 1–16 presentes no PDF)",
+    );
+  }
+
   const uniqueIds = new Set(items.map((item) => item.id));
   if (uniqueIds.size !== items.length) {
     throw new Error(
@@ -306,6 +470,7 @@ export function validateEnemQuestionSnapshotManifest(items: EnemQuestionSnapshot
   }
 
   assertPrintedNumberMatchesManifest(items);
+  assertRazaoGrouping(items);
   assertSeparationSplit(items);
   return true;
 }
@@ -318,16 +483,31 @@ async function loadManifest(path: string) {
 
 export async function loadEnemQuestionSnapshotManifest() {
   const manifests = await Promise.all([
+    loadManifest("/question-sheets/dinamica-i-p1/dinamica-i-p1.json"),
+    loadManifest("/question-sheets/geografia-economica/geografia-economica.json"),
+    loadManifest("/question-sheets/proporcao-grandezas/proporcao-grandezas.json"),
+    loadManifest("/question-sheets/citologia/citologia.json"),
     loadManifest("/question-sheets/questions.json"),
     loadManifest("/question-sheets/cinematica-i/cinematica-i.json"),
   ]);
 
   const rawManifest = manifests.flat();
-  if (!rawManifest.length) {
+  // MT_PROPORCAO_GRANDEZAS_REPLACE_LEGACY_V1
+  const hasProporcaoGrandezasV2 = rawManifest.some((item) =>
+    item.id.startsWith("prop-grandezas-"),
+  );
+  const effectiveRawManifest = hasProporcaoGrandezasV2
+    ? rawManifest.filter(
+        (item) =>
+          item.lessonKey !== "matematica:proporcao-grandezas" ||
+          item.id.startsWith("prop-grandezas-"),
+      )
+    : rawManifest;
+  if (!effectiveRawManifest.length) {
     throw new Error("Pacote visual das questões ainda não foi instalado.");
   }
 
-  const manifest = normalizeLessonAssignments(rawManifest);
+  const manifest = normalizeLessonAssignments(effectiveRawManifest);
   validateEnemQuestionSnapshotManifest(manifest);
   return sortEnemQuestionSnapshots(manifest);
 }
