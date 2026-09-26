@@ -1,5 +1,7 @@
 "use client";
 
+import { RevisionLevelingSearchGuide } from "@/components/revision-leveling-search-guide";
+
 import {
   ArrowRight,
   CalendarClock,
@@ -207,6 +209,19 @@ export function RevisionSession({ revisionId }: { revisionId: string }) {
   async function startLeveling() {
     if (!revision || !levelingReady || starting) return;
 
+    // MT_LEVELING_GUIDE_FALLBACK_V1
+    if (!bankReady) {
+      setErrorMessage(
+        `O banco automático ainda não tem ${questionCount} questões suficientes desta aula. Veja abaixo onde acessar as questões e exatamente quantas fazer.`,
+      );
+      window.setTimeout(() => {
+        document
+          .getElementById("nivelamento-acesso")
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 80);
+      return;
+    }
+
     setStarting(true);
     setErrorMessage(null);
 
@@ -215,12 +230,12 @@ export function RevisionSession({ revisionId }: { revisionId: string }) {
 
       if (!attempt.ok || !attempt.attempt_id) {
         setErrorMessage(
-          `Banco insuficiente: ${attempt.available_count ?? 0}/${attempt.required_count ?? questionCount} questões disponíveis.`,
+          `Banco automático insuficiente: ${attempt.available_count ?? 0}/${attempt.required_count ?? questionCount}. Use o painel abaixo para abrir as questões desta aula.`,
         );
         return;
       }
 
-      router.push(`/questoes/lista/${attempt.attempt_id}`);
+      router.push(`/questoes/banco/nivelamento/${attempt.attempt_id}`);
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -232,22 +247,35 @@ export function RevisionSession({ revisionId }: { revisionId: string }) {
     }
   }
 
+  // MT_REVISION_NEXT_BUTTON_V1
   async function scheduleNextRevision() {
-    if (!revision || revision.revisionNumber !== 1 || !revision.completedAt) {
-      return;
+    if (!revision || revision.revisionNumber >= 4) return;
+
+    setErrorMessage(null);
+
+    try {
+      const nextRevisionNumber = revision.revisionNumber + 1;
+
+      // Apenas uma sugestão inicial. No calendário o aluno escolhe qualquer dia.
+      const recommendedDate = addDaysToDateKey(revision.date, 4);
+
+      const draft = await queueRevisionDraft({
+        subjectSlug: revision.subjectSlug,
+        subjectName: revision.subjectName,
+        lessonSlug: revision.lessonSlug,
+        lessonTitle: revision.lessonTitle,
+        revisionNumber: nextRevisionNumber,
+        recommendedDate,
+      });
+
+      router.push(`/revisoes?agendar=${draft.id}`);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível preparar a próxima revisão.",
+      );
     }
-
-    const completedDate = toDateKey(new Date(revision.completedAt));
-    const draft = await queueRevisionDraft({
-      subjectSlug: revision.subjectSlug,
-      subjectName: revision.subjectName,
-      lessonSlug: revision.lessonSlug,
-      lessonTitle: revision.lessonTitle,
-      revisionNumber: 2,
-      recommendedDate: addDaysToDateKey(completedDate, 4),
-    });
-
-    router.push(`/revisoes?agendar=${draft.id}`);
   }
 
   return (
@@ -257,7 +285,7 @@ export function RevisionSession({ revisionId }: { revisionId: string }) {
           <div className="p-6 sm:p-8">
             <span className="inline-flex items-center gap-2 text-[10px] font-black tracking-[.2em] text-[#e4b960]">
               <RefreshCcw size={15} />
-              {revision.subjectName} · REVISÃO {revision.revisionNumber}
+              {revision.subjectName} · {revision.revisionNumber}ª REVISÃO
             </span>
 
             <h1 className="mt-4 max-w-3xl font-serif text-4xl leading-[.98] tracking-[-.035em] sm:text-5xl">
@@ -268,6 +296,18 @@ export function RevisionSession({ revisionId }: { revisionId: string }) {
               1. Releia o conteúdo. 2. Confirme a releitura. 3. Faça o
               nivelamento. A meta desta aula é {requiredCorrect}/{questionCount}.
             </p>
+            {revision.revisionNumber < 4 ? (
+              <button
+                type="button"
+                data-tita-next-revision-top="v5"
+                onClick={scheduleNextRevision}
+                className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 text-[10px] font-black tracking-[.08em] transition hover:border-emerald-400/50 hover:bg-emerald-500/[.14]"
+                style={{ color: green }}
+              >
+                <CalendarClock size={15} />
+                ABRIR CALENDÁRIO PARA AGENDAR {revision.revisionNumber + 1}ª REVISÃO
+              </button>
+            ) : null}
           </div>
 
           <aside className="border-t border-white/10 bg-white/[0.025] p-5 lg:border-l lg:border-t-0 lg:p-6">
@@ -459,7 +499,7 @@ export function RevisionSession({ revisionId }: { revisionId: string }) {
         </button>
       </section>
 
-      <section
+      <section id="nivelamento"
         className="rounded-[26px] border p-5 sm:p-7"
         style={{
           borderColor: approved
@@ -525,9 +565,13 @@ export function RevisionSession({ revisionId }: { revisionId: string }) {
         </div>
 
         {!approved ? (
+          <RevisionLevelingSearchGuide revisionId={revision.id} />
+        ) : null}
+
+        {!approved ? (
           <button
             type="button"
-            disabled={!levelingReady || !bankReady || starting}
+            disabled={!levelingReady || starting}
             onClick={startLeveling}
             className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-xl bg-[var(--gold)] px-5 text-[10px] font-black tracking-[.1em] text-[#111] disabled:opacity-40"
           >
@@ -542,30 +586,26 @@ export function RevisionSession({ revisionId }: { revisionId: string }) {
           <div className="mt-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/[.07] p-5">
             <CheckCircle2 size={22} style={{ color: green }} />
             <strong className="mt-3 block font-serif text-2xl text-[var(--ink)]">
-              Revisão {revision.revisionNumber} concluída.
+              {revision.revisionNumber}ª revisão concluída.
             </strong>
 
-            {revision.revisionNumber === 1 ? (
-              <button
-                type="button"
-                onClick={scheduleNextRevision}
-                className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 text-[10px] font-black"
-                style={{ color: green }}
-              >
-                <CalendarClock size={15} />
-                ABRIR CALENDÁRIO PARA AGENDAR REVISÃO 2
-              </button>
-            ) : (
-              <Link
-                href="/revisoes"
-                className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--border)] px-4 text-[10px] font-black text-[var(--muted)]"
-              >
-                VOLTAR AO CALENDÁRIO <ArrowRight size={15} />
-              </Link>
-            )}
+            <button
+              type="button"
+              onClick={scheduleNextRevision}
+              className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 text-[10px] font-black"
+              style={{ color: green }}
+            >
+              <CalendarClock size={15} />
+              ABRIR CALENDÁRIO PARA AGENDAR {revision.revisionNumber + 1}ª REVISÃO
+            </button>
           </div>
         )}
       </section>
     </div>
   );
 }
+
+
+
+
+

@@ -67,6 +67,7 @@ export function AttemptListControls({ attemptId }: { attemptId: string }) {
 
     setFinishing(true);
     setErrorMessage(null);
+
     try {
       const { error } = await supabase.rpc("complete_lesson_list_early", { p_attempt_id: attemptId });
       if (error) throw error;
@@ -76,7 +77,7 @@ export function AttemptListControls({ attemptId }: { attemptId: string }) {
         window.sessionStorage.removeItem("mentoria-tita:list-return");
         router.push(returnHref);
       } else {
-        router.push("/revisoes");
+        router.push("/cronograma");
       }
       router.refresh();
     } catch (error) {
@@ -88,27 +89,36 @@ export function AttemptListControls({ attemptId }: { attemptId: string }) {
   if (kind !== "lesson_list" || status !== "in_progress") return null;
 
   return (
-    <>
-      {errorMessage ? (
-        <div className="fixed bottom-24 right-4 z-[70] max-w-sm rounded-xl border border-red-500/35 bg-[#180b0d] px-4 py-3 text-xs text-red-300 shadow-2xl">
-          {errorMessage}
-        </div>
-      ) : null}
+    <div className="sticky top-[68px] z-40 mb-4 flex justify-end lg:top-3">
+      <div className="flex max-w-full flex-col items-end gap-2">
+        {errorMessage ? (
+          <div className="max-w-sm rounded-xl border border-red-500/35 bg-[#180b0d]/95 px-4 py-2.5 text-[10px] text-red-300 shadow-xl backdrop-blur-xl">
+            {errorMessage}
+          </div>
+        ) : null}
 
-      <button
-        type="button"
-        disabled={finishing}
-        onClick={() => void finishEarly()}
-        className="fixed bottom-5 right-4 z-[70] inline-flex min-h-14 items-center gap-3 rounded-2xl border border-emerald-300/35 bg-[#102419] px-5 text-left text-white shadow-[0_18px_55px_rgba(0,0,0,.45)] transition hover:-translate-y-0.5 hover:border-emerald-300/60 disabled:cursor-wait disabled:opacity-60 sm:right-6"
-      >
-        {finishing ? <LoaderCircle className="animate-spin text-emerald-300" size={19} /> : <CheckCircle2 className="text-emerald-300" size={19} />}
-        <span>
-          <strong className="block text-[10px] font-black tracking-[.12em]">FINALIZAR LISTA</strong>
-          <span className="mt-0.5 block text-[9px] text-white/55">
-            {pending > 0 ? `${pending} pendente${pending === 1 ? "" : "s"} irá${pending === 1 ? "" : "ão"} para a revisão` : "Pode concluir agora"}
+        <button
+          type="button"
+          disabled={finishing}
+          onClick={() => void finishEarly()}
+          className="inline-flex min-h-11 max-w-full items-center gap-2.5 rounded-xl border border-emerald-300/30 bg-[#102419]/95 px-4 text-left text-white shadow-[0_10px_34px_rgba(0,0,0,.32)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-emerald-300/55 disabled:cursor-wait disabled:opacity-60"
+        >
+          {finishing ? (
+            <LoaderCircle className="shrink-0 animate-spin text-emerald-300" size={17} />
+          ) : (
+            <CheckCircle2 className="shrink-0 text-emerald-300" size={17} />
+          )}
+
+          <span className="min-w-0">
+            <strong className="block text-[9px] font-black tracking-[.11em]">FINALIZAR LISTA</strong>
+            <span className="mt-0.5 block truncate text-[8px] text-white/50">
+              {pending > 0
+                ? `${pending} pendente${pending === 1 ? "" : "s"} irá${pending === 1 ? "" : "ão"} para a revisão`
+                : "Pode concluir agora"}
+            </span>
           </span>
-        </span>
-      </button>
-    </>
+        </button>
+      </div>
+    </div>
   );
 }

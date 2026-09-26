@@ -1,0 +1,46 @@
+.tita-stage-workflow[data-stage="closed"] {
+  display: none;
+}
+
+.tita-stage-workflow:not([data-stage="closed"]) {
+  animation: tita-stage-open .28s ease-out both;
+}
+
+.tita-stage-workflow > div {
+  display: block !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.tita-stage-workflow > div > aside {
+  display: none !important;
+}
+
+.tita-stage-workflow > div > div:first-child > section {
+  display: none;
+}
+
+.tita-stage-workflow[data-stage="theory"] > div > div:first-child > section:nth-of-type(1),
+.tita-stage-workflow[data-stage="list"] > div > div:first-child > section:nth-of-type(2),
+.tita-stage-workflow[data-stage="schedule"] > div > div:first-child > section:nth-of-type(3) {
+  display: block;
+  animation: tita-stage-panel-in .24s ease-out both;
+}
+
+@keyframes tita-stage-open {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes tita-stage-panel-in {
+  from { opacity: 0; transform: translateY(10px) scale(.995); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tita-stage-workflow:not([data-stage="closed"]),
+  .tita-stage-workflow[data-stage="theory"] > div > div:first-child > section:nth-of-type(1),
+  .tita-stage-workflow[data-stage="list"] > div > div:first-child > section:nth-of-type(2),
+  .tita-stage-workflow[data-stage="schedule"] > div > div:first-child > section:nth-of-type(3) {
+    animation: none !important;
+  }
+}

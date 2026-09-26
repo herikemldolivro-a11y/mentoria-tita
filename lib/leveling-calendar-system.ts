@@ -37,5 +37,15 @@ export async function startScheduledLeveling(id:string){
   const supabase=createClient();
   const {data,error}=await supabase.rpc("start_leveling_calendar_attempt",{p_leveling_id:id});
   if(error)throw error;
-  return data as {ok:boolean;attempt_id:string;continued:boolean;required_count:number;required_correct:number};
+  return data as {
+    ok:boolean;
+    attempt_id?:string;
+    continued?:boolean;
+    completed?:boolean;
+    required_count?:number;
+    required_correct?:number;
+    available_count?:number;
+    level?:number;
+    reason?:"revision_required"|"not_scheduled"|"no_questions"|string;
+  };
 }

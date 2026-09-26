@@ -61,8 +61,9 @@ export async function startManualLeveling(lessonId: string, level: 1 | 2 | 3 | 4
   if (error) throw error;
   return data as {
     ok: boolean;
-    reason?: "revision_required" | "no_questions";
+    reason?: "revision_required" | "no_questions" | "insufficient_questions" | "other_level_in_progress";
     required_revision?: number;
+    existing_level?: number;
     attempt_id?: string;
     continued?: boolean;
     level: number;

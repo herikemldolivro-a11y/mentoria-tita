@@ -25,7 +25,7 @@ export function LevelingCalendar({compact=false}:{compact?:boolean}){
   const current=month.getMonth();
 
   async function save(){if(!editing||!date||busy)return;setBusy(editing.id);setError(null);try{await scheduleLeveling(editing.id,date);setEditing(null);await refresh();}catch(e){setError(e instanceof Error?e.message:"Falha ao agendar nivelamento.");}finally{setBusy(null);}}
-  async function open(row:LevelingCalendarRow){if(busy)return;if(row.status==="draft"){setEditing(row);setDate(row.scheduled_for??row.recommended_for);return;}if(row.status==="completed")return;setBusy(row.id);setError(null);try{if(row.attempt_id&&row.status==="in_progress"){router.push(`/questoes/lista/${row.attempt_id}`);return;}const result=await startScheduledLeveling(row.id);router.push(`/questoes/lista/${result.attempt_id}`);}catch(e){setError(e instanceof Error?e.message:"Falha ao iniciar nivelamento.");}finally{setBusy(null);}}
+  async function open(row:LevelingCalendarRow){if(busy)return;if(row.status==="draft"){setEditing(row);setDate(row.scheduled_for??row.recommended_for);return;}if(row.status==="completed")return;setBusy(row.id);setError(null);try{if(row.attempt_id&&row.status==="in_progress"){router.push(`/questoes/banco/nivelamento/${row.attempt_id}`);return;}const result=await startScheduledLeveling(row.id);router.push(`/questoes/banco/nivelamento/${result.attempt_id}`);}catch(e){setError(e instanceof Error?e.message:"Falha ao iniciar nivelamento.");}finally{setBusy(null);}}
 
   if(loading)return <div className="grid min-h-64 place-items-center rounded-[28px] border border-[var(--border)] bg-[var(--surface)]"><LoaderCircle className="animate-spin text-violet-400" size={24}/></div>;
 
@@ -41,3 +41,6 @@ export function LevelingCalendar({compact=false}:{compact?:boolean}){
 function toKey(d:Date){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
 function monthCells(reference:Date){const first=new Date(reference.getFullYear(),reference.getMonth(),1,12);first.setDate(first.getDate()-first.getDay());return Array.from({length:42},(_,i)=>{const d=new Date(first);d.setDate(first.getDate()+i);return d;});}
 function monthTitle(date:Date){const s=new Intl.DateTimeFormat("pt-BR",{month:"long",year:"numeric"}).format(date);return s.charAt(0).toUpperCase()+s.slice(1);}
+
+
+

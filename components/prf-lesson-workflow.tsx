@@ -41,7 +41,6 @@ import {
   listenStudyUpdated,
   loadLessonProgress,
   loadLessonRevision,
-  queueRevisionDraft,
   saveLessonProgress,
   type LessonProgressState,
 } from "@/lib/study-database";
@@ -61,7 +60,17 @@ const initialState: LocalLessonState = {
   studyMode: null,
 };
 
-export function PrfLessonWorkflow({ subject, lesson }: { subject: PrfSubject; lesson: MatrixLesson }) {
+export function PrfLessonWorkflow({
+  subject,
+  lesson,
+  contestLabel = "MENTORIA TITÃ",
+  questionListEnabled = true,
+}: {
+  subject: PrfSubject;
+  lesson: MatrixLesson;
+  contestLabel?: string;
+  questionListEnabled?: boolean;
+}) {
   const router = useRouter();
   const [state, setState] = useState<LocalLessonState>(initialState);
   const [hydrated, setHydrated] = useState(false);
@@ -149,6 +158,7 @@ export function PrfLessonWorkflow({ subject, lesson }: { subject: PrfSubject; le
   }
 
   async function openQuestionList() {
+    if (!questionListEnabled) return;
     setSaving(true);
     setErrorMessage(null);
     try {
@@ -163,11 +173,29 @@ export function PrfLessonWorkflow({ subject, lesson }: { subject: PrfSubject; le
         }));
         return;
       }
+
+      const pmalRevisionHref =         `/revisoes?subject=${encodeURIComponent(subject.slug)}&lesson=${encodeURIComponent(lesson.slug)}&revision=1&date=${encodeURIComponent(recommendedReviewDate)}`;
+
+      // MT_DIRECT_LESSON_RETURN_V55
+      const isDirectLesson =
+        window.location.pathname.startsWith("/cronograma/pmal/aula/") ||
+        window.location.pathname.startsWith("/cronograma/aula/");
+
+      const returnHref = isDirectLesson
+        ? pmalRevisionHref
+        : window.location.pathname.startsWith("/cronograma/pprn/")
+          ? `${window.location.pathname}?lista=concluida#revisao`
+          : `/cronograma/semana-1/${subject.slug}/${lesson.slug}?lista=concluida#revisao`;
+
       window.sessionStorage.setItem(
         "mentoria-tita:list-return",
-        (window.location.pathname.startsWith("/cronograma/pprn/") ? `${window.location.pathname}?lista=concluida#revisao` : `/cronograma/semana-1/${subject.slug}/${lesson.slug}?lista=concluida#revisao`),
-      ); // MT_LIST_RETURN_TO_REVISION_V1
-      router.push(`/questoes/lista/${attempt.attempt_id}`);
+        isDirectLesson
+          ? `/revisoes?subject=${encodeURIComponent(subject.slug)}&lesson=${encodeURIComponent(lesson.slug)}&revision=1&date=${recommendedReviewDate}`
+          : (window.location.pathname.startsWith("/cronograma/pprn/")
+              ? `${window.location.pathname}?lista=concluida#revisao`
+              : `/cronograma/semana-1/${subject.slug}/${lesson.slug}?lista=concluida#revisao`),
+      ); // MT_PMAL_LIST_RETURN_FALLBACK_V12
+router.push(`/questoes/lista/${attempt.attempt_id}`);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Não foi possível iniciar a lista.");
     } finally {
@@ -204,219 +232,277 @@ export function PrfLessonWorkflow({ subject, lesson }: { subject: PrfSubject; le
   } // MT_PPRN_SKIP_SHORT_LIST_V14_FN
 
   async function openReviewCalendar() {
-    setSaving(true);
+    if (!lessonCompleted || saving) return;
     setErrorMessage(null);
-    try {
-      const draft = await queueRevisionDraft({
-        subjectSlug: subject.slug,
-        subjectName: subject.shortName,
-        lessonSlug: lesson.slug,
-        lessonTitle: lesson.title,
-        revisionNumber: 1,
-        recommendedDate: recommendedReviewDate,
-      });
-      router.push(`/revisoes?agendar=${draft.id}`);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Não foi possível preparar a revisão.");
-    } finally {
-      setSaving(false);
-    }
+
+    const params = new URLSearchParams({
+      subject: subject.slug,
+      lesson: lesson.slug,
+      revision: "1",
+      date: recommendedReviewDate,
+    });
+
+    // MT_PMAL_PREFILL_CALENDAR_V7_3
+    // O PrincipalCalendar recebe matéria/aula/revisão prontas e abre o modal travado.
+    // O usuário só escolhe/confirma a DATA.
+    router.push(`/revisoes?${params.toString()}`);
   }
 
-  const questionCount = lesson.questionCount ?? 35;
-  const listAvailable = pprnOpenAccess || state.theoryCompleted;
-  const lessonCompleted = state.theoryCompleted && state.listCompleted;
+  const questionCount = questionListEnabled ? (lesson.questionCount ?? 35) : 0;
+  const listAvailable = questionListEnabled && (pprnOpenAccess || state.theoryCompleted);
+  const listSatisfied = !questionListEnabled || state.listCompleted;
+  const lessonCompleted = state.theoryCompleted && listSatisfied;
   const recommendedReviewDate = addDaysToDateKey(todayKey(), 2);
   const review1Due = review1 ? isRevisionDue(review1) : false;
   const review1Completed = review1?.status === "completed";
   const review2Completed = review2?.status === "completed";
   const reviewStepStatus = review1Completed ? "completed" : review1Due ? "available" : review1 ? "scheduled" : "locked";
   const levelingStatus = review1Completed ? "completed" : review1?.rereadConfirmed ? "available" : "locked";
+  const effectiveStudyMode: StudyMode = state.studyMode ?? "platform-pdf";
+  const currentStageNumber = !state.theoryCompleted
+    ? 1
+    : questionListEnabled && !state.listCompleted
+      ? 2
+      : !review1
+        ? 3
+        : !review1Completed
+          ? 4
+          : !review1.rereadConfirmed
+            ? 5
+            : 6;
+  const stageProgress = Math.max(8, Math.round((currentStageNumber / 6) * 100));
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-      <div className="space-y-6">
-        {errorMessage ? <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-xs text-red-300">{errorMessage}</div> : null}
-        <section className="rounded-[26px] border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-7">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <span className="inline-flex items-center gap-2 text-[10px] font-black tracking-[0.2em]" style={{ color: state.theoryCompleted ? green : gold }}>
-                {state.theoryCompleted ? <Check size={15} /> : <Circle size={12} />} ETAPA 01 · TEORIA
-              </span>
-              <h2 className="mt-3 font-serif text-3xl text-[var(--ink)]">Escolha como estudar esta aula.</h2>
-              <p className="mt-2 max-w-2xl text-xs leading-6 text-[var(--muted)]">Use o PDF da Mentoria Titã ou assista à videoaula no cursinho que você já utiliza. Depois registre a conclusão para liberar a lista.</p>
+    <div data-mt-unified-lesson-v57="1" className="flex h-auto min-h-0 flex-col gap-3 lg:h-full lg:overflow-hidden">
+      {errorMessage ? (
+        <div className="shrink-0 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-xs text-red-300">
+          {errorMessage}
+        </div>
+      ) : null}
+
+      <header className="shrink-0 rounded-[24px] border border-white/[.09] bg-[radial-gradient(circle_at_78%_10%,rgba(124,58,237,.10),transparent_28%),#090b10] px-5 py-4 text-white shadow-[0_18px_60px_rgba(0,0,0,.22)] sm:px-6">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_390px] lg:items-center">
+          <div className="min-w-0">
+            <span className="text-[9px] font-black tracking-[.15em] text-violet-300">
+              {contestLabel} · {subject.shortName}
+            </span>
+            <h1 className="mt-2 truncate font-serif text-3xl leading-none tracking-[-.035em] text-white xl:text-[38px]">
+              {lesson.title}
+            </h1>
+            <p className="mt-2 text-[10px] text-white/46">
+              {subject.name} · {questionListEnabled ? `${questionCount} questões` : "somente teoria nesta fase"}
+            </p>
+          </div>
+
+          <div className="border-white/[.08] lg:border-l lg:pl-6">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[8px] font-black tracking-[.14em] text-white/42">PROGRESSO DA AULA</span>
+              <strong className="text-sm text-white">{currentStageNumber}/6 etapas</strong>
             </div>
-            <span className="inline-flex items-center gap-2 self-start rounded-full border px-3 py-1.5 text-[9px] font-black tracking-[0.12em]" style={{ color: state.theoryCompleted ? green : gold, borderColor: state.theoryCompleted ? "rgba(49,199,101,.35)" : "rgba(210,166,78,.35)", background: state.theoryCompleted ? "rgba(49,199,101,.07)" : "rgba(210,166,78,.06)" }}>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/[.07]">
+              <div className="h-full rounded-full bg-gradient-to-r from-amber-300 to-amber-500 transition-all" style={{ width: `${stageProgress}%` }} />
+            </div>
+            <div className="mt-3 grid grid-cols-6 gap-2">
+              {Array.from({ length: 6 }, (_, index) => {
+                const number = index + 1;
+                const done = number < currentStageNumber;
+                const current = number === currentStageNumber;
+                return (
+                  <span
+                    key={number}
+                    className={`grid h-8 w-8 place-items-center rounded-full border text-[10px] font-black ${
+                      done
+                        ? "border-emerald-300/40 bg-emerald-400 text-[#04150d]"
+                        : current
+                          ? "border-amber-300/50 bg-amber-300 text-[#171006] shadow-[0_0_20px_rgba(251,191,36,.28)]"
+                          : "border-white/[.12] bg-white/[.03] text-white/40"
+                    }`}
+                  >
+                    {done ? <Check size={14} strokeWidth={3} /> : number}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1.65fr)_330px_340px] lg:overflow-hidden">
+        <section
+          className="flex min-h-0 flex-col overflow-hidden rounded-[24px] border p-4 lg:h-full"
+          style={{
+            borderColor: state.theoryCompleted ? "rgba(49,199,101,.46)" : "rgba(210,166,78,.34)",
+            background: state.theoryCompleted
+              ? "linear-gradient(145deg,rgba(6,42,29,.72),rgba(7,13,13,.96))"
+              : "linear-gradient(145deg,rgba(45,31,8,.34),rgba(8,10,13,.97))",
+          }}
+        >
+          <div className="flex shrink-0 items-start justify-between gap-3">
+            <div className="min-w-0">
+              <span className="inline-flex items-center gap-2 text-[9px] font-black tracking-[.16em]" style={{ color: state.theoryCompleted ? green : gold }}>
+                {state.theoryCompleted ? <Check size={14} /> : <BookOpen size={14} />} ETAPA 01 · TEORIA
+              </span>
+              <p className="mt-1.5 max-w-2xl text-[10px] leading-5 text-white/50">
+                Estude pelo material da Mentoria Titã ou pela sua videoaula. O conteúdo principal fica nesta coluna.
+              </p>
+            </div>
+            <span className="shrink-0 rounded-full border px-3 py-1.5 text-[8px] font-black tracking-[.1em]" style={{ color: state.theoryCompleted ? green : gold, borderColor: state.theoryCompleted ? "rgba(49,199,101,.35)" : "rgba(210,166,78,.35)" }}>
               {state.theoryCompleted ? "CONCLUÍDA" : state.theoryStarted ? "EM ANDAMENTO" : "DISPONÍVEL"}
             </span>
           </div>
 
-          <div className="mt-6 grid gap-3 sm:grid-cols-2">
-            <button type="button" onClick={() => updateState({ ...state, theoryStarted: true, studyMode: "platform-pdf" })} className="rounded-2xl border p-4 text-left transition hover:-translate-y-0.5" style={{ borderColor: state.studyMode === "platform-pdf" ? "rgba(210,166,78,.5)" : "var(--border)", background: state.studyMode === "platform-pdf" ? "rgba(210,166,78,.07)" : "var(--background)" }}>
-              <span className="grid h-11 w-11 place-items-center rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--gold-bright)]"><FileText size={20} /></span>
-              <strong className="mt-4 block font-serif text-xl text-[var(--ink)]">PDF da plataforma</strong>
-              <span className="mt-2 block text-xs leading-6 text-[var(--muted)]">Abrir o material da Mentoria Titã dentro da própria plataforma.</span>
+          <div className="mt-3 grid shrink-0 grid-cols-2 gap-2.5">
+            <button
+              type="button"
+              onClick={() => updateState({ ...state, theoryStarted: true, studyMode: "platform-pdf" })}
+              className="flex min-h-[82px] items-center gap-3 rounded-2xl border p-3 text-left transition hover:-translate-y-0.5"
+              style={{ borderColor: effectiveStudyMode === "platform-pdf" ? "rgba(210,166,78,.52)" : "rgba(255,255,255,.10)", background: effectiveStudyMode === "platform-pdf" ? "rgba(210,166,78,.09)" : "rgba(255,255,255,.025)" }}
+            >
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/[.10] bg-black/20 text-amber-300"><FileText size={18} /></span>
+              <div className="min-w-0"><strong className="block text-sm text-white">PDF da plataforma</strong><span className="mt-1 block text-[9px] leading-4 text-white/38">Material dentro da Titã</span></div>
             </button>
 
-            <button type="button" onClick={() => updateState({ ...state, theoryStarted: true, studyMode: "external-video" })} className="rounded-2xl border p-4 text-left transition hover:-translate-y-0.5" style={{ borderColor: state.studyMode === "external-video" ? "rgba(210,166,78,.5)" : "var(--border)", background: state.studyMode === "external-video" ? "rgba(210,166,78,.07)" : "var(--background)" }}>
-              <span className="grid h-11 w-11 place-items-center rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--gold-bright)]"><MonitorPlay size={20} /></span>
-              <strong className="mt-4 block font-serif text-xl text-[var(--ink)]">Vou ver videoaula no meu cursinho</strong>
-              <span className="mt-2 block text-xs leading-6 text-[var(--muted)]">Use seu cursinho normalmente e volte para registrar a conclusão da teoria.</span>
+            <button
+              type="button"
+              onClick={() => updateState({ ...state, theoryStarted: true, studyMode: "external-video" })}
+              className="flex min-h-[82px] items-center gap-3 rounded-2xl border p-3 text-left transition hover:-translate-y-0.5"
+              style={{ borderColor: effectiveStudyMode === "external-video" ? "rgba(210,166,78,.52)" : "rgba(255,255,255,.10)", background: effectiveStudyMode === "external-video" ? "rgba(210,166,78,.09)" : "rgba(255,255,255,.025)" }}
+            >
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/[.10] bg-black/20 text-white/65"><MonitorPlay size={18} /></span>
+              <div className="min-w-0"><strong className="block text-sm text-white">Videoaula externa</strong><span className="mt-1 block text-[9px] leading-4 text-white/38">Use seu cursinho</span></div>
             </button>
           </div>
 
-          {state.studyMode === "platform-pdf" ? (
-            <LessonMaterialReader
-              subjectSlug={subject.slug}
-              lessonSlug={lesson.slug}
-              lessonTitle={lesson.title}
-            />
-          ) : null}
-
-          {state.studyMode === "external-video" ? (
-            <div className="mt-5 rounded-2xl border border-[var(--border)] bg-[var(--background)] p-5">
-              <span className="text-[9px] font-black tracking-[.15em] text-[var(--gold-bright)]">MODO VIDEOAULA EXTERNA</span>
-              <p className="mt-2 text-xs leading-6 text-[var(--muted)]">Estude estes tópicos no seu cursinho e depois volte para marcar a teoria como concluída.</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {lesson.topics.map((topic, index) => <span key={`${lesson.slug}-${index}-${topic}`} className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-[10px] text-[var(--muted)]">{topic}</span>)}
-              </div>
-            </div>
-          ) : null}
-
-          <div className="mt-6 flex flex-wrap gap-3">
-            {!state.theoryStarted ? <button type="button" onClick={() => updateState({ ...state, theoryStarted: true })} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[var(--gold)] px-6 text-xs font-black tracking-[0.12em] text-[#111]"><Play size={16} /> INICIAR TEORIA</button> : null}
-            {state.theoryStarted ? (
-              <button type="button" onClick={toggleTheoryCompleted} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border px-6 text-xs font-black tracking-[0.12em] transition" style={{ borderColor: state.theoryCompleted ? "rgba(49,199,101,.4)" : "rgba(210,166,78,.38)", background: state.theoryCompleted ? "rgba(49,199,101,.09)" : "rgba(210,166,78,.08)", color: state.theoryCompleted ? green : gold }}>
-                {state.theoryCompleted ? <RotateCcw size={16} /> : <Check size={16} />}{state.theoryCompleted ? "DESMARCAR CONCLUSÃO" : "MARCAR TEORIA COMO CONCLUÍDA"}
-              </button>
-            ) : null}
-          </div>
-        </section>
-
-        <section className="rounded-[26px] border p-5 transition sm:p-7" style={{ borderColor: state.listCompleted ? "rgba(49,199,101,.42)" : listAvailable ? "rgba(210,166,78,.38)" : "var(--border)", background: state.listCompleted ? "rgba(49,199,101,.05)" : listAvailable ? "rgba(210,166,78,.04)" : "var(--surface)", opacity: listAvailable ? 1 : 0.58 }}>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <span className="text-[10px] font-black tracking-[0.2em]" style={{ color: state.listCompleted ? green : listAvailable ? gold : "var(--muted)" }}>ETAPA 02 · FIXAÇÃO</span>
-              <h2 className="mt-3 font-serif text-3xl text-[var(--ink)]">Lista de 35 questões</h2>
-              <p className="mt-2 text-xs leading-6 text-[var(--muted)]">O banco bruto desta aula será filtrado automaticamente e 35 questões serão congeladas para a tentativa do aluno.</p>
-            </div>
-            <span className="inline-flex items-center gap-2 self-start rounded-full border border-[var(--border)] px-3 py-1.5 text-[9px] font-black tracking-[0.12em]" style={{ color: state.listCompleted ? green : listAvailable ? gold : "var(--muted)" }}>{state.listCompleted ? <Check size={13} /> : listAvailable ? <FileQuestion size={13} /> : <LockKeyhole size={13} />} {state.listCompleted ? "CONCLUÍDA" : "35 QUESTÕES"}</span>
-          </div>
-
-          <div className="mt-6">
-            {!listAvailable ? (
-              <button type="button" disabled className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--background)] px-6 text-xs font-black tracking-[0.12em] text-[var(--muted)]"><LockKeyhole size={16} /> CONCLUA A TEORIA PARA LIBERAR</button>
-            ) : state.listCompleted ? (
-              <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/[.06] p-4"><strong className="inline-flex items-center gap-2 text-sm text-emerald-400"><Check size={17} /> LISTA CONCLUÍDA</strong><p className="mt-2 text-xs leading-6 text-[var(--muted)]">Seu resultado está salvo e a próxima etapa da trilha foi liberada.</p></div>
-            ) : questionStatus?.attempt_id && questionStatus.attempt_status === "in_progress" ? (
-              <div className="flex flex-wrap gap-3"><Link href={`/questoes/lista/${questionStatus.attempt_id}`} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[var(--gold)] px-6 text-xs font-black tracking-[0.12em] text-[#111]">CONTINUAR LISTA <ArrowRight size={17} /></Link><button type="button" disabled={saving} onClick={completeInProgressList} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[var(--border-strong)] px-5 text-[10px] font-black tracking-[.1em] text-[var(--gold-bright)]"><Check size={16} /> MARCAR LISTA COMO CONCLUÍDA</button></div>
-            ) : questionStatus?.can_skip ? (
-              <div className="rounded-2xl border border-amber-400/30 bg-amber-400/[.07] p-4 sm:p-5">
-                <span className="text-[9px] font-black tracking-[.15em] text-amber-300">LISTA SEM 35 QUESTOES VALIDAS</span>
-                <p className="mt-2 text-xs leading-6 text-[var(--muted)]">Esta aula tem {questionStatus.available_count} questoes utilizaveis de {questionStatus.required_count} exigidas. Na Reta Final PPRN voce pode pular esta aula e ela sera marcada como concluida.</p>
-                <button type="button" disabled={saving} onClick={skipCurrentLesson} className="mt-4 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-amber-300/35 bg-amber-300/10 px-5 text-[10px] font-black tracking-[.1em] text-amber-200 disabled:cursor-wait disabled:opacity-60"><Check size={16} /> PULAR AULA E MARCAR CONCLUIDA</button>
-              </div>
-            ) : questionStatus && questionStatus.available_count < questionStatus.required_count ? ( /* MT_PPRN_SKIP_SHORT_LIST_V14_UI */
-              <div className="rounded-2xl border border-[var(--border-strong)] bg-[color-mix(in_srgb,var(--gold)_6%,var(--background))] p-4 sm:p-5"><span className="text-[9px] font-black tracking-[.15em] text-[var(--gold-bright)]">BANCO AINDA INCOMPLETO</span><strong className="mt-2 block font-serif text-2xl text-[var(--ink)]">{questionStatus.available_count} / {questionStatus.required_count} questões disponíveis</strong><p className="mt-2 text-xs leading-6 text-[var(--muted)]">Esta lista será liberada quando houver pelo menos 35 questões cadastradas para esta aula.</p></div>
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1 [scrollbar-width:thin]">
+            {effectiveStudyMode === "platform-pdf" ? (
+              <LessonMaterialReader
+                subjectSlug={subject.slug}
+                lessonSlug={lesson.slug}
+                lessonTitle={lesson.title}
+                compact
+              />
             ) : (
-              <button type="button" disabled={saving} onClick={openQuestionList} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[var(--gold)] px-6 text-xs font-black tracking-[0.12em] text-[#111] disabled:cursor-wait disabled:opacity-60">{saving ? <LoaderCircle className="animate-spin" size={16} /> : null} INICIAR LISTA — 35 QUESTÕES <ArrowRight size={17} /></button>
+              <div className="mt-3 min-h-[250px] rounded-2xl border border-white/[.08] bg-black/20 p-4">
+                <span className="text-[8px] font-black tracking-[.14em] text-amber-300">MODO VIDEOAULA EXTERNA</span>
+                <p className="mt-2 text-[10px] leading-5 text-white/45">Estude estes tópicos no seu cursinho e depois volte para marcar a teoria como concluída.</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {lesson.topics.map((topic, index) => (
+                    <span key={`${lesson.slug}-${index}-${topic}`} className="rounded-lg border border-white/[.08] bg-white/[.03] px-2.5 py-1.5 text-[9px] text-white/50">{topic}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-3 shrink-0">
+            {!state.theoryStarted ? (
+              <button type="button" onClick={() => updateState({ ...state, theoryStarted: true, studyMode: effectiveStudyMode })} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-amber-300 px-5 text-[10px] font-black tracking-[.1em] text-[#151008]"><Play size={15} /> INICIAR TEORIA</button>
+            ) : (
+              <button type="button" onClick={toggleTheoryCompleted} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-5 text-[10px] font-black tracking-[.1em]" style={{ borderColor: state.theoryCompleted ? "rgba(49,199,101,.45)" : "rgba(210,166,78,.42)", background: state.theoryCompleted ? "rgba(49,199,101,.09)" : "rgba(210,166,78,.08)", color: state.theoryCompleted ? green : gold }}>
+                {state.theoryCompleted ? <RotateCcw size={15} /> : <Check size={15} />}{state.theoryCompleted ? "DESMARCAR CONCLUSÃO" : "MARCAR TEORIA COMO CONCLUÍDA"}
+              </button>
             )}
           </div>
         </section>
 
-        <section id="revisao" className="rounded-[26px] border p-5 sm:p-7" style={{ borderColor: review1 ? "rgba(49,199,101,.28)" : lessonCompleted ? "rgba(210,166,78,.4)" : "var(--border)", background: "var(--surface)", opacity: lessonCompleted ? 1 : 0.55 }}>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <span className="text-[10px] font-black tracking-[.2em]" style={{ color: review1 ? green : lessonCompleted ? gold : "var(--muted)" }}>ETAPA 03 · AGENDAR REVISÃO</span>
-              <h2 className="mt-2 font-serif text-3xl text-[var(--ink)]">Agende a revisão pelo calendário.</h2>
-              <p className="mt-2 max-w-2xl text-xs leading-6 text-[var(--muted)]">Ao concluir teoria + lista, abra o calendário. A aula irá para a área de agendamento e só será salva em uma data depois que você escolher um dia, arrastar o card ou aceitar a recomendação de +2 dias.</p>
+        <div className="grid min-h-0 gap-3 lg:h-full lg:grid-rows-2">
+          <section
+            className="flex min-h-0 flex-col overflow-y-auto rounded-[24px] border p-4 [scrollbar-width:thin]"
+            style={{
+              borderColor: state.listCompleted ? "rgba(49,199,101,.40)" : listAvailable ? "rgba(245,185,55,.48)" : "rgba(255,255,255,.10)",
+              background: state.listCompleted ? "rgba(49,199,101,.055)" : listAvailable ? "linear-gradient(145deg,rgba(53,37,9,.58),rgba(13,12,9,.96))" : "#0b0d12",
+              opacity: questionListEnabled ? 1 : 0.72,
+            }}
+          >
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-amber-300/25 bg-amber-300/[.07] text-amber-300"><FileQuestion size={18} /></span>
+              <div><span className="text-[9px] font-black tracking-[.14em] text-amber-300">ETAPA 02 · FIXAÇÃO</span><h2 className="mt-2 font-serif text-2xl leading-none text-white">{questionListEnabled ? `Lista de ${questionCount} questões` : "Lista ainda não liberada"}</h2></div>
             </div>
-            <CalendarClock size={22} style={{ color: review1 ? green : lessonCompleted ? gold : "var(--muted)" }} />
-          </div>
-
-          {!lessonCompleted ? (
-            <button type="button" disabled className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--background)] px-4 text-[10px] font-black tracking-[.1em] text-[var(--muted)]"><LockKeyhole size={15} /> CONCLUA TEORIA + LISTA</button>
-          ) : !review1 ? (
-            <div className="mt-5 rounded-2xl border border-[var(--border-strong)] bg-[color-mix(in_srgb,var(--gold)_5%,var(--background))] p-4 sm:p-5">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <span className="text-[9px] font-black tracking-[.15em] text-[var(--gold-bright)]">RECOMENDADO</span>
-                  <strong className="mt-1 block font-serif text-xl text-[var(--ink)]">Revisão 1 · {formatDatePtBr(recommendedReviewDate)}</strong>
-                  <p className="mt-2 max-w-xl text-[10px] leading-5 text-[var(--muted)]">Abra o calendário para escolher a data. Nada será agendado automaticamente: a aula ficará aguardando no topo da agenda até você arrastá-la para um dia ou aceitar a recomendação de +2 dias.</p>
+            <p className="mt-3 text-[10px] leading-5 text-white/45">
+              {questionListEnabled ? "O banco desta aula é filtrado automaticamente e congelado para sua tentativa." : "Esta aula está somente com teoria por enquanto. A lista aparecerá quando o banco de questões estiver pronto."}
+            </p>
+            <div className="mt-auto pt-4">
+              {!questionListEnabled ? (
+                <div className="rounded-xl border border-white/[.08] bg-black/20 px-3 py-3 text-[9px] font-bold text-white/35">SEM LISTA NESTA FASE</div>
+              ) : questionStatus?.attempt_id ? (
+                <div className="space-y-2">
+                  <button type="button" disabled={saving} onClick={() => router.push(`/questoes/lista/${questionStatus.attempt_id}`)} className="inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-xl bg-amber-300 px-4 text-[10px] font-black tracking-[.08em] text-[#151008]">CONTINUAR LISTA <ArrowRight size={15} /></button>
+                  {questionStatus.attempt_status === "in_progress" ? <button type="button" disabled={saving} onClick={completeInProgressList} className="w-full rounded-xl border border-white/[.08] px-3 py-2 text-[8px] font-black text-white/40">CONCLUIR TENTATIVA ATUAL</button> : null}
                 </div>
-                <button type="button" disabled={saving} onClick={openReviewCalendar} className="inline-flex disabled:cursor-wait disabled:opacity-60 min-h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-[var(--gold)] px-5 text-[10px] font-black tracking-[.1em] text-[#111] transition hover:bg-[var(--gold-bright)]"><CalendarClock size={15} /> ABRIR CALENDÁRIO PARA AGENDAR</button>
-              </div>
+              ) : !listAvailable ? (
+                <div className="rounded-xl border border-white/[.08] bg-black/20 px-3 py-3 text-[9px] font-bold text-white/35"><LockKeyhole className="mr-2 inline" size={13} /> CONCLUA A TEORIA</div>
+              ) : questionStatus && questionStatus.available_count < questionStatus.required_count ? (
+                <div className="rounded-xl border border-amber-300/15 bg-amber-300/[.04] p-3"><strong className="text-sm text-white">{questionStatus.available_count} / {questionStatus.required_count}</strong><span className="mt-1 block text-[9px] text-white/38">Banco ainda incompleto.</span>{pprnOpenAccess ? <button type="button" disabled={saving} onClick={skipCurrentLesson} className="mt-2 w-full rounded-lg border border-amber-300/20 py-2 text-[8px] font-black text-amber-200">PULAR AULA E MARCAR CONCLUÍDA</button> : null}</div>
+              ) : (
+                <button type="button" disabled={saving} onClick={openQuestionList} className="inline-flex w-full min-h-12 items-center justify-center gap-2 rounded-xl bg-amber-300 px-4 text-[10px] font-black tracking-[.08em] text-[#151008] disabled:opacity-50">{saving ? <LoaderCircle className="animate-spin" size={15} /> : null} INICIAR LISTA — {questionCount} QUESTÕES <ArrowRight size={15} /></button>
+              )}
             </div>
-          ) : (
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.05] p-4">
-                <span className="text-[9px] font-black tracking-[.14em]" style={{ color: green }}>REVISÃO 1</span>
-                <strong className="mt-1 block text-sm text-[var(--ink)]">{review1Completed ? "Concluída" : `Agendada para ${formatDatePtBr(review1.date)}`}</strong>
-                <span className="mt-1 block text-[10px] text-[var(--muted)]">{review1Completed ? "Releitura + nivelamento aprovados." : review1Due ? "Já está disponível para fazer." : "Pode ser arrastada para outra data no calendário."}</span>
-              </div>
-              <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
-                <span className="text-[9px] font-black tracking-[.14em] text-[var(--muted)]">REVISÃO 2</span>
-                <strong className="mt-1 block text-sm text-[var(--ink)]">{review2 ? (review2Completed ? "Concluída" : `Agendada para ${formatDatePtBr(review2.date)}`) : review1Completed ? "Recomendação: +4 dias" : "Aparece após concluir a Revisão 1"}</strong>
-                <span className="mt-1 block text-[10px] text-[var(--muted)]">O intervalo é contado a partir do dia em que a Revisão 1 foi realmente feita.</span>
-              </div>
-              <div className="flex flex-wrap gap-2 sm:col-span-2">
-                <Link href="/revisoes" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--border)] px-4 text-[10px] font-black tracking-[.1em] text-[var(--muted)] transition hover:border-[var(--border-strong)] hover:text-[var(--gold-bright)]">ABRIR CALENDÁRIO <ArrowRight size={15} /></Link>
-                {!review1Completed ? <Link href={`/revisoes/${review1.id}`} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--border-strong)] bg-[color-mix(in_srgb,var(--gold)_7%,transparent)] px-4 text-[10px] font-black tracking-[.1em] text-[var(--gold-bright)]">{review1Due ? "INICIAR REVISÃO 1" : "VER REVISÃO 1"} <ArrowRight size={15} /></Link> : null}
-              </div>
+          </section>
+
+          <section id="revisao" className="flex min-h-0 flex-col overflow-y-auto rounded-[24px] border border-white/[.09] bg-[#0b0d12] p-4 [scrollbar-width:thin]" style={{ opacity: lessonCompleted || review1 ? 1 : 0.65 }}>
+            <div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-violet-300/15 bg-violet-300/[.05] text-violet-200"><CalendarClock size={18} /></span><div><span className="text-[9px] font-black tracking-[.14em] text-white/38">ETAPA 03 · AGENDAR REVISÃO</span><h2 className="mt-2 font-serif text-2xl leading-none text-white">Escolha apenas o dia.</h2></div></div>
+            <p className="mt-3 text-[10px] leading-5 text-white/42">Matéria, aula e Revisão 1 seguem preenchidas. Você só escolhe a data no calendário.</p>
+            <div className="mt-auto pt-4">
+              {!lessonCompleted ? (
+                <div className="rounded-xl border border-white/[.08] bg-black/20 px-3 py-3 text-center text-[8px] font-black tracking-[.08em] text-white/30"><LockKeyhole className="mr-2 inline" size={13} /> CONCLUA TEORIA {questionListEnabled ? "+ LISTA" : ""}</div>
+              ) : !review1 ? (
+                <button type="button" disabled={saving} onClick={openReviewCalendar} className="inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-xl border border-amber-300/30 bg-amber-300/[.07] px-4 text-[9px] font-black tracking-[.08em] text-amber-200"><CalendarClock size={14} /> AGENDAR REVISÃO · {formatDatePtBr(recommendedReviewDate)}</button>
+              ) : (
+                <div className="space-y-2"><div className="rounded-xl border border-emerald-300/15 bg-emerald-300/[.04] p-3"><strong className="text-xs text-white">Revisão 1 · {formatDatePtBr(review1.date)}</strong><span className="mt-1 block text-[9px] text-white/38">{review1Completed ? "Concluída" : review1Due ? "Disponível agora" : "Agendada"}</span></div>{!review1Completed ? <Link href={`/revisoes/${review1.id}`} className="inline-flex w-full min-h-10 items-center justify-center gap-2 rounded-lg border border-white/[.08] text-[8px] font-black text-white/55">{review1Due ? "INICIAR REVISÃO" : "VER REVISÃO"} <ArrowRight size={13} /></Link> : null}</div>
+              )}
             </div>
-          )}
-        </section>
+          </section>
+        </div>
+
+        <aside className="min-h-0 lg:h-full">
+          <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-[24px] border border-violet-400/30 bg-[radial-gradient(circle_at_90%_0%,rgba(124,58,237,.20),transparent_32%),#0b0913] p-4 text-white shadow-[0_18px_65px_rgba(70,35,140,.12)]">
+            <div className="shrink-0"><span className="text-[8px] font-black tracking-[.15em] text-violet-200/70">FLUXO COMPLETO DA AULA</span><h3 className="mt-1.5 font-serif text-2xl text-white">Sua trilha</h3></div>
+            <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 [scrollbar-width:thin]">
+              <CompactFlowStep index={1} icon={BookOpen} title="Teoria" status={state.theoryCompleted ? "completed" : "available"} subtitle={state.theoryCompleted ? "Concluída" : "Disponível"} />
+              <CompactFlowStep index={2} icon={FileQuestion} title={questionListEnabled ? `Lista · ${questionCount} questões` : "Lista de questões"} status={!questionListEnabled ? (state.theoryCompleted ? "completed" : "locked") : state.listCompleted ? "completed" : listAvailable ? "available" : "locked"} subtitle={!questionListEnabled ? "Sem lista nesta fase" : state.listCompleted ? "Concluída" : listAvailable ? "Disponível" : "Após teoria"} />
+              <CompactFlowStep index={3} icon={CalendarClock} title="Agendar revisão" status={review1 ? "completed" : lessonCompleted ? "available" : "locked"} subtitle={review1 ? `Revisão 1 · ${formatDatePtBr(review1.date)}` : lessonCompleted ? "Escolha a data" : "Após teoria + lista"} />
+              <CompactFlowStep index={4} icon={RefreshCcw} title="Revisão" status={reviewStepStatus} subtitle={review1Completed ? "Concluída" : review1 ? (review1Due ? "Disponível agora" : "Aguardando data") : "Aguardando agendamento"} />
+              <CompactFlowStep index={5} icon={ClipboardCheck} title="Nivelamento" status={levelingStatus} subtitle={review1Completed ? "Concluído" : review1?.rereadConfirmed ? "Disponível" : "Após releitura da revisão"} />
+              <CompactFlowStep index={6} icon={Database} title="Banco de questões" status="locked" subtitle="Questões livres por matéria e tópico" />
+            </div>
+            <div className="mt-3 shrink-0 rounded-2xl border border-violet-300/20 bg-violet-300/[.055] p-3 text-[9px] leading-5 text-violet-100/68">
+              {lessonCompleted ? "Aula-base concluída. A próxima aula e o ciclo de revisão estão liberados." : `Conclua teoria${questionListEnabled ? " + lista" : ""} para avançar.`}
+            </div>
+            <Link href="/questoes/banco" className="mt-2 inline-flex min-h-9 shrink-0 items-center justify-center gap-2 rounded-xl border border-white/[.08] text-[8px] font-black tracking-[.08em] text-white/45 transition hover:text-white/80">ABRIR BANCO DE QUESTÕES <ArrowRight size={12} /></Link>
+          </section>
+        </aside>
       </div>
-
-      <aside className="lg:sticky lg:top-28 lg:self-start">
-        <section className="rounded-[26px] border border-[var(--border)] bg-[var(--surface)] p-5">
-          <span className="text-[9px] font-black tracking-[0.18em] text-[var(--muted)]">FLUXO COMPLETO DA AULA</span>
-          <h3 className="mt-2 font-serif text-2xl text-[var(--ink)]">Sua trilha</h3>
-
-          <div className="mt-5 space-y-3">
-            <FlowStep icon={BookOpen} title="Teoria" status={state.theoryCompleted ? "completed" : "available"} subtitle={state.theoryCompleted ? "Concluída" : "Disponível"} />
-            <FlowStep icon={FileQuestion} title="Lista · 35 questões" status={state.listCompleted ? "completed" : listAvailable ? "available" : "locked"} subtitle={state.listCompleted ? "Concluída" : listAvailable ? "Disponível" : "Bloqueada"} />
-            <FlowStep icon={CalendarClock} title="Agendar revisão" status={review1 ? "completed" : lessonCompleted ? "available" : "locked"} subtitle={review1 ? `Revisão 1 · ${formatDatePtBr(review1.date)}` : lessonCompleted ? "Recomendado: +2 dias" : "Após teoria + lista"} />
-            <FlowStep icon={RefreshCcw} title="Revisão" status={reviewStepStatus} subtitle={review1Completed ? "Revisão 1 concluída" : review1 ? (review1Due ? "Disponível agora" : `Agendada · ${formatDatePtBr(review1.date)}`) : "Aguardando agendamento"} />
-            <FlowStep icon={ClipboardCheck} title="Nivelamento" status={levelingStatus} subtitle={review1Completed ? "Aprovado com meta ≥ 9/10" : review1?.rereadConfirmed ? "Bloco de 10 disponível" : "Após releitura da revisão"} />
-            <FlowStep icon={Database} title="Banco de questões" status="locked" subtitle="Questões livres por matéria e tópico" />
-          </div>
-
-          <div className="mt-5 rounded-2xl border p-4 text-xs leading-6" style={{ borderColor: lessonCompleted ? "rgba(49,199,101,.3)" : "var(--border)", background: lessonCompleted ? "rgba(49,199,101,.06)" : "var(--background)", color: lessonCompleted ? green : "var(--muted)" }}>
-            {lessonCompleted ? "Aula-base concluída. A próxima aula da matéria está liberada e o ciclo de revisão já pode ser agendado." : "Conclua teoria + lista para liberar a próxima aula e o agendamento da Revisão 1."}
-          </div>
-        </section>
-
-        {hydrated ? <p className="mt-3 px-2 text-[9px] leading-relaxed text-[var(--muted)]">Progresso sincronizado com sua conta. Você pode continuar em outro dispositivo usando o mesmo login.</p> : null}
-      </aside>
     </div>
   );
 }
 
-function FlowStep({
+function CompactFlowStep({
+  index,
   icon: Icon,
   title,
   subtitle,
   status,
 }: {
+  index: number;
   icon: typeof BookOpen;
   title: string;
   subtitle: string;
   status: "completed" | "available" | "scheduled" | "locked";
 }) {
-  const isCompleted = status === "completed";
-  const isAvailable = status === "available";
-  const isScheduled = status === "scheduled";
-  const color = isCompleted ? green : isAvailable ? gold : "var(--muted)";
-  const borderColor = isCompleted ? "rgba(49,199,101,.35)" : isAvailable ? "rgba(210,166,78,.3)" : "var(--border)";
-  const background = isCompleted ? "rgba(49,199,101,.06)" : isAvailable ? "rgba(210,166,78,.04)" : "var(--background)";
+  const completed = status === "completed";
+  const available = status === "available";
+  const scheduled = status === "scheduled";
+  const accent = completed ? "#31c765" : available ? "#f6c34b" : "rgba(255,255,255,.34)";
+  const border = completed ? "rgba(49,199,101,.32)" : available ? "rgba(246,195,75,.35)" : "rgba(255,255,255,.08)";
+  const background = completed ? "rgba(49,199,101,.055)" : available ? "rgba(246,195,75,.055)" : "rgba(255,255,255,.018)";
 
   return (
-    <div className="flex gap-3 rounded-2xl border p-3.5" style={{ borderColor, background, opacity: status === "locked" || isScheduled ? 0.62 : 1 }}>
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border" style={{ borderColor, color, background: isCompleted ? "rgba(49,199,101,.12)" : isAvailable ? "rgba(210,166,78,.1)" : "var(--surface)" }}><Icon size={17} /></span>
-      <div><strong className="block text-sm text-[var(--ink)]">{title}</strong><span className="text-[10px] leading-relaxed" style={{ color }}>{subtitle}</span></div>
+    <div className="relative flex min-h-[62px] items-center gap-3 rounded-2xl border px-3 py-2.5" style={{ borderColor: border, background, opacity: status === "locked" || scheduled ? 0.62 : 1 }}>
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border" style={{ borderColor: border, color: accent, background: "rgba(0,0,0,.18)" }}>
+        {completed ? <Check size={15} strokeWidth={3} /> : <Icon size={16} />}
+      </span>
+      <div className="min-w-0 flex-1"><strong className="block truncate text-[12px] text-white">{title}</strong><span className="mt-0.5 block truncate text-[9px]" style={{ color: accent }}>{subtitle}</span></div>
+      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-white/[.08] bg-black/20 text-[9px] font-black text-white/45">{completed ? <Check size={12} /> : index}</span>
     </div>
   );
 }
-
-

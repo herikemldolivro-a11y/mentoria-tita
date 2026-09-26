@@ -21,10 +21,12 @@ export function LessonMaterialReader({
   subjectSlug,
   lessonSlug,
   lessonTitle,
+  compact = false,
 }: {
   subjectSlug: string;
   lessonSlug: string;
   lessonTitle: string;
+  compact?: boolean;
 }) {
   const [material, setMaterial] = useState<LessonMaterial | null>(null);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
@@ -70,7 +72,7 @@ export function LessonMaterialReader({
 
   if (loading) {
     return (
-      <div className="mt-5 grid min-h-[360px] place-items-center rounded-2xl border border-[var(--border-strong)] bg-[#090a0c] text-white">
+      <div className={`${compact ? "mt-3 min-h-[250px]" : "mt-5 min-h-[360px]"} grid place-items-center rounded-2xl border border-[var(--border-strong)] bg-[#090a0c] text-white`}>
         <div className="text-center">
           <LoaderCircle className="mx-auto animate-spin text-[#d9ab50]" size={30} />
           <span className="mt-3 block text-[10px] font-black tracking-[.14em] text-white/45">CARREGANDO MATERIAL</span>
@@ -81,7 +83,7 @@ export function LessonMaterialReader({
 
   if (!material || !signedUrl) {
     return (
-      <div className="mt-5 overflow-hidden rounded-2xl border border-[var(--border-strong)] bg-[#090a0c] text-white">
+      <div className={`${compact ? "mt-3" : "mt-5"} overflow-hidden rounded-2xl border border-[var(--border-strong)] bg-[#090a0c] text-white`}>
         <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
           <div>
             <span className="text-[9px] font-black tracking-[.15em] text-[#d9ab50]">MATERIAL DA PLATAFORMA</span>
@@ -89,7 +91,7 @@ export function LessonMaterialReader({
           </div>
           <FileText size={20} className="text-[#d9ab50]" />
         </div>
-        <div className="grid min-h-[330px] place-items-center p-6 text-center">
+        <div className={`${compact ? "min-h-[250px]" : "min-h-[330px]"} grid place-items-center p-6 text-center`}>
           <div className="max-w-md">
             <FileText className="mx-auto text-[#d9ab50]" size={38} />
             <strong className="mt-4 block font-serif text-2xl">Material ainda não publicado</strong>
@@ -105,8 +107,8 @@ export function LessonMaterialReader({
   const isImage = material.mime_type.startsWith("image/");
 
   return (
-    <div className="mt-5 overflow-hidden rounded-2xl border border-[var(--border-strong)] bg-[#090a0c] text-white shadow-[0_18px_60px_rgba(0,0,0,.25)]">
-      <div className="flex flex-col gap-3 border-b border-white/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className={`${compact ? "mt-3" : "mt-5"} overflow-hidden rounded-2xl border border-[var(--border-strong)] bg-[#090a0c] text-white shadow-[0_18px_60px_rgba(0,0,0,.25)]`}>
+      <div className={`${compact ? "gap-2 px-3 py-2.5" : "gap-3 px-4 py-3"} flex flex-col border-b border-white/10 sm:flex-row sm:items-center sm:justify-between`}>
         <div className="min-w-0">
           <span className="inline-flex items-center gap-2 text-[9px] font-black tracking-[.15em] text-[#d9ab50]"><ShieldCheck size={13} /> LEITOR DA MENTORIA TITÃ</span>
           <strong className="mt-1 block truncate text-sm">{material.title || lessonTitle}</strong>
@@ -124,15 +126,15 @@ export function LessonMaterialReader({
         <iframe
           src={`${signedUrl}#toolbar=1&navpanes=0&view=FitH`}
           title={`PDF - ${material.title}`}
-          className="block h-[72vh] min-h-[560px] w-full bg-white"
+          className={compact ? "block h-[calc(100vh-610px)] min-h-[250px] max-h-[330px] w-full bg-white" : "block h-[72vh] min-h-[560px] w-full bg-white"}
         />
       ) : isImage ? (
-        <div className="grid min-h-[560px] place-items-center bg-[#111318] p-4 sm:p-7">
+        <div className={`${compact ? "min-h-[250px]" : "min-h-[560px]"} grid place-items-center bg-[#111318] p-4 sm:p-7`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={signedUrl} alt={material.title} className="max-h-[78vh] max-w-full rounded-xl object-contain shadow-2xl" />
+          <img src={signedUrl} alt={material.title} className={compact ? "max-h-[330px] max-w-full rounded-xl object-contain shadow-2xl" : "max-h-[78vh] max-w-full rounded-xl object-contain shadow-2xl"} />
         </div>
       ) : (
-        <div className="grid min-h-[420px] place-items-center p-6 text-center">
+        <div className={`${compact ? "min-h-[250px]" : "min-h-[420px]"} grid place-items-center p-6 text-center`}>
           <div>
             <ImageIcon className="mx-auto text-[#d9ab50]" size={36} />
             <strong className="mt-4 block font-serif text-2xl">Formato não visualizável no navegador</strong>

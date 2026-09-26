@@ -1,28 +1,101 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { BackButton } from "@/components/back-button";
-import { PrfLessonWorkflow } from "@/components/prf-lesson-workflow";
-import { loadScheduleWeek } from "@/lib/schedule-server";
+import { LessonStageExperience } from "@/components/lesson-stage-experience";
+import { getEnemLessonScope } from "@/lib/enem-lesson-scope";
+import { loadScheduleWeek, loadMySchedule } from "@/lib/schedule-server";
+
+function priorityPresentation(priority: string | null) {
+  const value = (priority ?? "").toLowerCase();
+  if (value.includes("mista")) return { label: "🟢/🟠 PRIORIDADE MISTA", border: "rgba(251,191,36,.30)", bg: "linear-gradient(135deg,rgba(16,185,129,.08),rgba(249,115,22,.08))", text: "#fde68a" };
+  if (value.includes("laranja")) return { label: "🟠 SELETIVA", border: "rgba(251,146,60,.32)", bg: "rgba(249,115,22,.07)", text: "#fdba74" };
+  if (value.includes("vermel")) return { label: "🔴 RELANCE", border: "rgba(248,113,113,.30)", bg: "rgba(239,68,68,.07)", text: "#fca5a5" };
+  return { label: "🟢 PRIORIDADE TOTAL", border: "rgba(52,211,153,.30)", bg: "rgba(16,185,129,.07)", text: "#86efac" };
+}
 
 export async function ScheduleLessonScreen({ weekNumber, subjectSlug, lessonSlug }: { weekNumber: number; subjectSlug: string; lessonSlug: string }) {
-  const week = await loadScheduleWeek(weekNumber);
-  const subject = week?.subjects.find((item) => item.slug === subjectSlug);
-  const lesson = subject?.lessons.find((item) => item.slug === lessonSlug);
+  /* TITA_404_AULAS_V1 */
+  let week = await loadScheduleWeek(weekNumber);
+  let subject = week?.subjects.find((item) => item.slug === subjectSlug);
+  let lesson = subject?.lessons.find((item) => item.slug === lessonSlug);
+
+  // Algumas aulas podem vir da trilha/calendário com um week_number administrativo
+  // diferente do agrupamento em que a aula está disponível. Antes de devolver 404,
+  // procura a mesma matéria + aula no plano ativo inteiro.
+  if (!week || !subject || !lesson) {
+    const weeks = await loadMySchedule();
+
+    for (const candidateWeek of weeks) {
+      const candidateSubject = candidateWeek.subjects.find((item) => item.slug === subjectSlug);
+      const candidateLesson = candidateSubject?.lessons.find((item) => item.slug === lessonSlug);
+
+      if (candidateSubject && candidateLesson) {
+        week = candidateWeek;
+        subject = candidateSubject;
+        lesson = candidateLesson;
+        break;
+      }
+    }
+  }
+
   if (!week || !subject || !lesson) notFound();
 
-  const index = subject.lessons.findIndex((item) => item.id === lesson.id);
-  const previous = subject.lessons[index - 1];
-  if (index > 0 && !(previous?.theoryCompleted && previous?.listCompleted)) notFound();
+  // O bloqueio sequencial continua existindo na tela da matéria.
+  // Aqui não devolvemos 404 para um link legítimo vindo do calendário/trilha.
+  const trackingOnly = week.contestSlug === "enem-40-dias";
+
+  // MT_UNIFIED_LESSON_ROUTE_V57
+  // Todo plano normal usa a mesma tela de aula por lessonId. O ENEM mantém
+  // o fluxo próprio porque suas aulas são unidades de acompanhamento externo.
+  if (!trackingOnly) redirect(`/cronograma/aula/${lesson.id}`);
+
+  // O ENEM usa cada Dia como unidade independente. Não bloqueia uma aula do dia
+  // por progresso de outra aula/matéria, porque teoria/lista são executadas fora.
+  if (!trackingOnly) {
+    const index = subject.lessons.findIndex((item) => item.id === lesson.id);
+    const previous = subject.lessons[index - 1];
+    if (index > 0 && !(previous?.theoryCompleted && previous?.listCompleted)) notFound();
+  }
+
+  const priority = priorityPresentation(lesson.priority);
+  const explicitScope = trackingOnly ? getEnemLessonScope(weekNumber, subject.slug) : null;
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 pb-24 pt-7 sm:px-6 sm:pt-9">
-      <BackButton fallback={`/cronograma/semana-${weekNumber}/${subject.slug}`} label={`Voltar para ${subject.shortName}`} />
+      <BackButton
+        fallback={trackingOnly ? "/cronograma" : `/cronograma/semana-${weekNumber}/${subject.slug}`}
+        label={trackingOnly ? `Voltar para o Plano · Dia ${weekNumber}` : `Voltar para ${subject.shortName}`}
+      />
       <header className="mt-5 border-b border-[var(--border)] pb-7">
-        <span className="text-[10px] font-black tracking-[.2em] text-[var(--gold-bright)]">{week.contestSigla ?? "PLANO"} · {week.title.toUpperCase()} · {subject.shortName}</span>
-        <h1 className="mt-3 max-w-4xl font-serif text-4xl leading-[.98] tracking-[-.035em] text-[var(--ink)] sm:text-6xl">Aula {String(lesson.position).padStart(2,"0")} — {lesson.title}</h1>
-        <p className="mt-4 max-w-3xl text-sm leading-7 text-[var(--muted)]">Estude a teoria e conclua a lista de {lesson.questionCount} questões configurada para esta aula. Depois, o fluxo libera o agendamento da revisão.</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[10px] font-black tracking-[.2em] text-[var(--gold-bright)]">
+            {week.contestSigla ?? "PLANO"} · {trackingOnly ? `DIA ${weekNumber}` : week.title.toUpperCase()} · {subject.shortName}
+          </span>
+          {trackingOnly ? (
+            <span className="rounded-full border px-2.5 py-1 text-[8px] font-black tracking-[.1em]" style={{ borderColor: priority.border, background: priority.bg, color: priority.text }}>
+              {priority.label}
+            </span>
+          ) : null}
+        </div>
+        <h1 className="mt-3 max-w-4xl font-serif text-4xl leading-[.98] tracking-[-.035em] text-[var(--ink)] sm:text-6xl">
+          {trackingOnly ? `Dia ${weekNumber} — ${lesson.title}` : `Aula ${String(lesson.position).padStart(2,"0")} — ${lesson.title}`}
+        </h1>
+        <p className="mt-4 max-w-3xl text-sm leading-7 text-[var(--muted)]">
+          {trackingOnly
+            ? "Este plano serve como painel de execução: veja exatamente o que estudar na sua plataforma externa, registre teoria e questões aqui e siga para revisão e nivelamento."
+            : "Siga a trilha: apenas o passo que precisa ser feito agora fica verde. Clique nele para abrir o conteúdo da etapa."}
+        </p>
+
+        {explicitScope ? (
+          <div className="mt-5 max-w-4xl rounded-[20px] border border-emerald-400/20 bg-emerald-400/[.055] p-4 sm:p-5">
+            <span className="text-[8px] font-black tracking-[.15em] text-emerald-300">ESTUDE EXATAMENTE ISTO NESTA PARTE</span>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[var(--ink)]">{explicitScope}</p>
+            <p className="mt-2 text-[10px] leading-5 text-[var(--muted)]">Use este escopo para escolher a videoaula correta. P1, P2 e P3 não significam “continuação genérica”: cada parte tem o conteúdo delimitado acima.</p>
+          </div>
+        ) : null}
       </header>
+
       <div className="mt-7">
-        <PrfLessonWorkflow
+        <LessonStageExperience
           subject={{
             slug: subject.slug,
             shortName: subject.shortName,
@@ -34,11 +107,13 @@ export async function ScheduleLessonScreen({ weekNumber, subjectSlug, lessonSlug
             id: lesson.position,
             slug: lesson.slug,
             title: lesson.title,
-            topics: lesson.topics,
+            topics: explicitScope ? [explicitScope] : lesson.topics,
             priority: (lesson.priority || "Alta") as never,
-            weekOne: weekNumber === 1,
+            weekOne: week.weekNumber === 1,
             questionCount: lesson.questionCount,
           }}
+          questionCount={lesson.questionCount ?? 35}
+          trackingOnly={trackingOnly}
         />
       </div>
     </div>

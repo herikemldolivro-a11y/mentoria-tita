@@ -66,16 +66,43 @@ export function LevelingLearningCenter() {
     setMessage(null);
     try {
       if (level.attempt_id) {
-        router.push(`/questoes/lista/${level.attempt_id}`);
+        router.push(`/questoes/banco/nivelamento/${level.attempt_id}`);
         return;
       }
       const result = await startManualLeveling(row.lesson_id, level.level);
-      if (!result.ok || !result.attempt_id) {
-        if (result.reason === "revision_required") throw new Error(`Conclua a Revisão ${result.required_revision ?? level.level} desta aula antes de iniciar este nivelamento.`);
-        if (result.reason === "no_questions") throw new Error("Ainda não há questões disponíveis neste nível. Em poucos momentos serão disponibilizadas novas questões.");
-        throw new Error("Não foi possível iniciar este nivelamento agora.");
+
+      if (result.ok && result.attempt_id) {
+        router.push(`/questoes/banco/nivelamento/${result.attempt_id}`);
+        return;
       }
-      router.push(`/questoes/lista/${result.attempt_id}`);
+
+      if (result.reason === "other_level_in_progress" && result.attempt_id) {
+        setMessage(
+          `Já existe um Nivelamento ${result.existing_level ?? ""} em andamento nesta aula. Abrindo essa tentativa.`,
+        );
+        router.push(`/questoes/banco/nivelamento/${result.attempt_id}`);
+        return;
+      }
+
+      if (result.reason === "revision_required") {
+        throw new Error(
+          `Conclua a Revisão ${result.required_revision ?? level.level} desta aula antes de iniciar este nivelamento.`,
+        );
+      }
+
+      if (result.reason === "no_questions" || result.reason === "insufficient_questions") {
+        const available = result.available_count ?? level.available_count ?? 0;
+        const required = result.required_count ?? 10;
+        throw new Error(
+          `Banco insuficiente neste nível: ${available}/${required} questões disponíveis.`,
+        );
+      }
+
+      throw new Error(
+        result.reason
+          ? `Não foi possível iniciar este nivelamento agora (${result.reason}).`
+          : "Não foi possível iniciar este nivelamento agora.",
+      );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Não foi possível iniciar o nivelamento.");
     } finally {
@@ -139,9 +166,9 @@ function LevelCard({ row, level, working, onOpen }: { row: LevelingCatalogRow; l
   const blocked = !level.unlocked;
   const theme = ["border-[#9b5b35]/35 bg-[#9b5b35]/[.07]", "border-slate-300/20 bg-slate-300/[.045]", "border-amber-300/25 bg-amber-300/[.055]", "border-violet-300/30 bg-violet-400/[.08]"][level.level - 1];
   return (
-    <button type="button" disabled={working} onClick={() => onOpen(row, level)} className={`min-h-[190px] rounded-2xl border p-4 text-left transition ${theme} ${blocked ? "opacity-45" : level.no_questions ? "cursor-pointer border-amber-400/25 hover:border-amber-300/45" : "cursor-pointer hover:-translate-y-0.5 hover:border-violet-300/45"}`}>
+    <button type="button" disabled={working} onClick={() => onOpen(row, level)} className={`min-h-[190px] rounded-2xl border p-4 text-left transition ${level.passed ? "border-emerald-400/30 bg-emerald-400/[.08]" : theme} ${blocked ? "opacity-45" : level.no_questions ? "cursor-pointer border-amber-400/25 hover:border-amber-300/45" : "cursor-pointer hover:-translate-y-0.5 hover:border-violet-300/45"}`}>
       <div className="flex items-start justify-between gap-3">
-        <span className="grid h-11 w-11 place-items-center rounded-xl border border-white/10 bg-black/15 text-violet-200">{level.passed ? <Trophy size={19} /> : level.level === 4 ? <Medal size={19} /> : <Star size={19} />}</span>
+        <span className={`grid h-11 w-11 place-items-center rounded-xl border border-white/10 bg-black/15 ${level.passed ? "text-emerald-400" : "text-violet-200"}`}>{level.passed ? <Trophy size={19} /> : level.level === 4 ? <Medal size={19} /> : <Star size={19} />}</span>
         {level.passed ? <CheckCircle2 size={18} className="text-emerald-400" /> : !level.unlocked ? <LockKeyhole size={17} className="text-[var(--muted)]" /> : level.no_questions ? <ShieldAlert size={17} className="text-amber-400" /> : null}
       </div>
       <span className="mt-4 block text-sm tracking-[.12em] text-violet-200">{stars}</span>
@@ -152,3 +179,6 @@ function LevelCard({ row, level, working, onOpen }: { row: LevelingCatalogRow; l
     </button>
   );
 }
+
+
+

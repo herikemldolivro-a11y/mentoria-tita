@@ -8,6 +8,9 @@ import { PageShell } from "@/components/page-shell";
 import { requireAuthenticatedUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { AdminQuestionImportHistory } from "@/components/admin-question-import-history";
+import { AdminPortugueseCorrectedImportCard } from "@/components/admin-portuguese-corrected-import-card";
+import { AdminPortugueseMastersImportCard } from "@/components/admin-portuguese-masters-import-card";
+import { AdminMorphologyImportCard } from "@/components/admin-morphology-import-card";
 export const dynamic = "force-dynamic";
 
 export default async function AdminQuestionsPage() {
@@ -43,6 +46,15 @@ export default async function AdminQuestionsPage() {
       <div className="mx-auto w-full max-w-[1180px] px-4 pb-24 pt-6 sm:px-6 sm:pt-8">
         <Link href="/admin" className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-[var(--border)] px-3 text-[10px] font-black tracking-[.08em] text-[var(--muted)] transition hover:border-[var(--border-strong)] hover:text-[var(--gold-bright)]"><ArrowLeft size={15} /> VOLTAR À CENTRAL ADMIN</Link>
         <header className="py-7 sm:py-9"><span className="inline-flex items-center gap-2 text-[10px] font-black tracking-[.2em] text-[var(--gold-bright)]"><BookOpenCheck size={16} /> ADMINISTRAÇÃO</span><h1 className="mt-3 font-serif text-4xl tracking-[-.04em] text-[var(--ink)] sm:text-6xl">Banco de questões.</h1><p className="mt-4 max-w-3xl text-sm leading-7 text-[var(--muted)]">Cadastre, importe, classifique, filtre e exclua lotes por aula. Questões com banca são tratadas como reais; sem banca, como autorais/IA.</p></header>
+<AdminPortugueseCorrectedImportCard />
+        <AdminMorphologyImportCard />
+        <AdminPortugueseMastersImportCard />
+                <Link
+          href="/admin/questoes/problemas"
+          className="mb-6 inline-flex min-h-11 items-center rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 text-[9px] font-black tracking-[.08em] text-amber-300 transition hover:border-amber-400/60"
+        >
+          QUESTÕES COM PROBLEMAS
+        </Link>
 <AdminQuestionBulkManager catalog={catalog} />
         <AdminQuestionBankTotal />
         <AdminQuestionManager catalog={catalog} />

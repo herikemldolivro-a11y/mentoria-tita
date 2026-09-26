@@ -2,8 +2,9 @@ import { notFound } from "next/navigation";
 import { PageShell } from "@/components/page-shell";
 import { ScheduleLessonScreen } from "@/components/schedule-lesson-screen";
 
+/* TITA_404_ROUTE_V1 */
 function parseWeek(value: string) {
-  const match = /^semana-(\d+)$/.exec(value);
+  const match = /^(?:semana-)?(\d+)$/.exec(value);
   return match ? Number(match[1]) : null;
 }
 

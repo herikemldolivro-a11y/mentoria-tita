@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { BackButton } from "@/components/back-button";
-import { PageShell } from "@/components/page-shell";
 import { PrfLessonWorkflow } from "@/components/prf-lesson-workflow";
+import { PageShell } from "@/components/page-shell";
 import type { MatrixLesson, PrfSubject } from "@/lib/prf-week-one";
 import { requireAuthenticatedUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -44,6 +44,7 @@ export default async function PprnDirectLessonPage({ params }: { params: Promise
     topics: (topicRows ?? []).map((item) => item.topic).filter(Boolean),
     priority: "Muito alta",
     weekOne: true,
+    questionCount: 35,
   } as MatrixLesson;
 
   const subject = {
@@ -55,16 +56,16 @@ export default async function PprnDirectLessonPage({ params }: { params: Promise
   } as unknown as PrfSubject;
 
   return (
-    <PageShell>
-      <div className="mx-auto w-full max-w-6xl px-4 pb-24 pt-7 sm:px-6 sm:pt-9">
-        <BackButton fallback="/cronograma" label="Voltar para a Semana 1" />
-        <header className="mt-5 border-b border-[var(--border)] pb-7">
-          <span className="text-[10px] font-black tracking-[0.2em] text-[var(--gold-bright)]">PPRN • RETA FINAL • {row.subject_short_name}</span>
-          <h1 className="mt-3 max-w-4xl font-serif text-4xl leading-[.98] tracking-[-.035em] text-[var(--ink)] sm:text-6xl">{row.lesson_title}</h1>
-          <p className="mt-4 max-w-2xl text-sm leading-7 text-[var(--muted)]">Esta aula é independente das anteriores. Você pode estudar, fazer a lista e agendar a revisão sem precisar concluir outra aula primeiro.</p>
-        </header>
-        <div className="mt-7"><PrfLessonWorkflow subject={subject} lesson={lesson} /></div>
+    <PageShell compactViewport>
+      <div data-mt-pprn-lesson-v57="1" className="mx-auto flex h-auto w-full max-w-[1500px] flex-col px-3 pb-3 pt-3 sm:px-4 lg:h-screen lg:overflow-hidden">
+        <div className="shrink-0">
+          <BackButton fallback="/cronograma" label="Voltar para o Plano de Estudos" />
+        </div>
+        <div className="mt-2 min-h-0 flex-1 lg:overflow-hidden">
+          <PrfLessonWorkflow subject={subject} lesson={lesson} contestLabel="PPRN" />
+        </div>
       </div>
     </PageShell>
   );
+
 }
