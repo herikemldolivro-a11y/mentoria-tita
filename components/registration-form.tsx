@@ -66,9 +66,9 @@ export function RegistrationForm() {
 
   return (
     <form className="mt-6 space-y-4" onSubmit={submit}>
-      <Field icon={UserRound} label="Nome" value={name} onChange={setName} type="text" placeholder="Seu nome" autoComplete="name" />
-      <Field icon={Mail} label="E-mail" value={email} onChange={setEmail} type="email" placeholder="voce@email.com" autoComplete="email" />
-      <Field icon={LockKeyhole} label="Senha" value={password} onChange={setPassword} type="password" placeholder="Mínimo de 8 caracteres" autoComplete="new-password" minLength={8} />
+      <Field icon={UserRound} label="Nome" value={name} onChange={setName} type="text" placeholder="Seu nome" autoComplete="name" disabled={loading} />
+      <Field icon={Mail} label="E-mail" value={email} onChange={setEmail} type="email" placeholder="voce@email.com" autoComplete="email" disabled={loading} />
+      <Field icon={LockKeyhole} label="Senha" value={password} onChange={setPassword} type="password" placeholder="Mínimo de 8 caracteres" autoComplete="new-password" minLength={8} disabled={loading} />
 
       {errorMessage ? (
         <div className="flex items-start gap-2 rounded-xl border border-red-400/20 bg-red-400/[.07] px-4 py-3 text-xs text-red-200" role="alert">
@@ -100,6 +100,7 @@ function Field({
   placeholder,
   autoComplete,
   minLength,
+  disabled,
 }: {
   icon: typeof UserRound;
   label: string;
@@ -109,6 +110,7 @@ function Field({
   placeholder: string;
   autoComplete: string;
   minLength?: number;
+  disabled?: boolean;
 }) {
   return (
     <label className="block">
@@ -124,7 +126,7 @@ function Field({
           autoComplete={autoComplete}
           minLength={minLength}
           required
-          disabled={loading}
+          disabled={disabled}
         />
       </span>
     </label>
