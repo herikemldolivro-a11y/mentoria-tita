@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { KeyRound, ShieldCheck } from "lucide-react";
+import { UserPlus, ShieldCheck } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { LoginForm } from "@/components/login-form";
 
@@ -35,8 +35,8 @@ export default function LoginPage() {
           <p>Use suas credenciais para acessar o painel.</p>
           <LoginForm />
           <div className="mt-5 border-t border-white/[.07] pt-5">
-            <span className="block text-[9px] leading-5 text-white/32">Recebeu um código de acesso?</span>
-            <Link href="/cadastro" className="mt-2 inline-flex min-h-10 items-center gap-2 rounded-xl border border-white/[.09] bg-white/[.025] px-3 text-[9px] font-black tracking-[.08em] text-white/65 transition hover:bg-white/[.055] hover:text-white"><KeyRound size={14} /> CRIAR CONTA COM CÓDIGO</Link>
+            <span className="block text-[9px] leading-5 text-white/32">Primeiro acesso?</span>
+            <Link href="/cadastro" className="mt-2 inline-flex min-h-10 items-center gap-2 rounded-xl border border-white/[.09] bg-white/[.025] px-3 text-[9px] font-black tracking-[.08em] text-white/65 transition hover:bg-white/[.055] hover:text-white"><UserPlus size={14} /> CRIAR CONTA</Link>
           </div>
           <small>Em caso de dificuldade, entre em contato com a equipe da mentoria.</small>
         </section>
