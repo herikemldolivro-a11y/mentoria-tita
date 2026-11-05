@@ -17,6 +17,7 @@ export type SimuladoExam = {
 
 type AnswerRow = { numero: number; resposta: "C" | "E"; acertou: boolean | null };
 type NoteRow = { numero: number; nota: string };
+type PreparedTextRow = { numero: number; pagina: number; enunciado: string; texto_base: string | null };
 
 function previewText(q: SimuladoQuestion) {
   const raw = (q.trecho ?? "").trim();
@@ -41,6 +42,8 @@ export function SimuladoExamRunner({
   const [answers,setAnswers] = useState<Record<number,AnswerRow>>({});
   const [notes,setNotes] = useState<Record<number,string>>({});
   const [persistedNotes,setPersistedNotes] = useState<Record<number,string>>({});
+  const [preparedTexts,setPreparedTexts] = useState<Record<number,PreparedTextRow>>({});
+  const [preparedError,setPreparedError] = useState<string | null>(null);
   const [selected,setSelected] = useState<"C"|"E"|null>(null);
   const [loading,setLoading] = useState(true);
   const [saving,setSaving] = useState(false);
@@ -48,6 +51,9 @@ export function SimuladoExamRunner({
   const [error,setError] = useState("");
   const [showPdf,setShowPdf] = useState(true);
   const q = ordered[index] ?? null;
+  const prepared = q ? preparedTexts[q.numero] : null;
+  const displayEnunciado = prepared?.enunciado || (q ? previewText(q) : "");
+  const displayTextoBase = prepared?.texto_base || null;
   const previous = q ? answers[q.numero] : null;
   const noteText = q ? notes[q.numero] ?? "" : "";
   const dirty = q ? noteText !== (persistedNotes[q.numero] ?? "") : false;
@@ -76,6 +82,38 @@ export function SimuladoExamRunner({
   useEffect(()=>{
     setSelected(q && answers[q.numero] ? answers[q.numero].resposta : null);
   },[index,q?.numero,answers]);
+
+  // MT_SIMULADO_01_COMPLETE_TEXTS_V9: only enrich this exam.
+  // Private RLS-controlled texts are keyed by the user's simulado and number.
+  // The original PDF and all other simulados remain unchanged.
+  useEffect(() => {
+    if (simulado.id !== "dia-01-geral") return;
+    let alive = true;
+    const db = createClient();
+    db.from("mt_simulado_question_texts")
+      .select("numero,pagina,enunciado,texto_base")
+      .eq("user_id", userId)
+      .eq("simulado_id", "dia-01-geral")
+      .then(({data,error}) => {
+        if (!alive) return;
+        if (error) {
+          setPreparedError("Não foi possível carregar os enunciados preparados: " + error.message);
+          return;
+        }
+        const byNumber: Record<number,PreparedTextRow> = {};
+        for (const item of (data??[]) as PreparedTextRow[]) {
+          if (Number.isInteger(item.numero) && item.enunciado) byNumber[item.numero] = item;
+        }
+        setPreparedTexts(byNumber);
+        setPreparedError(null);
+      })
+      .catch((e: unknown) => {
+        if (alive) setPreparedError(e instanceof Error ? e.message : "Erro ao carregar enunciados.");
+      });
+    return () => { alive = false; };
+  }, [simulado.id,userId]);
+
+
 
   const saveNote = useCallback(async (number:number,value:string)=>{
     const db=createClient();
@@ -164,8 +202,20 @@ export function SimuladoExamRunner({
       <div className="space-y-5">
         <div className="rounded-2xl border border-white/10 bg-white/[.025] p-5">
           <div className="flex flex-wrap items-center justify-between gap-3"><span className="text-xs font-black tracking-wider text-amber-300">ENUNCIADO DA QUESTÃO {String(q.numero).padStart(3,"0")}</span><span className="text-xs text-white/45">Página original {q.pagina}</span></div>
-          {previewText(q)?<p className="mt-4 whitespace-pre-wrap text-base leading-8 text-white/90">{previewText(q)}</p>:<p className="mt-4 text-sm text-white/70">Enunciado integral disponível no documento original exibido ao lado.</p>}
-          <p className="mt-4 text-xs leading-6 text-white/55">Os textos-base, gráficos, fórmulas, tabelas e trechos eventualmente cortados da prévia estão na página original, exibida dentro desta tela. Consulte a página antes de responder.</p>
+          {preparedError && simulado.id==="dia-01-geral" ? <p role="alert" className="mt-4 text-xs text-red-300">{preparedError}</p> : null}
+          {displayEnunciado
+            ? <p className="mt-4 whitespace-pre-wrap text-base leading-8 text-white/95">{displayEnunciado}</p>
+            : <p className="mt-4 text-sm text-white/70">Enunciado integral disponível no documento original exibido ao lado.</p>}
+          {displayTextoBase ? (
+            <div className="mt-5 rounded-xl border border-amber-200/25 bg-amber-300/[.045] p-4">
+              <h4 className="text-xs font-black tracking-wide text-amber-300">TEXTO-BASE ORIGINAL DA QUESTÃO</h4>
+              <p className="mt-3 max-h-[360px] overflow-auto whitespace-pre-wrap text-sm leading-7 text-white/85">{displayTextoBase}</p>
+            </div>
+          ) : null}
+          <p className="mt-4 text-xs leading-6 text-white/55">
+            {prepared ? "Enunciado organizado a partir do Simulado 01. O PDF original permanece ao lado para conferir a diagramação." :
+              "Textos-base, figuras e fórmulas do PDF original continuam disponíveis ao lado. Consulte a página antes de responder."}
+          </p>
           <button type="button" onClick={()=>setShowPdf(x=>!x)} className="mt-3 rounded-xl border border-white/20 px-3 py-2 text-xs text-amber-300">{showPdf?"Ocultar página original":"Mostrar página original completa"}</button>
         </div>
         <div className="rounded-2xl border border-amber-300/25 bg-amber-300/[.035] p-5">
