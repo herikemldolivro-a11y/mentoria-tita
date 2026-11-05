@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "tag": "MT_SIMULADO_CALENDAR_BRIDGE_V1",
+  "patches": [
+    {
+      "id": 1,
+      "old": "import { LevelingLimitToast } from \"@/components/leveling-limit-toast\";",
+      "replacement": "import { LevelingLimitToast } from \"@/components/leveling-limit-toast\";\nimport { createClient } from \"@/lib/supabase/client\";"
+    },
+    {
+      "id": 2,
+      "old": "const WEEKDAYS = [\"DOM\", \"SEG\", \"TER\", \"QUA\", \"QUI\", \"SEX\", \"SÁB\"];",
+      "replacement": "const WEEKDAYS = [\"DOM\", \"SEG\", \"TER\", \"QUA\", \"QUI\", \"SEX\", \"SÁB\"];\n\ntype SimuladoCalendarReview = {\n  user_id: string;\n  simulado_id: string;\n  dia_origem: number;\n  titulo: string;\n  scheduled_for: string;\n  completed_at: string | null;\n};"
+    },
+    {
+      "id": 3,
+      "old": "      leveling: PrincipalLeveling;\n    };",
+      "replacement": "      leveling: PrincipalLeveling;\n    }\n  | {\n      kind: \"simulado\";\n      id: string;\n      date: string;\n      completed: boolean;\n      subject: string;\n      title: string;\n      eyebrow: string;\n      review: SimuladoCalendarReview;\n    };"
+    },
+    {
+      "id": 4,
+      "old": "  const [hub, setHub] = useState<PrincipalCalendarHub | null>(null);",
+      "replacement": "  const [hub, setHub] = useState<PrincipalCalendarHub | null>(null);\n  const [simuladoReviews, setSimuladoReviews] = useState<SimuladoCalendarReview[]>([]);"
+    },
+    {
+      "id": 5,
+      "old": "  const [message, setMessage] = useState<string | null>(null);",
+      "replacement": "  const [message, setMessage] = useState<string | null>(null);\n\n  // MT_SIMULADO_CALENDAR_BRIDGE_V1: same date grid, independent of R1-R5.\n  useEffect(() => {\n    let alive = true;\n    const db = createClient();\n    const load = async () => {\n      try {\n        const { data: auth } = await db.auth.getUser();\n        if (!auth.user) return;\n        const { data, error } = await db.from(\"mt_simulado_review_calendar\")\n          .select(\"user_id,simulado_id,dia_origem,titulo,scheduled_for,completed_at\")\n          .eq(\"user_id\", auth.user.id)\n          .order(\"scheduled_for\");\n        if (!error && alive) setSimuladoReviews((data ?? []) as SimuladoCalendarReview[]);\n      } catch { /* Keep the principal calendar working if the add-on is unavailable. */ }\n    };\n    void load();\n    const off = listenStudyUpdated(() => void load());\n    return () => { alive = false; off(); };\n  }, []);"
+    },
+    {
+      "id": 6,
+      "old": "  const activities = buildActivities(hub);",
+      "replacement": "  const activities = buildActivities(hub, simuladoReviews);"
+    },
+    {
+      "id": 7,
+      "old": "    void openLeveling(activity.leveling);",
+      "replacement": "    if (activity.kind === \"simulado\") {\n      router.push(`/estudos/simulados?tab=calendario&data=${activity.date}&simulado=${activity.review.simulado_id}`);\n      return;\n    }\n    void openLeveling(activity.leveling);"
+    },
+    {
+      "id": 8,
+      "old": "  if (activity.kind === \"notebook\") {\n    return <NotebookPen size={15} className={className} />;\n  }\n  return <Medal size={15} className={className} />;",
+      "replacement": "  if (activity.kind === \"notebook\") {\n    return <NotebookPen size={15} className={className} />;\n  }\n  if (activity.kind === \"simulado\") {\n    return <BookOpenText size={15} className={className} />;\n  }\n  return <Medal size={15} className={className} />;"
+    },
+    {
+      "id": 9,
+      "old": "function buildActivities(hub: PrincipalCalendarHub): CalendarActivity[] {",
+      "replacement": "function buildActivities(hub: PrincipalCalendarHub, simuladoReviews: SimuladoCalendarReview[] = []): CalendarActivity[] {"
+    },
+    {
+      "id": 10,
+      "old": "  const order: Record<CalendarActivity[\"kind\"], number> = {\n    revision: 0,\n    notebook: 1,\n    leveling: 2,\n  };\n\n  return [...revisions, ...notebooks, ...levelings].sort((a, b) => {",
+      "replacement": "  const simulados: CalendarActivity[] = simuladoReviews.map((review) => ({\n    kind: \"simulado\" as const,\n    id: \"simulado-\" + review.simulado_id,\n    date: review.scheduled_for,\n    completed: Boolean(review.completed_at),\n    subject: \"SIMULADOS\",\n    title: review.titulo,\n    eyebrow: \"QUESTÕES SALVAS · \" + review.titulo,\n    review,\n  }));\n\n  const order: Record<CalendarActivity[\"kind\"], number> = {\n    revision: 0,\n    notebook: 1,\n    leveling: 2,\n    simulado: 3,\n  };\n\n  return [...revisions, ...notebooks, ...levelings, ...simulados].sort((a, b) => {"
+    },
+    {
+      "id": 11,
+      "old": "{completed ? \"CONCLUÍDA\" : locked ? \"BLOQUEADA\" : activity.kind === \"revision\" ? \"REVISÃO\" : \"PENDENTE\"}",
+      "replacement": "{completed ? \"CONCLUÍDA\" : locked ? \"BLOQUEADA\" : activity.kind === \"revision\" ? \"REVISÃO\" : activity.kind === \"simulado\" ? \"SIMULADO\" : \"PENDENTE\"}"
+    }
+  ]
+}
