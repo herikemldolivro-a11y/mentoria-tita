@@ -146,7 +146,19 @@ try {
     $reader=New-Object System.IO.StreamReader($inflater,[Text.Encoding]::UTF8)
     $json=$reader.ReadToEnd()
     $reader.Dispose()
-    $catalog=@(ConvertFrom-Json -InputObject $json)
+    # ConvertFrom-Json on Windows PowerShell 5.1 may emit an array as ONE pipeline item.
+    # Assign the decoded array directly instead of wrapping it with @(...).
+    $parsed=ConvertFrom-Json -InputObject $json
+    if($parsed -is [System.Array]){
+      $catalog=$parsed
+    } elseif($null -ne $parsed.simulados){
+      $catalog=$parsed.simulados
+    } else {
+      $catalog=@($parsed)
+    }
+    if($catalog.Count -eq 1 -and $catalog[0] -is [System.Array]){
+      $catalog=$catalog[0]
+    }
     $total=0
     foreach($exam in $catalog){$total+=@($exam.questoes).Count}
     if($catalog.Count -ne 13 -or $total -ne 1040){throw "Catalogo invalido: "+$catalog.Count+" provas, "+$total+" questoes."}
