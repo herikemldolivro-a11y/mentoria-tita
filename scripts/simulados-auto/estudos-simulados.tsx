@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { SimuladoExamRunner } from "@/components/simulado-exam-runner";
 import { createClient } from "@/lib/supabase/client";
 import { CalendarDays, BookOpenCheck, Bookmark, CheckCircle2, ExternalLink, LoaderCircle, ChevronLeft, ChevronRight } from "lucide-react";
 
-type Question = { numero:number; pagina:number; gabarito:string };
+type Question = { numero:number; pagina:number; gabarito:string; trecho?:string };
 type Simulado = { id:string; dia:number; titulo:string; origem:string; total:number; arquivos:Record<string,string>; questoes:Question[] };
 type Review = { user_id:string; simulado_id:string; dia_origem:number; titulo:string; scheduled_for:string; completed_at:string|null };
 type Saved = { simulado_id:string; numero:number };
@@ -33,11 +34,30 @@ export function TitaSimuladosSemanaUm() {
   const [message,setMessage]=useState("");
   const [showAnswers,setShowAnswers]=useState<Record<string,boolean>>({});
   const [results,setResults]=useState<Record<string,string>>({});
+  const [runningId,setRunningId]=useState<string|null>(null);
+  const deepLinkOpened=useRef(false);
 
   const current = useMemo(()=>simulados.find(s=>s.id===activeId) ?? simulados.find(s=>s.dia===dia) ?? null,[simulados,activeId,dia]);
   const currentSaved = current ? saved.filter(x=>x.simulado_id===current.id).map(x=>x.numero):[];
   const reviewForCurrent = reviews.find(r=>r.simulado_id===current?.id);
   const calendarDays = [...new Set(reviews.map(r=>r.scheduled_for))].sort();
+  const running=simulados.find(s=>s.id===runningId)??null;
+  const runningQuestions=running
+    ? running.questoes.filter(q=>saved.some(x=>x.simulado_id===running.id&&x.numero===q.numero)).sort((a,b)=>a.numero-b.numero)
+    : [];
+
+  useEffect(()=>{
+    if(deepLinkOpened.current || !simulados.length || !userId)return;
+    const url=new URLSearchParams(window.location.search);
+    const requested=url.get("simulado");
+    if(!requested && url.get("tab")!=="calendario")return;
+    deepLinkOpened.current=true;
+    setTab("calendario");
+    if(url.get("data"))setSelectedDate(url.get("data")!);
+    if(requested && simulados.some(s=>s.id===requested))setRunningId(requested);
+  },[simulados,userId]);
+
+
 
   async function refresh(user:string) {
     const supabase = createClient();
@@ -116,23 +136,26 @@ export function TitaSimuladosSemanaUm() {
     finally{setWorking("")}
   }
 
-  async function answer(sim:Simulado,q:Question,answer:string){
-    if(!userId||working)return;
-    const ansKey=sim.id+"-"+q.numero;
-    setWorking(ansKey);setError("");
-    try {
-      const correct=q.gabarito==="C"||q.gabarito==="E" ? q.gabarito===answer : null;
-      const {error:e}=await createClient().from("mt_simulado_review_results").upsert({
-        user_id:userId,simulado_id:sim.id,numero:q.numero,resposta:answer,acertou:correct,reviewed_at:new Date().toISOString()
-      },{onConflict:"user_id,simulado_id,numero"});
-      if(e)throw e;
-      setResults(x=>({...x,[ansKey]:answer}));
-      setShowAnswers(x=>({...x,[ansKey]:true}));
-    }catch(e){setError(e instanceof Error?e.message:"Falha ao registrar resposta.");}
-    finally{setWorking("")}
-  }
-
   const pdfLink=(file:string,page?:number)=>api+"/pdf/"+encodeURIComponent(file)+(page?"#page="+page:"");
+
+  if(running) return <div className="mx-auto max-w-[1420px] px-4 pb-24 pt-6 sm:px-7">
+    <SimuladoExamRunner
+      key={running.id} simulado={running} questoes={runningQuestions} userId={userId}
+      onExit={()=>setRunningId(null)}
+      onCompleted={async()=>{
+        const review=reviews.find(r=>r.simulado_id===running.id);
+        if(!review)throw new Error("Esta revisão ainda não foi agendada.");
+        const {error:e}=await createClient().from("mt_simulado_review_calendar")
+          .update({completed_at:new Date().toISOString(),updated_at:new Date().toISOString()})
+          .eq("user_id",userId).eq("simulado_id",running.id);
+        if(e)throw e;
+        await refresh(userId);
+        setRunningId(null);setTab("calendario");
+        setSelectedDate(review.scheduled_for);
+        setMessage("Revisão de "+running.titulo+" concluída e atualizada no calendário principal.");
+      }}
+    />
+  </div>;
 
   return <div className="mx-auto max-w-[1350px] px-4 pb-24 pt-6 sm:px-7 text-[var(--ink)]">
     <div className="rounded-[28px] border border-white/10 bg-gradient-to-br from-[#17131f] to-[#09090d] p-5 text-white sm:p-8">
@@ -179,25 +202,23 @@ export function TitaSimuladosSemanaUm() {
     {!loading && tab==="calendario"?<div className="mt-6 grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
       <aside className="rounded-2xl border border-white/10 bg-[var(--surface)] p-4">
         <h2 className="text-lg font-bold">Dias de revisão</h2>
-        <p className="mt-1 text-xs text-[var(--muted)]">Clique numa data para abrir as questões salvas.</p>
+        <p className="mt-1 text-xs text-[var(--muted)]">Selecione a data e inicie as questões salvas em ordem numérica.</p>
         <label className="mt-4 block text-xs">Ir para data<input type="date" className="mt-1 w-full rounded-lg border border-white/15 bg-transparent p-2" value={selectedDate} onChange={e=>setSelectedDate(e.target.value)}/></label>
         <div className="mt-3 space-y-2">{calendarDays.map(d=><button key={d} type="button" onClick={()=>setSelectedDate(d)} className={`block w-full rounded-xl border p-3 text-left text-sm ${selectedDate===d?"border-amber-400/60 bg-amber-300/10":"border-white/10"}`}>{new Date(d+"T12:00:00").toLocaleDateString("pt-BR")} · {reviews.filter(x=>x.scheduled_for===d).length} simulado(s)</button>)}</div>
+        <a href={"/calendario"} className="mt-5 block rounded-xl border border-emerald-400/35 px-3 py-3 text-center text-xs font-semibold text-emerald-300">Abrir calendário principal</a>
       </aside>
-      <section className="space-y-4">{reviews.filter(x=>x.scheduled_for===selectedDate).length===0?<div className="rounded-2xl border border-white/10 p-6 text-sm text-[var(--muted)]">Nenhuma revisão de simulado agendada para esta data.</div>:null}
+      <section className="space-y-4">{reviews.filter(x=>x.scheduled_for===selectedDate).length===0?<div className="rounded-2xl border border-white/10 p-6 text-sm text-[var(--muted)]">Nenhuma revisão agendada para esta data.</div>:null}
         {reviews.filter(x=>x.scheduled_for===selectedDate).map(review=>{
           const sim=simulados.find(s=>s.id===review.simulado_id);
-          const selected=sim?.questoes.filter(q=>saved.some(x=>x.simulado_id===sim.id&&x.numero===q.numero))??[];
-          return <article key={review.simulado_id} className="rounded-2xl border border-white/10 bg-[var(--surface)] p-5">
-            <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs text-amber-300">Dia {String(review.dia_origem).padStart(2,"0")}</p><h3 className="mt-1 text-xl font-bold">{review.titulo}</h3><p className="text-xs text-[var(--muted)]">{selected.length} questões salvas</p></div>
-            <button disabled={!!working} onClick={()=>finishReview(review)} className="rounded-xl border border-emerald-400/50 px-3 py-2 text-sm font-semibold text-emerald-300">{review.completed_at?"Reabrir revisão":"Marcar revisão concluída"}</button></div>
-            <div className="mt-4 space-y-2">{selected.map(q=>{
-              const key=review.simulado_id+"-"+q.numero;
-              return <div key={q.numero} className="rounded-xl border border-white/10 p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-sm">Questão {String(q.numero).padStart(3,"0")}</strong><a href={pdfLink(sim!.arquivos.prova,q.pagina)} target="_blank" rel="noopener noreferrer" className="text-xs text-amber-300 underline">Ver enunciado integral no PDF ↗</a></div>
-                <div className="mt-2 flex flex-wrap gap-2"><button disabled={!!working} className="rounded-lg border border-white/15 px-3 py-2 text-xs" onClick={()=>answer(sim!,q,"C")}>Respondi CERTO</button><button disabled={!!working} className="rounded-lg border border-white/15 px-3 py-2 text-xs" onClick={()=>answer(sim!,q,"E")}>Respondi ERRADO</button><button className="rounded-lg border border-white/15 px-3 py-2 text-xs" onClick={()=>setShowAnswers(v=>({...v,[key]:!v[key]}))}>Mostrar gabarito</button></div>
-                {showAnswers[key]?<p className="mt-2 text-sm">Gabarito: <strong>{q.gabarito==="X"?"ANULADA":q.gabarito==="C"?"CERTO":"ERRADO"}</strong>{results[key]?" · Você respondeu "+(results[key]==="C"?"CERTO":"ERRADO"):""}</p>:null}
-              </div>
-            })}</div>
+          if(!sim)return null;
+          const selected=sim.questoes.filter(q=>saved.some(x=>x.simulado_id===sim.id&&x.numero===q.numero)).sort((a,b)=>a.numero-b.numero);
+          return <article key={review.simulado_id} className="rounded-2xl border border-white/10 bg-[var(--surface)] p-5 sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs text-amber-300">Dia {String(review.dia_origem).padStart(2,"0")} · {review.completed_at?"Revisão concluída":"Revisão pendente"}</p><h3 className="mt-1 text-2xl font-bold">{review.titulo}</h3><p className="mt-1 text-sm text-[var(--muted)]">{selected.length} questões selecionadas</p></div>
+            <span className="rounded-lg border border-amber-400/25 px-3 py-2 text-xs font-bold text-amber-300">Ordem crescente</span></div>
+            <p className="mt-4 text-xs leading-6 text-[var(--muted)]">Questões salvas: {selected.map(q=>String(q.numero).padStart(3,"0")).join(", ") || "Nenhuma"}. Você resolverá uma de cada vez, com o enunciado completo na própria tela, correção e anotações.</p>
+            <button type="button" disabled={!selected.length} onClick={()=>setRunningId(sim.id)} className="mt-5 flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-amber-300 px-6 py-3 text-base font-black text-black disabled:opacity-40">
+              <BookOpenCheck size={20}/>{review.completed_at?"Refazer revisão":"Iniciar simulado"}
+            </button>
           </article>
         })}</section>
     </div>:null}
