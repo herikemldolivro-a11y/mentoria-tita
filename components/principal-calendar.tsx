@@ -1,6 +1,7 @@
 "use client";
 
 import { LevelingLimitToast } from "@/components/leveling-limit-toast";
+import { createClient } from "@/lib/supabase/client";
 import {
   ArrowLeft,
   ArrowRight,
@@ -35,6 +36,15 @@ import { listenStudyUpdated } from "@/lib/study-database";
 
 const WEEKDAYS = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
 
+type SimuladoCalendarReview = {
+  user_id: string;
+  simulado_id: string;
+  dia_origem: number;
+  titulo: string;
+  scheduled_for: string;
+  completed_at: string | null;
+};
+
 type CalendarActivity =
   | {
       kind: "revision";
@@ -65,6 +75,16 @@ type CalendarActivity =
       title: string;
       eyebrow: string;
       leveling: PrincipalLeveling;
+    }
+  | {
+      kind: "simulado";
+      id: string;
+      date: string;
+      completed: boolean;
+      subject: string;
+      title: string;
+      eyebrow: string;
+      review: SimuladoCalendarReview;
     };
 
 export function PrincipalCalendar({ compact = false }: { compact?: boolean }) {
@@ -72,6 +92,7 @@ export function PrincipalCalendar({ compact = false }: { compact?: boolean }) {
   const searchParams = useSearchParams();
   const handledPrefill = useRef(false);
   const [hub, setHub] = useState<PrincipalCalendarHub | null>(null);
+  const [simuladoReviews, setSimuladoReviews] = useState<SimuladoCalendarReview[]>([]);
   const [month, setMonth] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
@@ -81,6 +102,26 @@ export function PrincipalCalendar({ compact = false }: { compact?: boolean }) {
   const [edit, setEdit] = useState<PrincipalRevision | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+
+  // MT_SIMULADO_CALENDAR_BRIDGE_V1: same date grid, independent of R1-R5.
+  useEffect(() => {
+    let alive = true;
+    const db = createClient();
+    const load = async () => {
+      try {
+        const { data: auth } = await db.auth.getUser();
+        if (!auth.user) return;
+        const { data, error } = await db.from("mt_simulado_review_calendar")
+          .select("user_id,simulado_id,dia_origem,titulo,scheduled_for,completed_at")
+          .eq("user_id", auth.user.id)
+          .order("scheduled_for");
+        if (!error && alive) setSimuladoReviews((data ?? []) as SimuladoCalendarReview[]);
+      } catch { /* Keep the principal calendar working if the add-on is unavailable. */ }
+    };
+    void load();
+    const off = listenStudyUpdated(() => void load());
+    return () => { alive = false; off(); };
+  }, []);
 
   async function refresh() {
     const data = await loadPrincipalCalendarHub();
@@ -211,7 +252,7 @@ export function PrincipalCalendar({ compact = false }: { compact?: boolean }) {
     );
   }
 
-  const activities = buildActivities(hub);
+  const activities = buildActivities(hub, simuladoReviews);
   const activitiesByDate = groupActivitiesByDate(activities);
   const cells = monthCells(month);
   const currentMonth = month.getMonth();
@@ -243,6 +284,10 @@ export function PrincipalCalendar({ compact = false }: { compact?: boolean }) {
       return;
     }
 
+    if (activity.kind === "simulado") {
+      router.push(`/estudos/simulados?tab=calendario&data=${activity.date}&simulado=${activity.review.simulado_id}`);
+      return;
+    }
     void openLeveling(activity.leveling);
   }
 
@@ -833,7 +878,7 @@ function DayActivityRow({
                   : "border-violet-300/25 bg-violet-300/[.08] text-violet-200"
             }`}
           >
-            {completed ? "CONCLUÍDA" : locked ? "BLOQUEADA" : activity.kind === "revision" ? "REVISÃO" : "PENDENTE"}
+            {completed ? "CONCLUÍDA" : locked ? "BLOQUEADA" : activity.kind === "revision" ? "REVISÃO" : activity.kind === "simulado" ? "SIMULADO" : "PENDENTE"}
           </span>
         </div>
         <span className="mt-1 block truncate text-[11px] text-white/62">
@@ -861,10 +906,13 @@ function ActivityIcon({
   if (activity.kind === "notebook") {
     return <NotebookPen size={15} className={className} />;
   }
+  if (activity.kind === "simulado") {
+    return <BookOpenText size={15} className={className} />;
+  }
   return <Medal size={15} className={className} />;
 }
 
-function buildActivities(hub: PrincipalCalendarHub): CalendarActivity[] {
+function buildActivities(hub: PrincipalCalendarHub, simuladoReviews: SimuladoCalendarReview[] = []): CalendarActivity[] {
   const revisions: CalendarActivity[] = hub.revisions
     .filter((item) => item.scheduled_for)
     .map((item) => ({
@@ -904,13 +952,25 @@ function buildActivities(hub: PrincipalCalendarHub): CalendarActivity[] {
       leveling: item,
     }));
 
+  const simulados: CalendarActivity[] = simuladoReviews.map((review) => ({
+    kind: "simulado" as const,
+    id: "simulado-" + review.simulado_id,
+    date: review.scheduled_for,
+    completed: Boolean(review.completed_at),
+    subject: "SIMULADOS",
+    title: review.titulo,
+    eyebrow: "QUESTÕES SALVAS · " + review.titulo,
+    review,
+  }));
+
   const order: Record<CalendarActivity["kind"], number> = {
     revision: 0,
     notebook: 1,
     leveling: 2,
+    simulado: 3,
   };
 
-  return [...revisions, ...notebooks, ...levelings].sort((a, b) => {
+  return [...revisions, ...notebooks, ...levelings, ...simulados].sort((a, b) => {
     const byDate = a.date.localeCompare(b.date);
     if (byDate !== 0) return byDate;
     return order[a.kind] - order[b.kind];
