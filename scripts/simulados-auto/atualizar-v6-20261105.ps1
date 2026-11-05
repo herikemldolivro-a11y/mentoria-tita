@@ -95,7 +95,7 @@ if(!$srcMain.Contains("SimuladoExamRunner") -or $srcMain.Contains("Respondi CERT
 if(!$srcRunner.Contains("Corrigir resposta") -or !$srcRunner.Contains("mt_simulado_question_notes")){
   throw "O arquivo da nova resolucao esta incompleto. Instalacao cancelada."
 }
-if(@($patch.patches).Count -ne 11){throw "O pacote do calendario nao esta completo."}
+if(($patch.patches | Measure-Object).Count -ne 11){throw "O pacote do calendario nao esta completo."}
 $calendarPath=Join-Path $project "components\principal-calendar.tsx"
 if(!(Test-Path -LiteralPath $calendarPath)){throw "Calendario principal nao encontrado. Instalacao cancelada."}
 $calendar=[IO.File]::ReadAllText($calendarPath)
