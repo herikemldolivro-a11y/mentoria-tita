@@ -23,7 +23,7 @@ function FindProject {
 }
 function ReadRemote([string]$name){
  $base="https://raw.githubusercontent.com/herikemldolivro-a11y/mentoria-tita/tita-caderno-manual-calendario-v1-20261106/scripts/manual-notebooks/"
- $url=$base+$name+"?v=20261106-c1"
+ $url=$base+$name+"?v=20261106-c2"
  $resp=Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 90 -Headers @{"Cache-Control"="no-cache"}
  if($resp.StatusCode -ne 200){throw "Nao foi possivel baixar "+$name}
  return [string]$resp.Content
@@ -53,7 +53,8 @@ $names=@(
  "novo-page.tsx",
  "notebook-page.tsx",
  "list-page.tsx",
- "patch-calendar.cjs"
+ "patch-calendar.cjs",
+ "validate-tsx.cjs"
 )
 $source=@{}
 foreach($name in $names){
@@ -66,14 +67,32 @@ if(!$source["mt-manual-notebooks.tsx"].Contains("mt_complete_manual_notebook_rev
 if(!$source["patch-calendar.cjs"].Contains("CRIAR CADERNO DE ANOTAÇÕES") -or !$source["patch-calendar.cjs"].Contains("Calendário original preservado")){
  throw "A integracao de calendario nao foi validada. Nenhuma alteracao foi aplicada."
 }
+if(!$source["validate-tsx.cjs"].Contains("ts.createSourceFile")){
+ throw "O validador TypeScript nao foi baixado."
+}
 if(!$source["novo-page.tsx"].Contains("ManualNotebookCreate") -or !$source["notebook-page.tsx"].Contains("ManualNotebookWorkspace")){
  throw "As rotas do caderno estao incompletas."
 }
 $patchFile=Join-Path $env:TEMP ("tita-caderno-patch-"+[guid]::NewGuid().ToString("N")+".cjs")
+$testDir=Join-Path $env:TEMP ("tita-caderno-tsx-"+[guid]::NewGuid().ToString("N"))
+[IO.Directory]::CreateDirectory($testDir)|Out-Null
 [IO.File]::WriteAllText($patchFile,$source["patch-calendar.cjs"],(New-Object System.Text.UTF8Encoding($false)))
 try {
   & node --check $patchFile
   if($LASTEXITCODE -ne 0){throw "Falha na verificacao do instalador Node."}
+  $validator=Join-Path $testDir "validate-tsx.cjs"
+  [IO.File]::WriteAllText($validator,$source["validate-tsx.cjs"],(New-Object System.Text.UTF8Encoding($false)))
+  $tsFiles=@()
+  foreach($name in @("mt-manual-notebooks.tsx","novo-page.tsx","notebook-page.tsx","list-page.tsx")){
+    $checkFile=Join-Path $testDir $name
+    [IO.File]::WriteAllText($checkFile,$source[$name],(New-Object System.Text.UTF8Encoding($false)))
+    $tsFiles+= $checkFile
+  }
+  Push-Location $project
+  try {
+    & node $validator @tsFiles
+    if($LASTEXITCODE -ne 0){throw "Os arquivos TypeScript contem erro de sintaxe. Nenhum arquivo do projeto foi alterado."}
+  } finally {Pop-Location}
   Report "Arquivos validados. Instalando modulos sem alterar revisoes ou nivelamentos..."
   WriteUTF8 "components\mt-manual-notebooks.tsx" $source["mt-manual-notebooks.tsx"]
   WriteUTF8 "app\caderno\manual\novo\page.tsx" $source["novo-page.tsx"]
@@ -116,4 +135,5 @@ try {
   Start-Process "http://localhost:3000/calendario"
 } finally {
  try{Remove-Item -LiteralPath $patchFile -Force -ErrorAction SilentlyContinue}catch{}
+ try{Remove-Item -LiteralPath $testDir -Recurse -Force -ErrorAction SilentlyContinue}catch{}
 }
