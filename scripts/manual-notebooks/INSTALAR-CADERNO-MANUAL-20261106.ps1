@@ -31,12 +31,12 @@ function ReadRemote([string]$name){
 function WriteUTF8([string]$relative,[string]$content){
  $path=Join-Path $script:project $relative
  $parent=Split-Path -Parent $path
- if(!(Test-Path -LiteralPath $parent)){New-Item -ItemType Directory -Force -Path $parent|Out-Null}
+ if(!(Test-Path -LiteralPath $parent)){[IO.Directory]::CreateDirectory($parent)|Out-Null}
  if(Test-Path -LiteralPath $path){
    $old=[IO.File]::ReadAllText($path)
    if($old -eq $content){Report ("Ja atualizado: "+$relative);return}
    $backupPath=Join-Path $script:backup $relative
-   New-Item -ItemType Directory -Force -Path (Split-Path -Parent $backupPath)|Out-Null
+   [IO.Directory]::CreateDirectory((Split-Path -Parent $backupPath))|Out-Null
    Copy-Item -LiteralPath $path -Destination $backupPath -Force
  }
  [IO.File]::WriteAllText($path,$content,(New-Object System.Text.UTF8Encoding($false)))
