@@ -23,10 +23,13 @@ function FindProject {
 }
 function ReadRemote([string]$name){
  $base="https://raw.githubusercontent.com/herikemldolivro-a11y/mentoria-tita/tita-caderno-manual-calendario-v1-20261106/scripts/manual-notebooks/"
- $url=$base+$name+"?v=20261106-c2"
- $resp=Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 90 -Headers @{"Cache-Control"="no-cache"}
- if($resp.StatusCode -ne 200){throw "Nao foi possivel baixar "+$name}
- return [string]$resp.Content
+ $url=$base+$name+"?v=20261106-c3"
+ $wc=New-Object System.Net.WebClient
+ $wc.Encoding=[System.Text.Encoding]::UTF8
+ $wc.Headers.Add("Cache-Control","no-cache")
+ try {$result=$wc.DownloadString($url)} finally {$wc.Dispose()}
+ if([string]::IsNullOrWhiteSpace($result)){throw "Arquivo remoto vazio: "+$name}
+ return $result
 }
 function WriteUTF8([string]$relative,[string]$content){
  $path=Join-Path $script:project $relative
@@ -64,7 +67,7 @@ foreach($name in $names){
 if(!$source["mt-manual-notebooks.tsx"].Contains("mt_complete_manual_notebook_review") -or !$source["mt-manual-notebooks.tsx"].Contains("useManualNotebookCounts")){
  throw "A interface dos cadernos nao foi baixada corretamente. Nenhuma alteracao foi aplicada."
 }
-if(!$source["patch-calendar.cjs"].Contains("CRIAR CADERNO DE ANOTAÇÕES") -or !$source["patch-calendar.cjs"].Contains("Calendário original preservado")){
+if(!$source["patch-calendar.cjs"].Contains("CRIAR CADERNO DE ANOTA") -or !$source["patch-calendar.cjs"].Contains("original preservado")){
  throw "A integracao de calendario nao foi validada. Nenhuma alteracao foi aplicada."
 }
 if(!$source["validate-tsx.cjs"].Contains("ts.createSourceFile")){
