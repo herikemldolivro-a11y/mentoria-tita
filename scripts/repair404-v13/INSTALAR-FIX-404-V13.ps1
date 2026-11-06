@@ -71,7 +71,7 @@ function Probe([int]$port) {
   $a=Status ($base+"/calendario")
   $b=Status ($base+"/estudos/simulados")
   $c=Status ($base+"/api/estudos/simulados")
-  return [PSCustomObject]@{Base=$base;Calendar=$a;Simulado=$b;Api=$c;Ok=((IsValidRoute $a) -and (IsValidRoute $b) -and $c -ne 404 -and $c -ne 0)}
+  return [PSCustomObject]@{Base=$base;Calendar=$a;Simulado=$b;Api=$c;Ok=((IsValidRoute $a) -and (IsValidRoute $b) -and $c -ge 200 -and $c -lt 500)}
 }
 function StartTita([int]$port){
   Info ("Iniciando o projeto correto na porta "+$port+"...")
