@@ -46,6 +46,7 @@ function SaveSafe([string]$rel,[string]$txt){
     [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($bk))|Out-Null
     [IO.File]::WriteAllText($bk,$old,(New-Object System.Text.UTF8Encoding($false)))
   }
+  $script:previous[$rel]=$old
   [IO.File]::WriteAllText($dest,$txt,(New-Object System.Text.UTF8Encoding($false)))
   $script:changes.Add($rel)|Out-Null
   Say ("Instalado: "+$rel)
@@ -168,15 +169,25 @@ try{
 
 $backup=Join-Path $project (".tita-backups\mini01-caderno-v12-"+(Get-Date -Format "yyyyMMdd-HHmmss"))
 $changes=New-Object "System.Collections.Generic.List[string]"
+$previous=@{}
 try{
   SaveSafe "lib\principal-calendar-system.ts" $calendarNew
   SaveSafe "components\simulado-exam-runner.tsx" $runnerNew
   SaveSafe $editorDest $notebookEditor
   SaveSafe $templateDest $notebookTemplate
 }catch{
-  Say ("ERRO REAL: "+$_.Exception.Message)
-  Say ("Backup salvo em: "+$backup)
-  throw
+  $reason=$_.Exception.Message
+  foreach($rel in $changes) {
+    $dest=Join-Path $project $rel
+    try {
+      $original=$previous[$rel]
+      if($null -eq $original){[IO.File]::Delete($dest)}
+      else {[IO.File]::WriteAllText($dest,$original,(New-Object System.Text.UTF8Encoding($false)))}
+    }catch{Say ("Nao consegui reverter "+$rel+"; consulte o backup.")}
+  }
+  Say ("ERRO REAL: "+$reason)
+  Say ("Arquivos anteriores restaurados; backup em "+$backup)
+  throw $reason
 }
 Say ("Instalacao V12 concluida: "+$changes.Count+" arquivos atualizados.")
 Say "Cadernos D-1 presentes nos dias da revisao, inclusive vazios. Mini 01 carrega Q022, Q023, Q024, Q028."
