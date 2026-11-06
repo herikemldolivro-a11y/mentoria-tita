@@ -83,17 +83,18 @@ export function SimuladoExamRunner({
     setSelected(q && answers[q.numero] ? answers[q.numero].resposta : null);
   },[index,q?.numero,answers]);
 
-  // MT_SIMULADO_01_COMPLETE_TEXTS_V9: only enrich this exam.
+  // MT_SIMULADO_01_COMPLETE_TEXTS_V9: retained for compatibility.
+  // MT_SIMULADOS_01_02_COMPLETE_TEXTS_V10: load selected PDFs for Simulados 01 and 02.
   // Private RLS-controlled texts are keyed by the user's simulado and number.
   // The original PDF and all other simulados remain unchanged.
   useEffect(() => {
-    if (simulado.id !== "dia-01-geral") return;
+    if (!["dia-01-geral","dia-02-geral"].includes(simulado.id)) return;
     let alive = true;
     const db = createClient();
     db.from("mt_simulado_question_texts")
       .select("numero,pagina,enunciado,texto_base")
       .eq("user_id", userId)
-      .eq("simulado_id", "dia-01-geral")
+      .eq("simulado_id", simulado.id)
       .then(({data,error}) => {
         if (!alive) return;
         if (error) {
@@ -202,7 +203,7 @@ export function SimuladoExamRunner({
       <div className="space-y-5">
         <div className="rounded-2xl border border-white/10 bg-white/[.025] p-5">
           <div className="flex flex-wrap items-center justify-between gap-3"><span className="text-xs font-black tracking-wider text-amber-300">ENUNCIADO DA QUESTÃO {String(q.numero).padStart(3,"0")}</span><span className="text-xs text-white/45">Página original {q.pagina}</span></div>
-          {preparedError && simulado.id==="dia-01-geral" ? <p role="alert" className="mt-4 text-xs text-red-300">{preparedError}</p> : null}
+          {preparedError ? <p role="alert" className="mt-4 text-xs text-red-300">{preparedError}</p> : null}
           {displayEnunciado
             ? <p className="mt-4 whitespace-pre-wrap text-base leading-8 text-white/95">{displayEnunciado}</p>
             : <p className="mt-4 text-sm text-white/70">Enunciado integral disponível no documento original exibido ao lado.</p>}
