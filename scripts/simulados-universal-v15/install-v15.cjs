@@ -1,10 +1,11 @@
 "use strict";
 // MT_SIMULADO_UNIVERSAL_INSTALLER_V15
+// MT_SIMULADO_UNIVERSAL_OFFLINE_ASSETS_V151
 const fs=require("fs");
 const path=require("path");
-const https=require("https");
+// Download handled by PowerShell WebClient for Windows proxy compatibility.
 const root=process.cwd();
-const base="https://raw.githubusercontent.com/herikemldolivro-a11y/mentoria-tita/tita-simulados-revisao-universal-v15-20261109/scripts/simulados-universal-v15/";
+
 const userMessage=s=>process.stdout.write("[TITA V15] "+s+"\n");
 const files={
  runner:"components/simulado-exam-runner.tsx",
@@ -12,22 +13,6 @@ const files={
  calendar:"components/principal-calendar.tsx",
  api:"lib/principal-calendar-system.ts",
 };
-function download(url,depth=0){
- return new Promise((resolve,reject)=>{
-  if(depth>4)return reject(Error("Excesso de redirecionamentos: "+url));
-  let urlWithCache=url+(url.includes("?")?"&":"?")+"v=20261109-v15r3";
-  const req=https.get(urlWithCache,{timeout:30000,headers:{"Cache-Control":"no-cache","User-Agent":"Mentoria-Tita-V15"}},r=>{
-   if([301,302,307,308].includes(r.statusCode)){
-    const dest=r.headers.location;r.resume();
-    if(!dest)return reject(Error("Redirecionamento sem destino: "+url));
-    return resolve(download(new URL(dest,url).toString(),depth+1));
-   }
-   if(r.statusCode!==200){r.resume();return reject(Error("Download falhou HTTP "+r.statusCode+": "+url))}
-   const chunks=[];r.on("data",b=>chunks.push(b));r.on("end",()=>resolve(Buffer.concat(chunks).toString("utf8")));r.on("error",reject);
-  });
-  req.on("timeout",()=>req.destroy(Error("Tempo limite ao baixar "+url)));req.on("error",reject);
- });
-}
 function validateProject(){
  for(const rel of ["package.json","app/calendario/page.tsx","app/estudos/simulados/page.tsx","private/simulados-pmal/manifest.json",...Object.values(files)]){
   if(!fs.existsSync(path.join(root,rel)))throw Error("Projeto errado ou modulo nao instalado; arquivo nao encontrado: "+rel);
@@ -39,7 +24,7 @@ function validateProject(){
 function validateSyntax(planned){
  let ts;
  try{ts=require(path.join(root,"node_modules","typescript"))}
- catch{throw Error("TypeScript local nao encontrado. Rode npm.cmd install na pasta da TITÃ antes de instalar; seus arquivos permanecem intactos.");}
+ catch{throw Error("TypeScript nao encontrado em node_modules. Nenhum arquivo modificado. Execute npm.cmd install no projeto antes de repetir.");}
  for(const [rel,content] of Object.entries(planned)){
   const tsx=rel.endsWith(".tsx");
   const f=ts.createSourceFile(rel,content,ts.ScriptTarget.Latest,true,tsx?ts.ScriptKind.TSX:ts.ScriptKind.TS);
@@ -55,12 +40,17 @@ function validateSyntax(planned){
 }
 async function run(){
  validateProject();
- userMessage("Baixando os componentes e a integracao com o calendario...");
- const [runner,ui,patch]=await Promise.all([
-  download(base+"simulado-exam-runner.tsx"),
-  download(base+"estudos-simulados.tsx"),
-  download(base+"patch-calendar-v15.cjs"),
- ]);
+ userMessage("Usando 3 arquivos ja baixados pelo PowerShell (sem rede do Node.js)...");
+ const assets=process.env.TITA_V15_ASSET_DIR;
+ if(!assets||!fs.existsSync(assets))throw Error("Os arquivos da V15.1 nao foram baixados pelo PowerShell. Nenhum arquivo do projeto foi alterado.");
+ const readAsset=name=>{
+  const full=path.join(assets,name);
+  if(!fs.existsSync(full))throw Error("Falta arquivo baixado: "+name+". Seus arquivos foram preservados.");
+  return fs.readFileSync(full,"utf8");
+ };
+ const runner=readAsset("simulado-exam-runner.tsx");
+ const ui=readAsset("estudos-simulados.tsx");
+ const patch=readAsset("patch-calendar-v151.cjs");
  if(!runner.includes("MT_SIMULADO_UNIVERSAL_V15")||!runner.includes("mt_simulado_round_answers")||
     !ui.includes("MT_SIMULADO_UNIVERSAL_V15")||!ui.includes("mt_finish_simulado_round")||
     !patch.includes("MT_SIMULADO_UNIVERSAL_CALENDAR_V15"))
@@ -111,4 +101,8 @@ async function run(){
  userMessage("Backup dos arquivos anteriores: "+backup);
  userMessage("O banco ja contem as rodadas existentes e preserva os historicos.");
 }
-run().catch(e=>{process.stderr.write("[TITA V15] ERRO REAL: "+e.message+"\n");process.exitCode=1;});
+run().catch(e=>{
+ process.stdout.write("[TITA V15] FALHA DETALHADA: "+e.message+"\n");
+ if(e.stack)process.stdout.write("[TITA V15] DIAGNOSTICO: "+e.stack.split("\n").slice(0,5).join(" | ")+"\n");
+ process.exitCode=1;
+});
