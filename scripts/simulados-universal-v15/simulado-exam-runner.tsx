@@ -13,10 +13,11 @@ export type SimuladoExam = {
   origem: string;
   total: number;
   arquivos: Record<string, string>;
+  formato?: "certo-errado" | "multipla-escolha";
   questoes: SimuladoQuestion[];
 };
 
-type AnswerRow = { numero: number; resposta: "C" | "E"; acertou: boolean | null };
+type AnswerRow = { numero: number; resposta: string; acertou: boolean | null };
 type NoteRow = { numero: number; nota: string };
 type PreparedTextRow = { numero: number; pagina: number; enunciado: string; texto_base: string | null };
 
@@ -53,12 +54,14 @@ export function SimuladoExamRunner({
   const [savedNumbers,setSavedNumbers] = useState<number[]>(initialSavedNumbers);
   const [showScheduling,setShowScheduling] = useState(false);
   const [nextDate,setNextDate] = useState(() => { const d=new Date();d.setDate(d.getDate()+2);return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); });
-  const [selected,setSelected] = useState<"C"|"E"|null>(null);
+  const [selected,setSelected] = useState<string|null>(null);
   const [loading,setLoading] = useState(true);
   const [saving,setSaving] = useState(false);
   const [message,setMessage] = useState("");
   const [error,setError] = useState("");
   const [showPdf,setShowPdf] = useState(true);
+  const isMultipleChoice = simulado.formato === "multipla-escolha" || simulado.questoes.some(item=>["A","B","D"].includes(item.gabarito));
+  const answerOptions = isMultipleChoice ? ["A","B","C","D","E"] : ["C","E"];
   const q = ordered[index] ?? null;
   const prepared = q ? preparedTexts[q.numero] : null;
   const displayEnunciado = prepared?.enunciado || (q ? previewText(q) : "");
@@ -277,11 +280,11 @@ export function SimuladoExamRunner({
         <div className="rounded-2xl border border-amber-300/25 bg-amber-300/[.035] p-5">
           <h3 className="text-base font-bold">Marque sua resposta</h3>
           <p className="mt-1 text-xs text-white/55">Escolha uma alternativa e clique em Corrigir. A resposta oficial só aparece depois.</p>
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            {(["C","E"] as const).map(value=><button key={value} type="button" disabled={!!previous||loading||saving||isRoundCompleted} onClick={()=>setSelected(value)} className={`min-h-14 rounded-xl border text-base font-black ${selected===value?"border-amber-300 bg-amber-300 text-black":"border-white/20 bg-white/5 text-white"} disabled:opacity-70`}>{value==="C"?"CERTO":"ERRADO"}</button>)}
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+            {answerOptions.map(value=><button key={value} type="button" disabled={!!previous||loading||saving||isRoundCompleted} onClick={()=>setSelected(value)} className={`min-h-14 rounded-xl border text-base font-black ${selected===value?"border-amber-300 bg-amber-300 text-black":"border-white/20 bg-white/5 text-white"} disabled:opacity-70`}>{isMultipleChoice?"Alternativa "+value:value==="C"?"CERTO":"ERRADO"}</button>)}
           </div>
           {!previous?<button type="button" disabled={!selected||saving||loading||isRoundCompleted} onClick={correct} className="mt-4 w-full rounded-xl bg-amber-400 px-5 py-3 font-black text-black disabled:opacity-40">{saving?"Salvando...":"Corrigir resposta"}</button>:<div className={`mt-4 rounded-xl border p-4 text-sm ${previous.acertou===true?"border-emerald-400/35 bg-emerald-400/10 text-emerald-300":previous.acertou===false?"border-red-400/35 bg-red-400/10 text-red-300":"border-white/20 bg-white/5"}`}>
-            <strong>{previous.acertou===true?"ACERTOU!":previous.acertou===false?"ERROU":"QUESTÃO ANULADA"}</strong><p className="mt-1">Sua resposta: {previous.resposta==="C"?"Certo":"Errado"}. Gabarito: {q.gabarito==="X"?"Anulada":q.gabarito==="C"?"Certo":"Errado"}.</p>
+            <strong>{previous.acertou===true?"ACERTOU!":previous.acertou===false?"ERROU":"QUESTÃO ANULADA"}</strong><p className="mt-1">Sua resposta: {isMultipleChoice?previous.resposta:previous.resposta==="C"?"Certo":"Errado"}. Gabarito: {q.gabarito==="X"?"Anulada":isMultipleChoice?q.gabarito:q.gabarito==="C"?"Certo":"Errado"}.</p>
           </div>}
         </div>
         <div className="rounded-2xl border border-white/10 bg-white/[.025] p-5">
