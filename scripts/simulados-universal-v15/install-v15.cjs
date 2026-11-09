@@ -1,6 +1,7 @@
 "use strict";
 // MT_SIMULADO_UNIVERSAL_INSTALLER_V15
 // MT_SIMULADO_UNIVERSAL_OFFLINE_ASSETS_V151
+// MT_SIMULADO_MANIFEST_ARRAY_OR_OBJECT_V152
 const fs=require("fs");
 const path=require("path");
 // Download handled by PowerShell WebClient for Windows proxy compatibility.
@@ -17,9 +18,13 @@ function validateProject(){
  for(const rel of ["package.json","app/calendario/page.tsx","app/estudos/simulados/page.tsx","private/simulados-pmal/manifest.json",...Object.values(files)]){
   if(!fs.existsSync(path.join(root,rel)))throw Error("Projeto errado ou modulo nao instalado; arquivo nao encontrado: "+rel);
  }
- let manifest=JSON.parse(fs.readFileSync(path.join(root,"private/simulados-pmal/manifest.json"),"utf8"));
- if(!Array.isArray(manifest.simulados))throw Error("Catalogo local de simulados invalido.");
- userMessage("TITÃ localizada: "+root+" ("+manifest.simulados.length+" simulados existentes).");
+ const parsed=JSON.parse(fs.readFileSync(path.join(root,"private/simulados-pmal/manifest.json"),"utf8"));
+ // The installed catalog API accepts BOTH a root array and {simulados:[...]}.
+ // Validate using the same semantics; never reformat/overwrite the user's catalog.
+ const simulados=Array.isArray(parsed)?parsed:(parsed && typeof parsed==="object"?parsed.simulados:null);
+ if(!Array.isArray(simulados)||simulados.length===0)
+   throw Error("Catalogo de simulados sem uma lista valida. Arquivo preservado: private/simulados-pmal/manifest.json");
+ userMessage("TITÃ localizada: "+root+" ("+simulados.length+" simulados existentes; catalogo "+(Array.isArray(parsed)?"array":"objeto")+", preservado).");
 }
 function validateSyntax(planned){
  let ts;
