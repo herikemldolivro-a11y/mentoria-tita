@@ -163,8 +163,8 @@ export function TitaSimuladosSemanaUm() {
   return <div className="mx-auto max-w-[1350px] px-4 pb-24 pt-6 sm:px-7 text-[var(--ink)]">
     <div className="rounded-[28px] border border-white/10 bg-gradient-to-br from-[#17131f] to-[#09090d] p-5 text-white sm:p-8">
       <p className="text-xs uppercase tracking-[.22em] text-amber-300">TITÃ · ESTUDOS</p>
-      <h1 className="mt-2 font-serif text-3xl sm:text-5xl">Simulados PMAL · Semana 01</h1>
-      <p className="mt-3 max-w-3xl text-sm text-white/65">Sete dias separados do cronograma de 48 dias. Enunciados completos permanecem nos PDFs originais; marque somente as questões que quer revisar.</p>
+      <h1 className="mt-2 font-serif text-3xl sm:text-5xl">Simulados PMAL · Revisões de questões</h1>
+      <p className="mt-3 max-w-3xl text-sm text-white/65">Sistema universal de simulados: resolva, salve questões, conclua e escolha o dia da próxima revisão. O calendário principal abre diretamente a resolução.</p>
       <div className="mt-6 flex flex-wrap gap-2">
         <button type="button" onClick={()=>setTab("estudos")} className={`rounded-xl px-4 py-3 text-sm font-bold ${tab==="estudos"?"bg-amber-300 text-black":"border border-white/15 bg-white/5 text-white"}`}><BookOpenCheck className="mr-2 inline" size={16}/>Simulados</button>
         <button type="button" onClick={()=>setTab("calendario")} className={`rounded-xl px-4 py-3 text-sm font-bold ${tab==="calendario"?"bg-amber-300 text-black":"border border-white/15 bg-white/5 text-white"}`}><CalendarDays className="mr-2 inline" size={16}/>Calendário das questões salvas</button>
@@ -174,7 +174,7 @@ export function TitaSimuladosSemanaUm() {
     {error?<p role="alert" className="mt-4 rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-300">{error}</p>:null}
     {message?<p className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-300">{message}</p>:null}
     {!loading && tab==="estudos"? <>
-      <div className="mt-6 grid grid-cols-4 gap-2 sm:grid-cols-7">{[1,2,3,4,5,6,7].map(d=><button key={d} onClick={()=>{setDia(d);setActiveId(simulados.find(s=>s.dia===d)?.id??"");setMessage("");}} className={`rounded-xl border p-3 text-sm font-bold ${dia===d?"border-amber-300/70 bg-amber-400/10 text-amber-300":"border-white/15"}`}>Dia {String(d).padStart(2,"0")}</button>)}</div>
+      <div className="mt-6 grid grid-cols-4 gap-2 sm:grid-cols-7">{[...new Set(simulados.map(sim=>sim.dia))].sort((a,b)=>a-b).map(d=><button key={d} onClick={()=>{setDia(d);setActiveId(simulados.find(s=>s.dia===d)?.id??"");setMessage("");}} className={`rounded-xl border p-3 text-sm font-bold ${dia===d?"border-amber-300/70 bg-amber-400/10 text-amber-300":"border-white/15"}`}>Dia {String(d).padStart(2,"0")}</button>)}</div>
       <div className="mt-4 flex flex-wrap gap-2">{simulados.filter(s=>s.dia===dia).map(s=><button key={s.id} onClick={()=>{setActiveId(s.id);setMessage("");}} className={`rounded-xl border px-4 py-3 text-sm font-bold ${current?.id===s.id?"border-amber-300 bg-amber-400/10 text-amber-300":"border-white/15"}`}>{s.titulo}</button>)}</div>
       {current?<section className="mt-5 rounded-[22px] border border-white/10 bg-[var(--surface)] p-4 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
