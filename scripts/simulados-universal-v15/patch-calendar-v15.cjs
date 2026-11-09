@@ -40,7 +40,10 @@ function patchCalendar(original){
   "      simulado: PrincipalSimuladoReview;",
   "    };"
  ].join("\n");
- s=replaceExactly(s,"      leveling: PrincipalLeveling;\n    };",member,"calendar union");
+ const unionStart=s.indexOf("type CalendarActivity =");
+ const unionEnd=s.indexOf(";\n\nexport function PrincipalCalendar",unionStart);
+ if(unionStart<0||unionEnd<0)throw Error("Calendar union format unexpected; preserved.");
+ s=s.slice(0,unionEnd)+"\n  | {\n      kind: \"simulado\";\n      id: string; date: string; completed: boolean;\n      subject: string; title: string; eyebrow: string;\n      simulado: PrincipalSimuladoReview;\n    }"+s.slice(unionEnd);
  const click=[
   '    if (activity.kind === "simulado") {',
   '      router.push("/estudos/simulados?tab=calendario&data="+encodeURIComponent(activity.date)+',
@@ -70,14 +73,16 @@ function patchCalendar(original){
   '  const order: Record<CalendarActivity["kind"], number> = {'
  ].join("\n");
  s=replaceExactly(s,'  const order: Record<CalendarActivity["kind"], number> = {',block,"build event");
- s=replaceExactly(s,"    leveling: 2,\n  };","    leveling: 2,\n    simulado: 3,\n  };","sort");
- s=replaceExactly(s,"return [...revisions, ...notebooks, ...levelings].sort(","return [...revisions, ...notebooks, ...levelings, ...simuladoReviews].sort(","activities");
- s=replaceExactly(s,'  const revisions = activities.filter((item) => item.kind === "revision").length;',
-  '  const revisions = activities.filter((item) => item.kind === "revision" || item.kind === "simulado").length;',"modal count");
- s=replaceExactly(s,'            {completed ? "CONCLUÍDA" : locked ? "BLOQUEADA" : activity.kind === "revision" ? "REVISÃO" : "PENDENTE"}',
-  '            {completed ? "CONCLUÍDA" : locked ? "BLOQUEADA" : activity.kind === "simulado" ? "QUESTÕES" : activity.kind === "revision" ? "REVISÃO" : "PENDENTE"}',"badge");
- s=replaceExactly(s,'      : "border-violet-300/26 bg-[linear-gradient(90deg,rgba(124,58,237,.13),rgba(7,16,28,.82))]";',
-  '      : activity.kind === "simulado"\n        ? "border-cyan-300/45 bg-[linear-gradient(90deg,rgba(8,145,178,.15),rgba(7,16,28,.82))]"\n        : "border-violet-300/26 bg-[linear-gradient(90deg,rgba(124,58,237,.13),rgba(7,16,28,.82))]";',"distinct color");
+ s=replaceExactly(s,"    leveling: 2,","    leveling: 2,\n    simulado: 4,","sort");
+ const returnRegex=/return (\[\.\.\.revisions[^\]]*\.\.\.levelings[^\]]*)\]\.sort\(/;
+ if(!returnRegex.test(s))throw Error("Calendar activities return format unknown; preserved.");
+ s=s.replace(returnRegex,(_match,list)=>"return "+list+", ...simuladoReviews].sort(");
+ s=s.replace('  const revisions = activities.filter((item) => item.kind === "revision").length;',
+  '  const revisions = activities.filter((item) => item.kind === "revision" || item.kind === "simulado").length;');
+ s=s.replace('            {completed ? "CONCLUÍDA" : locked ? "BLOQUEADA" : activity.kind === "revision" ? "REVISÃO" : "PENDENTE"}',
+  '            {completed ? "CONCLUÍDA" : locked ? "BLOQUEADA" : activity.kind === "simulado" ? "QUESTÕES" : activity.kind === "revision" ? "REVISÃO" : "PENDENTE"}');
+ s=s.replace('      : "border-violet-300/26 bg-[linear-gradient(90deg,rgba(124,58,237,.13),rgba(7,16,28,.82))]";',
+  '      : activity.kind === "simulado"\n        ? "border-cyan-300/45 bg-[linear-gradient(90deg,rgba(8,145,178,.15),rgba(7,16,28,.82))]"\n        : "border-violet-300/26 bg-[linear-gradient(90deg,rgba(124,58,237,.13),rgba(7,16,28,.82))]";');
  s=s.replace('data-mt-calendar-v52="1"','data-mt-calendar-v52="1" data-mt-universal-simulado="MT_SIMULADO_UNIVERSAL_CALENDAR_V15"');
  return s;
 }
