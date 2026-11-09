@@ -1,5 +1,6 @@
 "use client";
 // MT_SIMULADO_UNIVERSAL_V15
+// MT_SIMULADO_MANUAL_SELECTION_V153
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SimuladoExamRunner } from "@/components/simulado-exam-runner";
@@ -40,6 +41,9 @@ export function TitaSimuladosSemanaUm() {
   const [runningId,setRunningId]=useState<string|null>(null);
   const [runningRound,setRunningRound]=useState<Round|null>(null);
   const [runningMode,setRunningMode]=useState<"full"|"saved">("saved");
+  const [runningScopeNumbers,setRunningScopeNumbers]=useState<number[]>([]);
+  const [runningSelectedNumbers,setRunningSelectedNumbers]=useState<number[]>([]);
+  const [scopeQuestions,setScopeQuestions]=useState<{round_id:string;numero:number}[]>([]);
   const deepLinkOpened=useRef(false);
 
   const current = useMemo(()=>simulados.find(s=>s.id===activeId) ?? simulados.find(s=>s.dia===dia) ?? null,[simulados,activeId,dia]);
@@ -48,7 +52,7 @@ export function TitaSimuladosSemanaUm() {
   const calendarDays = [...new Set(rounds.map(r=>r.scheduled_for).filter((d):d is string=>Boolean(d)))].sort();
   const running=simulados.find(s=>s.id===runningId)??null;
   const runningQuestions=running
-    ? (runningMode==="full"?running.questoes:running.questoes.filter(q=>saved.some(x=>x.simulado_id===running.id&&x.numero===q.numero))).sort((a,b)=>a.numero-b.numero)
+    ? (runningMode==="full"?running.questoes:running.questoes.filter(q=>runningScopeNumbers.includes(q.numero))).sort((a,b)=>a.numero-b.numero)
     : [];
 
   useEffect(()=>{
@@ -67,14 +71,17 @@ export function TitaSimuladosSemanaUm() {
 
   async function refresh(user:string) {
     const supabase = createClient();
-    const [marks,dates,roundRows] = await Promise.all([
+    const [marks,dates,roundRows,scopeRows] = await Promise.all([
       supabase.from("mt_simulado_saved_questions").select("simulado_id,numero").eq("user_id",user),
       supabase.from("mt_simulado_review_calendar").select("*").eq("user_id",user).order("scheduled_for"),
-      supabase.from("mt_simulado_review_rounds").select("id,simulado_id,titulo,dia_origem,round_number,scheduled_for,completed_at").eq("user_id",user).order("round_number")
+      supabase.from("mt_simulado_review_rounds").select("id,simulado_id,titulo,dia_origem,round_number,scheduled_for,completed_at").eq("user_id",user).order("round_number"),
+      supabase.from("mt_simulado_round_scope").select("round_id,numero").eq("user_id",user),
     ]);
     if(marks.error)throw marks.error;
     if(dates.error)throw dates.error;
     if(roundRows.error)throw roundRows.error;
+    if(scopeRows.error)throw scopeRows.error;
+    setScopeQuestions((scopeRows.data??[]) as {round_id:string;numero:number}[]);
     setRounds((roundRows.data??[]) as Round[]);
     setSaved((marks.data??[]) as Saved[]);
     setReviews((dates.data??[]) as Review[]);
@@ -115,6 +122,21 @@ export function TitaSimuladosSemanaUm() {
         round=data as Round|null;
       }
       if(!round)throw new Error("Não foi possível abrir a rodada de revisão.");
+      const [scopeRows,selectedRows]=await Promise.all([
+        db.from("mt_simulado_round_scope").select("numero")
+          .eq("user_id",userId).eq("round_id",round.id),
+        db.from("mt_simulado_round_selections").select("numero")
+          .eq("user_id",userId).eq("round_id",round.id),
+      ]);
+      if(scopeRows.error)throw scopeRows.error;
+      if(selectedRows.error)throw selectedRows.error;
+      // Legacy saved questions are the PRESENT round's pool, not NEXT round's selection.
+      const scope=(scopeRows.data??[]).map(row=>Number(row.numero));
+      const legacyPool=round.round_number===0
+        ? saved.filter(row=>row.simulado_id===sim.id).map(row=>row.numero)
+        : [];
+      setRunningScopeNumbers(scope.length?scope:legacyPool);
+      setRunningSelectedNumbers((selectedRows.data??[]).map(row=>Number(row.numero)));
       setRunningRound(round);setRunningMode(mode);setRunningId(sim.id);
       if(!requestedRoundId)await refresh(userId);
     } catch(e) {setError(e instanceof Error?e.message:"Falha ao iniciar a resolução.");}
@@ -131,7 +153,7 @@ export function TitaSimuladosSemanaUm() {
         : await db.from("mt_simulado_saved_questions").upsert({user_id:userId,simulado_id:sim.id,numero:number},{onConflict:"user_id,simulado_id,numero"});
       if(e)throw e;
       await refresh(userId);
-      setMessage(exists?"Questão retirada da seleção.":"Questão salva em "+sim.titulo+".");
+      setMessage(exists?"Questão retirada do conjunto atual.":"Questão adicionada ao conjunto atual. Para entrar na próxima revisão, marque-a dentro da resolução.");
     }catch(e){setError(e instanceof Error?e.message:"Erro ao salvar.");}
     finally{setWorking("")}
   }
@@ -143,9 +165,14 @@ export function TitaSimuladosSemanaUm() {
       key={running.id+"-"+runningRound.id} simulado={running} questoes={runningQuestions} userId={userId}
       roundId={runningRound.id} roundNumber={runningRound.round_number}
       isRoundCompleted={Boolean(runningRound.completed_at)}
-      initialSavedNumbers={saved.filter(x=>x.simulado_id===running.id).map(x=>x.numero)}
-      onSavedChanged={async()=>{await refresh(userId)}}
-      onExit={()=>{setRunningId(null);setRunningRound(null);void refresh(userId);}}
+      initialSavedNumbers={runningSelectedNumbers}
+      onSavedChanged={async()=>{
+        const {data,error:e}=await createClient().from("mt_simulado_round_selections")
+          .select("numero").eq("user_id",userId).eq("round_id",runningRound.id);
+        if(e)throw e;
+        setRunningSelectedNumbers((data??[]).map(x=>Number(x.numero)));
+      }}
+      onExit={()=>{setRunningId(null);setRunningRound(null);setRunningSelectedNumbers([]);setRunningScopeNumbers([]);void refresh(userId);}}
       onCompleted={async(nextDate)=>{
         const {data,error:e}=await createClient().rpc("mt_finish_simulado_round",{
           p_round_id:runningRound.id,p_next_date:nextDate
@@ -153,7 +180,7 @@ export function TitaSimuladosSemanaUm() {
         if(e)throw e;
         if(!data || (data as {ok:boolean}).ok!==true)throw new Error("A conclusão não foi confirmada pelo banco.");
         await refresh(userId);
-        setRunningId(null);setRunningRound(null);setTab("calendario");
+        setRunningId(null);setRunningRound(null);setRunningSelectedNumbers([]);setRunningScopeNumbers([]);setTab("calendario");
         setSelectedDate(nextDate);
         setMessage("✓ "+running.titulo+" concluído! Próxima revisão de questões em "+nextDate+". O calendário principal abrirá esta resolução diretamente.");
       }}
@@ -178,7 +205,7 @@ export function TitaSimuladosSemanaUm() {
       <div className="mt-4 flex flex-wrap gap-2">{simulados.filter(s=>s.dia===dia).map(s=><button key={s.id} onClick={()=>{setActiveId(s.id);setMessage("");}} className={`rounded-xl border px-4 py-3 text-sm font-bold ${current?.id===s.id?"border-amber-300 bg-amber-400/10 text-amber-300":"border-white/15"}`}>{s.titulo}</button>)}</div>
       {current?<section className="mt-5 rounded-[22px] border border-white/10 bg-[var(--surface)] p-4 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div><p className="text-xs uppercase tracking-wider text-[var(--muted)]">{current.origem}</p><h2 className="mt-1 text-2xl font-bold">{current.titulo}</h2><p className="mt-1 text-sm text-[var(--muted)]">{current.total} questões · {currentSaved.length} salvas para revisão</p></div>
+          <div><p className="text-xs uppercase tracking-wider text-[var(--muted)]">{current.origem}</p><h2 className="mt-1 text-2xl font-bold">{current.titulo}</h2><p className="mt-1 text-sm text-[var(--muted)]">{current.total} questões · {currentSaved.length} disponíveis no conjunto atual</p></div>
           <a href={pdfLink(current.arquivos.prova)} target="_blank" rel="noopener noreferrer" className="rounded-xl border border-amber-300/40 px-4 py-3 text-sm font-semibold text-amber-300">Abrir prova completa <ExternalLink className="ml-2 inline" size={14}/></a>
         </div>
         <div className="mt-4 flex flex-wrap gap-3">{current.arquivos.comentado?<a href={pdfLink(current.arquivos.comentado)} target="_blank" rel="noopener noreferrer" className="text-sm underline">PDF comentado original</a>:null}{current.arquivos.gabarito?<a href={pdfLink(current.arquivos.gabarito)} target="_blank" rel="noopener noreferrer" className="text-sm underline">Gabarito original</a>:null}</div>
@@ -189,7 +216,7 @@ export function TitaSimuladosSemanaUm() {
             <div className="flex items-center justify-between"><strong>Questão {String(q.numero).padStart(3,"0")}</strong><span className="text-xs text-[var(--muted)]">Página {q.pagina}</span></div>
             <div className="mt-3 flex flex-wrap gap-2">
               <a href={pdfLink(current.arquivos.prova,q.pagina)} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-white/15 px-3 py-2 text-xs font-semibold hover:border-amber-400">Ver questão completa ↗</a>
-              <button type="button" disabled={!!working} onClick={()=>toggleSave(current,q.numero)} className={`rounded-lg px-3 py-2 text-xs font-bold ${isSaved?"bg-amber-400 text-black":"border border-amber-400/35 text-amber-300"}`}><Bookmark className="mr-1 inline" size={13}/>{isSaved?"Salva ✓":"Salvar na revisão"}</button>
+              <button type="button" disabled={!!working} onClick={()=>toggleSave(current,q.numero)} className={`rounded-lg px-3 py-2 text-xs font-bold ${isSaved?"bg-amber-400 text-black":"border border-amber-400/35 text-amber-300"}`}><Bookmark className="mr-1 inline" size={13}/>{isSaved?"No conjunto ✓":"Adicionar ao conjunto"}</button>
               <button type="button" onClick={()=>setShowAnswers(v=>({...v,[key]:!v[key]}))} className="rounded-lg border border-white/15 px-3 py-2 text-xs">Gabarito</button>
             </div>{showAnswers[key]?<div className="mt-2 text-xs font-bold text-emerald-400">Gabarito: {q.gabarito==="X"?"Anulada":q.gabarito==="C"?"Certo":"Errado"}</div>:null}
           </div>
@@ -217,7 +244,7 @@ export function TitaSimuladosSemanaUm() {
         {rounds.filter(x=>x.scheduled_for===selectedDate).map(review=>{
           const sim=simulados.find(s=>s.id===review.simulado_id);
           if(!sim)return null;
-          const selected=sim.questoes.filter(q=>saved.some(x=>x.simulado_id===sim.id&&x.numero===q.numero)).sort((a,b)=>a.numero-b.numero);
+          const selected=sim.questoes.filter(q=>scopeQuestions.some(x=>x.round_id===review.id&&x.numero===q.numero)).sort((a,b)=>a.numero-b.numero);
           return <article key={review.id} className="rounded-2xl border border-white/10 bg-[var(--surface)] p-5 sm:p-6">
             <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs text-amber-300">Dia {String(review.dia_origem).padStart(2,"0")} · {review.completed_at?"Revisão concluída":"Revisão pendente"}</p><h3 className="mt-1 text-2xl font-bold">{review.titulo}</h3><p className="mt-1 text-sm text-[var(--muted)]">{selected.length} questões selecionadas</p></div>
             <span className="rounded-lg border border-amber-400/25 px-3 py-2 text-xs font-bold text-amber-300">Ordem crescente</span></div>
