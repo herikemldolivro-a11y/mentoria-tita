@@ -237,14 +237,14 @@ export function SimuladoExamRunner({
   return <section className="mt-6 rounded-[28px] border border-white/10 bg-[#080b11] p-4 text-white sm:p-6" aria-label={"Resolução de "+simulado.titulo}>
     <header className="flex flex-wrap items-start justify-between gap-4 border-b border-white/10 pb-5">
       <div className="min-w-0">
-        <p className="text-[10px] font-black uppercase tracking-[.18em] text-amber-300">{simulado.titulo} · Revisão das questões salvas</p>
+        <p className="text-[10px] font-black uppercase tracking-[.18em] text-amber-300">{simulado.titulo} · Resolução · escolha manualmente o que vai revisar</p>
         <h2 className="mt-2 font-serif text-3xl">Questão {String(q.numero).padStart(3,"0")}</h2>
         <p className="mt-1 text-sm text-white/60">Questão {index+1} de {ordered.length}, na ordem original da prova · {progress}% respondidas</p>
       </div>
       <button type="button" onClick={async()=>{if(dirty)await saveCurrentNote();onExit();}} className="flex items-center gap-2 rounded-xl border border-white/20 px-4 py-2 text-sm"><X size={16}/> Sair da resolução</button>
     </header>
     <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-      <span className="text-xs font-semibold text-white/60">{savedCount} questão(ões) selecionada(s) · Rodada {roundNumber===0?"inicial":roundNumber}</span>
+      <span className="text-xs font-semibold text-white/60">Próxima revisão: {savedCount} questão(ões) marcadas por você · Rodada {roundNumber===0?"inicial":roundNumber}</span>
       <button type="button" disabled={saving||isRoundCompleted} onClick={saveForRevision} className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-bold ${savedNumbers.includes(q.numero)?"border-emerald-400/40 bg-emerald-400/10 text-emerald-300":"border-amber-300/50 bg-amber-300/10 text-amber-200"} disabled:opacity-70`}><Save size={14}/>{savedNumbers.includes(q.numero)?"✓ Salva · Retirar":"Salvar na revisão"}</button>
     </div>
     <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-amber-400" style={{width:progress+"%"}}/></div>
