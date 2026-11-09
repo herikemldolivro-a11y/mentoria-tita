@@ -1,5 +1,6 @@
 "use client";
 // MT_SIMULADO_UNIVERSAL_V15
+// MT_SIMULADO_MANUAL_SELECTION_V153
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -51,7 +52,7 @@ export function SimuladoExamRunner({
   const [persistedNotes,setPersistedNotes] = useState<Record<number,string>>({});
   const [preparedTexts,setPreparedTexts] = useState<Record<number,PreparedTextRow>>({});
   const [preparedError,setPreparedError] = useState<string | null>(null);
-  const [savedNumbers,setSavedNumbers] = useState<number[]>(initialSavedNumbers);
+  const [savedNumbers,setSavedNumbers] = useState<number[]>(initialSavedNumbers); // Explicit, scoped to this round only.
   const [showScheduling,setShowScheduling] = useState(false);
   const [nextDate,setNextDate] = useState(() => { const d=new Date();d.setDate(d.getDate()+2);return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); });
   const [selected,setSelected] = useState<string|null>(null);
@@ -190,17 +191,24 @@ export function SimuladoExamRunner({
   }
 
   async function saveForRevision(){
-    if(!q||saving||savedNumbers.includes(q.numero))return;
+    if(!q||saving||isRoundCompleted)return;
     setSaving(true);setError("");
     try{
-      const {error:e}=await createClient().from("mt_simulado_saved_questions").upsert({
-        user_id:userId,simulado_id:simulado.id,numero:q.numero,
-      },{onConflict:"user_id,simulado_id,numero"});
+      const isSelected=savedNumbers.includes(q.numero);
+      const db=createClient();
+      const {error:e}=isSelected
+        ? await db.from("mt_simulado_round_selections").delete()
+            .eq("user_id",userId).eq("round_id",roundId).eq("numero",q.numero)
+        : await db.from("mt_simulado_round_selections").insert({
+            user_id:userId,round_id:roundId,numero:q.numero,
+          });
       if(e)throw e;
-      setSavedNumbers(old=>old.includes(q.numero)?old:[...old,q.numero].sort((a,b)=>a-b));
+      setSavedNumbers(old=>isSelected?old.filter(n=>n!==q.numero):
+        old.includes(q.numero)?old:[...old,q.numero].sort((a,b)=>a-b));
       await onSavedChanged();
-      setMessage("Questão "+String(q.numero).padStart(3,"0")+" salva para a próxima revisão de "+simulado.titulo+".");
-    }catch(e){setError(e instanceof Error?e.message:"Não foi possível salvar a questão.");}
+      setMessage(isSelected?"Questão "+String(q.numero).padStart(3,"0")+" retirada da próxima revisão.":
+        "Questão "+String(q.numero).padStart(3,"0")+" SELECIONADA manualmente para a próxima revisão.");
+    }catch(e){setError(e instanceof Error?e.message:"Não foi possível alterar a seleção da questão.");}
     finally{setSaving(false);}
   }
 
@@ -237,7 +245,7 @@ export function SimuladoExamRunner({
     </header>
     <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
       <span className="text-xs font-semibold text-white/60">{savedCount} questão(ões) selecionada(s) · Rodada {roundNumber===0?"inicial":roundNumber}</span>
-      <button type="button" disabled={saving||savedNumbers.includes(q.numero)} onClick={saveForRevision} className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-bold ${savedNumbers.includes(q.numero)?"border-emerald-400/40 bg-emerald-400/10 text-emerald-300":"border-amber-300/50 bg-amber-300/10 text-amber-200"} disabled:opacity-70`}><Save size={14}/>{savedNumbers.includes(q.numero)?"✓ Salva na revisão":"Salvar na revisão"}</button>
+      <button type="button" disabled={saving||isRoundCompleted} onClick={saveForRevision} className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-bold ${savedNumbers.includes(q.numero)?"border-emerald-400/40 bg-emerald-400/10 text-emerald-300":"border-amber-300/50 bg-amber-300/10 text-amber-200"} disabled:opacity-70`}><Save size={14}/>{savedNumbers.includes(q.numero)?"✓ Salva · Retirar":"Salvar na revisão"}</button>
     </div>
     <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-amber-400" style={{width:progress+"%"}}/></div>
     {error?<p role="alert" className="mt-4 rounded-xl border border-red-500/40 p-3 text-sm text-red-300">{error}</p>:null}
