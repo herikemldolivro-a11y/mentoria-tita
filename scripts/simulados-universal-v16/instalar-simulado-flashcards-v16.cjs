@@ -74,9 +74,9 @@ function writeAll(planned,originals){
    fs.mkdirSync(path.dirname(dest),{recursive:true});
    const stage=dest+".v16-"+process.pid+".tmp";
    fs.writeFileSync(stage,code,"utf8");
+   changed.push(name); // Register before copying, so even a partial Windows copy is rolled back.
    try{fs.copyFileSync(stage,dest);}
    finally{try{fs.unlinkSync(stage);}catch{}}
-   changed.push(name);
    if(fs.readFileSync(dest,"utf8")!==code)throw Error("Falha na verificacao de "+name);
    info("Atualizado: "+name);
   }
