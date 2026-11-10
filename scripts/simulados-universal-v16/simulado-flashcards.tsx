@@ -283,13 +283,13 @@ export function SimuladoFlashcardReview({
         {!revealed?<button type="button" onClick={()=>setRevealed(true)} className="mt-8 flex items-center gap-2 rounded-xl border border-violet-300/40 px-4 py-3 text-sm font-bold text-violet-200"><Eye size={17}/>Revelar o verso</button>:null}
       </div>
       {revealed?<div className="mt-5 grid gap-3 sm:grid-cols-2">
-        <button type="button" onClick={()=>{setResults(r=>({...r,[current.id]:false}));setPosition(i=>i+1);setRevealed(false);}} className="rounded-xl border border-red-400/30 bg-red-400/10 px-5 py-4 font-bold text-red-300">Errei · rever amanhã</button>
+        <button type="button" onClick={()=>{setResults(r=>({...r,[current.id]:false}));setPosition(i=>i+1);setRevealed(false);}} className="rounded-xl border border-red-400/30 bg-red-400/10 px-5 py-4 font-bold text-red-300">Errei · reforçar</button>
         <button type="button" onClick={()=>{setResults(r=>({...r,[current.id]:true}));setPosition(i=>i+1);setRevealed(false);}} className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-5 py-4 font-bold text-emerald-300">Acertei</button>
       </div>:null}
     </div>:null}
     {!loading && !completed && finished?<div className="mt-8 rounded-xl border border-violet-400/35 bg-violet-400/[.06] p-6">
       <h2 className="text-xl font-bold">Todos os {cards.length} flashcards revisados</h2>
-      <p className="mt-2 text-sm text-white/70">{Object.values(results).filter(Boolean).length} acertos · {Object.values(results).filter(x=>!x).length} erros. Os erros ficam marcados para amanhã.</p>
+      <p className="mt-2 text-sm text-white/70">{Object.values(results).filter(Boolean).length} acertos · {Object.values(results).filter(x=>!x).length} erros. Os erros ficam registrados para reforço no caderno.</p>
       {dueDay && dueDay>todayKey()?<p className="mt-4 text-sm text-amber-300">O caderno ficará disponível para concluir a partir de {dueDay.split("-").reverse().join("/")}.</p>:null}
       <button type="button" onClick={()=>void finish()} disabled={busy||(!!dueDay&&dueDay>todayKey())} className="mt-5 w-full rounded-xl bg-emerald-300 px-5 py-3 font-black text-black disabled:opacity-40">{busy?"Salvando...":"Concluir caderno no calendário"}</button>
     </div>:null}
