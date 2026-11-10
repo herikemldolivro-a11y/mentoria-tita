@@ -1,5 +1,6 @@
 "use client";
 // MT_SIMULADO_UNIVERSAL_V15
+// MT_APOSTA_FINAL_RUNNER_V1
 // MT_SIMULADO_MANUAL_SELECTION_V153
 // MT_SIMULADO_FLASHCARDS_V154
 
@@ -8,7 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { SimuladoFlashcardEditor } from "@/components/simulado-flashcards";
 import { ArrowLeft, ArrowRight, BookOpenCheck, CheckCircle2, ChevronLeft, ChevronRight, LoaderCircle, NotebookPen, Save, X } from "lucide-react";
 
-export type SimuladoQuestion = { numero: number; pagina: number; gabarito: string; trecho?: string };
+export type SimuladoQuestion = { numero: number; pagina: number; gabarito: string; trecho?: string; enunciado?: string; comentario?: string; notaAutomatica?: string; comentarioVerificado?: boolean; gabaritoValidado?: boolean; assunto?: string; banca?: string; ano?: string; prova?: string };
 export type SimuladoExam = {
   id: string;
   dia: number;
@@ -34,7 +35,7 @@ function previewText(q: SimuladoQuestion) {
 }
 
 export function SimuladoExamRunner({
-  simulado, questoes, userId, roundId, roundNumber, isRoundCompleted = false, initialSavedNumbers, onSavedChanged, onExit, onCompleted,
+  simulado, questoes, userId, roundId, roundNumber, isRoundCompleted = false, initialSavedNumbers, onSavedChanged, onExit, onCompleted, enableWholeDayReview = false,
 }: {
   simulado: SimuladoExam;
   questoes: SimuladoQuestion[];
@@ -46,6 +47,7 @@ export function SimuladoExamRunner({
   onSavedChanged: () => Promise<void>;
   onExit: () => void;
   onCompleted: (nextDate: string) => Promise<void>;
+  enableWholeDayReview?: boolean;
 }) {
   const ordered = useMemo(() => [...questoes].sort((a,b) => a.numero-b.numero),[questoes]);
   const [index,setIndex] = useState(0);
@@ -67,7 +69,7 @@ export function SimuladoExamRunner({
   const answerOptions = isMultipleChoice ? ["A","B","C","D","E"] : ["C","E"];
   const q = ordered[index] ?? null;
   const prepared = q ? preparedTexts[q.numero] : null;
-  const displayEnunciado = prepared?.enunciado || (q ? previewText(q) : "");
+  const displayEnunciado = prepared?.enunciado || q?.enunciado || (q ? previewText(q) : "");
   const displayTextoBase = prepared?.texto_base || null;
   const previous = q ? answers[q.numero] : null;
   const noteText = q ? notes[q.numero] ?? "" : "";
@@ -214,6 +216,24 @@ export function SimuladoExamRunner({
     finally{setSaving(false);}
   }
 
+  // A seleção exige clique explícito. Nos simulados existentes nada muda.
+  async function saveWholeDay(){
+    if(!enableWholeDayReview||!allResolved||saving||isRoundCompleted)return;
+    setSaving(true);setError("");setMessage("");
+    try{
+      if(q&&dirty)await saveNote(q.numero,noteText);
+      const numbers=ordered.map(item=>item.numero);
+      const {error:e}=await createClient().from("mt_simulado_round_selections")
+        .upsert(numbers.map(numero=>({user_id:userId,round_id:roundId,numero})),
+          {onConflict:"user_id,round_id,numero"});
+      if(e)throw e;
+      setSavedNumbers(numbers);
+      await onSavedChanged();
+      setMessage("Você escolheu salvar as "+numbers.length+" questões desta rodada para a próxima revisão.");
+    }catch(e){setError(e instanceof Error?e.message:"Falha ao salvar o dia.");}
+    finally{setSaving(false);}
+  }
+
   async function finish(){
     if(!q||saving||isRoundCompleted)return;
     if(!allResolved){setError("Corrija todas as questões desta resolução antes de concluir.");return;}
@@ -267,6 +287,10 @@ export function SimuladoExamRunner({
       <div className="mt-5 rounded-2xl border border-emerald-400/35 bg-emerald-400/[.07] p-5">
         <p className="font-bold text-emerald-300">Todas as {ordered.length} questões desta resolução foram respondidas.</p>
         <p className="mt-1 text-sm text-white/65">Marque {simulado.titulo} como concluído e escolha a próxima revisão. Ela terá só as {savedCount} questões salvas e abrirá diretamente aqui pelo calendário.</p>
+        {enableWholeDayReview ? <button type="button" onClick={()=>void saveWholeDay()} disabled={saving||savedCount===ordered.length}
+          className="mt-4 mr-3 rounded-xl border border-amber-300/40 bg-amber-300/10 px-5 py-3 text-sm font-bold text-amber-200 disabled:opacity-40">
+          <Save size={16} className="mr-2 inline"/> {savedCount===ordered.length?"Dia inteiro já selecionado":"Selecionar todas as questões do dia para revisão"}
+        </button> : null}
         {!showScheduling ? <button type="button" disabled={!savedCount||saving} onClick={()=>setShowScheduling(true)} className="mt-4 rounded-xl bg-emerald-400 px-5 py-3 font-black text-[#051a13] disabled:opacity-40"><CheckCircle2 className="mr-2 inline" size={17}/>Marcar assunto como concluído</button> : (
           <div className="mt-4 flex flex-wrap items-end gap-3">
             <label className="text-xs font-semibold text-white/80">Data da próxima revisão
@@ -278,10 +302,10 @@ export function SimuladoExamRunner({
       </div>
     ) : null}
     {isRoundCompleted ? <p className="mt-5 rounded-xl border border-emerald-400/30 bg-emerald-400/[.08] px-4 py-3 text-sm text-emerald-200">Rodada concluída. As respostas desta etapa permanecem salvas no histórico.</p> : null}
-    <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+    <div className={"mt-5 grid gap-5 "+(pdf?"xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]":"xl:grid-cols-1")}>
       <div className="space-y-5">
         <div className="rounded-2xl border border-white/10 bg-white/[.025] p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3"><span className="text-xs font-black tracking-wider text-amber-300">ENUNCIADO DA QUESTÃO {String(q.numero).padStart(3,"0")}</span><span className="text-xs text-white/45">Página original {q.pagina}</span></div>
+          <div className="flex flex-wrap items-center justify-between gap-3"><span className="text-xs font-black tracking-wider text-amber-300">ENUNCIADO DA QUESTÃO {String(q.numero).padStart(3,"0")}</span><span className="text-xs text-white/45">{q.assunto ? q.assunto : "Página original "+q.pagina}</span></div>
           {preparedError ? <p role="alert" className="mt-4 text-xs text-red-300">{preparedError}</p> : null}
           {displayEnunciado
             ? <p className="mt-4 whitespace-pre-wrap text-base leading-8 text-white/95">{displayEnunciado}</p>
@@ -292,11 +316,16 @@ export function SimuladoExamRunner({
               <p className="mt-3 max-h-[360px] overflow-auto whitespace-pre-wrap text-sm leading-7 text-white/85">{displayTextoBase}</p>
             </div>
           ) : null}
-          <p className="mt-4 text-xs leading-6 text-white/55">
+          {pdf ? <p className="mt-4 text-xs leading-6 text-white/55">
             {prepared ? "Enunciado preparado para este simulado. O PDF original permanece ao lado para conferir a diagramação." :
               "Textos-base, figuras e fórmulas do PDF original continuam disponíveis ao lado. Consulte a página antes de responder."}
           </p>
           <button type="button" onClick={()=>setShowPdf(x=>!x)} className="mt-3 rounded-xl border border-white/20 px-3 py-2 text-xs text-amber-300">{showPdf?"Ocultar página original":"Mostrar página original completa"}</button>
+          : <div className="mt-4 space-y-2 text-xs leading-5 text-white/45">
+              {q.banca ? <p>Banca declarada: {q.banca} {q.ano?"· Ano declarado: "+q.ano:""}</p> : null}
+              {q.prova ? <p>Prova declarada: {q.prova}</p> : null}
+              {q.gabaritoValidado===false ? <p className="text-amber-300/70">Gabarito transcrito do TXT enviado; validação independente pendente.</p> : null}
+            </div>}
         </div>
         <div className="rounded-2xl border border-amber-300/25 bg-amber-300/[.035] p-5">
           <h3 className="text-base font-bold">Marque sua resposta</h3>
@@ -307,8 +336,13 @@ export function SimuladoExamRunner({
           {!previous?<button type="button" disabled={!selected||saving||loading||isRoundCompleted} onClick={correct} className="mt-4 w-full rounded-xl bg-amber-400 px-5 py-3 font-black text-black disabled:opacity-40">{saving?"Salvando...":"Corrigir resposta"}</button>:<div className={`mt-4 rounded-xl border p-4 text-sm ${previous.acertou===true?"border-emerald-400/35 bg-emerald-400/10 text-emerald-300":previous.acertou===false?"border-red-400/35 bg-red-400/10 text-red-300":"border-white/20 bg-white/5"}`}>
             <strong>{previous.acertou===true?"ACERTOU!":previous.acertou===false?"ERROU":"QUESTÃO ANULADA"}</strong><p className="mt-1">Sua resposta: {isMultipleChoice?previous.resposta:previous.resposta==="C"?"Certo":"Errado"}. Gabarito: {q.gabarito==="X"?"Anulada":isMultipleChoice?q.gabarito:q.gabarito==="C"?"Certo":"Errado"}.</p>
           </div>}
+          {previous && q.comentario ? <div className="mt-4 rounded-xl border border-sky-300/25 bg-sky-300/[.055] p-4">
+            <p className="text-xs font-black uppercase tracking-widest text-sky-200">Comentário cadastrado {q.comentarioVerificado===false?"· NÃO VERIFICADO":""}</p>
+            <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-white/85">{q.comentario}</p>
+            {q.notaAutomatica ? <p className="mt-3 border-t border-white/10 pt-3 text-xs leading-6 text-white/55">Nota automática do arquivo: {q.notaAutomatica}</p> : null}
+          </div> : null}
         </div>
-        <div className="rounded-2xl border border-white/10 bg-white/[.025] p-5">
+        <div className="rounded-2xl border border-white/10 bg-white/[.025] p-5'>
           <h3 className="flex items-center gap-2 font-bold"><NotebookPen size={18}/> Anotações desta questão</h3>
           <p className="mt-1 text-xs text-white/55">Ficam salvas pelo simulado e número da questão. Você pode consultá-las em qualquer revisão futura.</p>
           <textarea value={noteText} disabled={loading} onChange={e=>setNotes(cur=>({...cur,[q.numero]:e.target.value}))} rows={5} maxLength={10000} placeholder="Escreva aqui o erro, macete, fundamento, comentário ou ponto de atenção..." className="mt-3 w-full resize-y rounded-xl border border-white/15 bg-[#0e131e] p-3 text-sm leading-6 text-white outline-none focus:border-amber-300"/>
