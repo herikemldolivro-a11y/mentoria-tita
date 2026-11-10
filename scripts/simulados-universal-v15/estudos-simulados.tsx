@@ -194,7 +194,7 @@ export function TitaSimuladosSemanaUm() {
         await refresh(userId);
         setRunningId(null);setRunningRound(null);setRunningNotebook(false);setRunningSelectedNumbers([]);setRunningScopeNumbers([]);setTab("calendario");
         setSelectedDate(nextDate);
-        setMessage("✓ "+running.titulo+" concluído! Próxima revisão de questões em "+nextDate+". As questões ficam em ""+nextDate+" e o caderno aparecerá no dia anterior se houver flashcards.");
+        setMessage("✓ "+running.titulo+" concluído! Revisão das questões em "+nextDate+". O caderno de anotações aparecerá na véspera, se tiver flashcards.");
       }}
     />
   </div>;
