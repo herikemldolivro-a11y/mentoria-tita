@@ -68,8 +68,8 @@ try{
     try{
       fs.writeFileSync(tmp,planned[rel],"utf8");
       fs.copyFileSync(tmp,dst);
+      written.push(rel); // Back up this file even if readback verification fails.
       if(fs.readFileSync(dst,"utf8")!==planned[rel])throw Error("Falha de verificação: "+rel);
-      written.push(rel);
       console.log("[TITÃ V15.4] Instalado: "+rel);
     }finally{try{fs.unlinkSync(tmp);}catch{}}
   }
