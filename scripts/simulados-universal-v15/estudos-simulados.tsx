@@ -1,9 +1,11 @@
 "use client";
 // MT_SIMULADO_UNIVERSAL_V15
 // MT_SIMULADO_MANUAL_SELECTION_V153
+// MT_SIMULADO_FLASHCARDS_V154
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SimuladoExamRunner } from "@/components/simulado-exam-runner";
+import { SimuladoFlashcardReview } from "@/components/simulado-flashcards";
 import { createClient } from "@/lib/supabase/client";
 import { CalendarDays, BookOpenCheck, Bookmark, CheckCircle2, ExternalLink, LoaderCircle, ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -41,6 +43,9 @@ export function TitaSimuladosSemanaUm() {
   const [runningId,setRunningId]=useState<string|null>(null);
   const [runningRound,setRunningRound]=useState<Round|null>(null);
   const [runningMode,setRunningMode]=useState<"full"|"saved">("saved");
+  const [runningNotebook,setRunningNotebook]=useState(false);
+  const [notebookCardCounts,setNotebookCardCounts]=useState<Record<string,number>>({});
+  const [completedNotebooks,setCompletedNotebooks]=useState<string[]>([]);
   const [runningScopeNumbers,setRunningScopeNumbers]=useState<number[]>([]);
   const [runningSelectedNumbers,setRunningSelectedNumbers]=useState<number[]>([]);
   const [scopeQuestions,setScopeQuestions]=useState<{round_id:string;numero:number}[]>([]);
@@ -49,7 +54,10 @@ export function TitaSimuladosSemanaUm() {
   const current = useMemo(()=>simulados.find(s=>s.id===activeId) ?? simulados.find(s=>s.dia===dia) ?? null,[simulados,activeId,dia]);
   const currentSaved = current ? saved.filter(x=>x.simulado_id===current.id).map(x=>x.numero):[];
   const reviewForCurrent = rounds.find(r=>r.simulado_id===current?.id&&!r.completed_at);
-  const calendarDays = [...new Set(rounds.map(r=>r.scheduled_for).filter((d):d is string=>Boolean(d)))].sort();
+  const calendarDays = [...new Set([
+    ...rounds.map(r=>r.scheduled_for).filter((d):d is string=>Boolean(d)),
+    ...rounds.filter(r=>r.scheduled_for && (notebookCardCounts[r.simulado_id]??0)>0).map(r=>plusDays(r.scheduled_for!, -1)),
+  ])].sort();
   const running=simulados.find(s=>s.id===runningId)??null;
   const runningQuestions=running
     ? (runningMode==="full"?running.questoes:running.questoes.filter(q=>runningScopeNumbers.includes(q.numero))).sort((a,b)=>a.numero-b.numero)
@@ -64,23 +72,35 @@ export function TitaSimuladosSemanaUm() {
     setTab("calendario");
     if(url.get("data"))setSelectedDate(url.get("data")!);
     const target=requested?simulados.find(s=>s.id===requested):null;
-    if(target)void startRun(target,"saved",url.get("round")??undefined);
+    if(target) {
+      const round=url.get("round");
+      if(url.get("notebook")==="1" && round)void startNotebook(target,round);
+      else void startRun(target,"saved",round??undefined);
+    }
   },[simulados,userId]);
 
 
 
   async function refresh(user:string) {
     const supabase = createClient();
-    const [marks,dates,roundRows,scopeRows] = await Promise.all([
+    const [marks,dates,roundRows,scopeRows,cardRows,notebookRows] = await Promise.all([
       supabase.from("mt_simulado_saved_questions").select("simulado_id,numero").eq("user_id",user),
       supabase.from("mt_simulado_review_calendar").select("*").eq("user_id",user).order("scheduled_for"),
       supabase.from("mt_simulado_review_rounds").select("id,simulado_id,titulo,dia_origem,round_number,scheduled_for,completed_at").eq("user_id",user).order("round_number"),
       supabase.from("mt_simulado_round_scope").select("round_id,numero").eq("user_id",user),
+      supabase.from("mt_simulado_flashcards").select("id,simulado_id").eq("user_id",user),
+      supabase.from("mt_simulado_notebook_reviews").select("round_id").eq("user_id",user),
     ]);
     if(marks.error)throw marks.error;
     if(dates.error)throw dates.error;
     if(roundRows.error)throw roundRows.error;
     if(scopeRows.error)throw scopeRows.error;
+    if(cardRows.error)throw cardRows.error;
+    if(notebookRows.error)throw notebookRows.error;
+    const counts:Record<string,number>={};
+    for(const c of (cardRows.data??[]))counts[c.simulado_id]=(counts[c.simulado_id]??0)+1;
+    setNotebookCardCounts(counts);
+    setCompletedNotebooks((notebookRows.data??[]).map(x=>x.round_id));
     setScopeQuestions((scopeRows.data??[]) as {round_id:string;numero:number}[]);
     setRounds((roundRows.data??[]) as Round[]);
     setSaved((marks.data??[]) as Saved[]);
