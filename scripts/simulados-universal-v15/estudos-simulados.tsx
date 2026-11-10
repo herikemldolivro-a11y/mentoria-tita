@@ -279,10 +279,22 @@ export function TitaSimuladosSemanaUm() {
         <h2 className="text-lg font-bold">Dias de revisão</h2>
         <p className="mt-1 text-xs text-[var(--muted)]">Selecione a data e inicie as questões salvas em ordem numérica.</p>
         <label className="mt-4 block text-xs">Ir para data<input type="date" className="mt-1 w-full rounded-lg border border-white/15 bg-transparent p-2" value={selectedDate} onChange={e=>setSelectedDate(e.target.value)}/></label>
-        <div className="mt-3 space-y-2">{calendarDays.map(d=><button key={d} type="button" onClick={()=>setSelectedDate(d)} className={`block w-full rounded-xl border p-3 text-left text-sm ${selectedDate===d?"border-amber-400/60 bg-amber-300/10":"border-white/10"}`}>{new Date(d+"T12:00:00").toLocaleDateString("pt-BR")} · {rounds.filter(x=>x.scheduled_for===d).length} simulado(s)</button>)}</div>
+        <div className="mt-3 space-y-2">{calendarDays.map(d=><button key={d} type="button" onClick={()=>setSelectedDate(d)} className={`block w-full rounded-xl border p-3 text-left text-sm ${selectedDate===d?"border-amber-400/60 bg-amber-300/10":"border-white/10"}`}>{new Date(d+"T12:00:00").toLocaleDateString("pt-BR")} · {rounds.filter(x=>x.scheduled_for===d).length} questões / {rounds.filter(x=>x.scheduled_for && plusDays(x.scheduled_for,-1)===d && (notebookCardCounts[x.simulado_id]??0)>0).length} caderno(s)</button>)}</div>
         <a href={"/calendario"} className="mt-5 block rounded-xl border border-emerald-400/35 px-3 py-3 text-center text-xs font-semibold text-emerald-300">Abrir calendário principal</a>
       </aside>
-      <section className="space-y-4">{rounds.filter(x=>x.scheduled_for===selectedDate).length===0?<div className="rounded-2xl border border-white/10 p-6 text-sm text-[var(--muted)]">Nenhuma revisão agendada para esta data.</div>:null}
+      <section className="space-y-4">{rounds.filter(x=>x.scheduled_for===selectedDate).length===0 &&
+          rounds.filter(x=>x.scheduled_for && plusDays(x.scheduled_for,-1)===selectedDate && (notebookCardCounts[x.simulado_id]??0)>0).length===0?<div className="rounded-2xl border border-white/10 p-6 text-sm text-[var(--muted)]">Nenhuma revisão agendada para esta data.</div>:null}
+        {rounds.filter(x=>x.scheduled_for && plusDays(x.scheduled_for,-1)===selectedDate && (notebookCardCounts[x.simulado_id]??0)>0).map(review=>{
+           const sim=simulados.find(x=>x.id===review.simulado_id);
+           if(!sim)return null;
+           const done=completedNotebooks.includes(review.id);
+           return <article key={"notebook-"+review.id} className="rounded-2xl border border-cyan-300/30 bg-cyan-300/[.05] p-5">
+             <p className="text-xs font-bold text-cyan-300">CADERNO · DIA ANTERIOR À REVISÃO</p>
+             <h3 className="mt-2 text-lg font-bold">{review.titulo}</h3>
+             <p className="mt-2 text-xs text-[var(--muted)]">{notebookCardCounts[sim.id]} flashcard(s) · {done?"Caderno concluído":"Caderno pendente"} · Questões em {review.scheduled_for}</p>
+             <button type="button" onClick={()=>void startNotebook(sim,review.id)} className="mt-4 rounded-xl bg-cyan-300 px-4 py-3 text-sm font-bold text-black">{done?"Consultar caderno":"Revisar flashcards"}</button>
+           </article>;
+         })}
         {rounds.filter(x=>x.scheduled_for===selectedDate).map(review=>{
           const sim=simulados.find(s=>s.id===review.simulado_id);
           if(!sim)return null;
