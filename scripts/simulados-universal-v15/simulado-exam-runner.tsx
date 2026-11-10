@@ -247,6 +247,17 @@ export function SimuladoExamRunner({
     </header>
     <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
       <span className="text-xs font-semibold text-white/60">Próxima revisão: {savedCount} questão(ões) marcadas por você · Rodada {roundNumber===0?"inicial":roundNumber}</span>
+      {/* MT_SIMULADO_NEXT_QUESTION_V155 · somente navegação, sem marcar revisão */}
+      <button
+        type="button"
+        onClick={() => void move(1)}
+        disabled={saving || index >= ordered.length - 1}
+        title={index >= ordered.length - 1 ? "Última questão deste simulado" : "Ir para a próxima questão"}
+        aria-label="Próxima questão"
+        className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-amber-300/50 bg-amber-300/10 px-4 py-2 text-xs font-bold text-amber-200 transition hover:bg-amber-300/20 disabled:cursor-not-allowed disabled:opacity-35"
+      >
+        Próxima questão <ArrowRight size={16} />
+      </button>
       <button type="button" disabled={saving||isRoundCompleted} onClick={saveForRevision} className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-bold ${savedNumbers.includes(q.numero)?"border-emerald-400/40 bg-emerald-400/10 text-emerald-300":"border-amber-300/50 bg-amber-300/10 text-amber-200"} disabled:opacity-70`}><Save size={14}/>{savedNumbers.includes(q.numero)?"✓ Salva · Retirar":"Salvar na revisão"}</button>
     </div>
     <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-amber-400" style={{width:progress+"%"}}/></div>
