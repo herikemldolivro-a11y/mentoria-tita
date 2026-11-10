@@ -342,7 +342,7 @@ export function SimuladoExamRunner({
             {q.notaAutomatica ? <p className="mt-3 border-t border-white/10 pt-3 text-xs leading-6 text-white/55">Nota automática do arquivo: {q.notaAutomatica}</p> : null}
           </div> : null}
         </div>
-        <div className="rounded-2xl border border-white/10 bg-white/[.025] p-5'>
+        <div className="rounded-2xl border border-white/10 bg-white/[.025] p-5">
           <h3 className="flex items-center gap-2 font-bold"><NotebookPen size={18}/> Anotações desta questão</h3>
           <p className="mt-1 text-xs text-white/55">Ficam salvas pelo simulado e número da questão. Você pode consultá-las em qualquer revisão futura.</p>
           <textarea value={noteText} disabled={loading} onChange={e=>setNotes(cur=>({...cur,[q.numero]:e.target.value}))} rows={5} maxLength={10000} placeholder="Escreva aqui o erro, macete, fundamento, comentário ou ponto de atenção..." className="mt-3 w-full resize-y rounded-xl border border-white/15 bg-[#0e131e] p-3 text-sm leading-6 text-white outline-none focus:border-amber-300"/>
