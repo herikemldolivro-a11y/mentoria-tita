@@ -23,7 +23,7 @@ try {
   $wc=New-Object System.Net.WebClient
   $wc.Encoding=[System.Text.Encoding]::UTF8
   $wc.Headers.Add('Cache-Control','no-cache')
-  try{$contents=$wc.DownloadString($root+$name+'?v=20261109-v154r1')}
+  try{$contents=$wc.DownloadString($root+$name+'?v=20261110-v154r2')}
   finally{$wc.Dispose()}
   if(!$contents -or $contents.Length -lt 100){throw ('Download incompleto: '+$name)}
   if($name -like '*flashcards-v154*' -and !$contents.Contains('MT_SIMULADO_FLASHCARD')){throw ('Assinatura invalida: '+$name)}
