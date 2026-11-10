@@ -33,7 +33,7 @@ try{
  $wc.Headers.Add('Cache-Control','no-cache')
  try{
   foreach($pair in $files){
-    $remote=$base+$pair[0]+'?v=20261110-apostafinal-v1r1'
+    $remote=$base+$pair[0]+'?v=20261110-apostafinal-v1r2'
     $dest=Join-Path $work $pair[1]
     Log ('Baixando '+$pair[1]+'...')
     $wc.DownloadFile($remote,$dest)
