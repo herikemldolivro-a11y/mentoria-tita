@@ -58,7 +58,7 @@ async function getAll(){
    if(!data?.length)break;
    questions.push(...data);offset+=data.length;
    info("Carregadas "+questions.length+" de "+(count??"?")+" questões");
-   if(data.length<pageSize||offset>=count)break;
+   if(data.length<pageSize||(typeof count==="number"&&offset>=count))break;
    if(questions.length>10000)throw Error("Limite de segurança da exportação excedido.");
  }
  if(!questions.length)throw Error("Nenhuma questão acessível com essa conta. Use uma conta de administrador da TITÃ.");
