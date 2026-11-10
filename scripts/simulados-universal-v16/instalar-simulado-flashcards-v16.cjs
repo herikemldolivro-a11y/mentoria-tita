@@ -110,7 +110,7 @@ function run(){
  };
  const originals={};
  for(const name of Object.values(names)){
-  originals[name]=fs.existsSync(path.join(root,name))?fs.readFileSync(path.join(root,name)):null;
+  originals[name]=fs.existsSync(path.join(root,name))?fs.readFileSync(path.join(root,name),"utf8"):null;
  }
  const planned={
   [names.runner]:runner,
