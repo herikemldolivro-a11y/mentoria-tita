@@ -91,6 +91,7 @@ export function SimuladoFlashcardEditor({
     if(busy||(!front.trim()&&!frontFile)||(!back.trim()&&!backFile))return;
     setBusy(true);setError("");setMessage("");
     const uploaded:string[]=[];
+    let inserted=false;
     try{
       if(front.length>15000||back.length>15000)throw Error("O texto deve ter até 15.000 caracteres por lado.");
       const id=crypto.randomUUID();
@@ -104,12 +105,13 @@ export function SimuladoFlashcardEditor({
         front_image_path:frontPath,back_image_path:backPath,
       });
       if(e)throw e;
+      inserted=true;
       setFront("");setBack("");setFrontFile(null);setBackFile(null);setResetKey(k=>k+1);
       setMessage("Flashcard salvo. Ele será revisado um dia antes de cada rodada agendada deste simulado.");
       await refresh();
     }catch(e){
-      if(uploaded.length)await createClient().storage.from(BUCKET).remove(uploaded).catch(()=>{});
-      setError(e instanceof Error?e.message:"Não foi possível salvar o flashcard.");
+      if(!inserted && uploaded.length)await createClient().storage.from(BUCKET).remove(uploaded).catch(()=>{});
+      setError(inserted?"Flashcard salvo, mas não foi possível atualizar a lista. Feche e reabra o caderno.":(e instanceof Error?e.message:"Não foi possível salvar o flashcard."));
     }finally{setBusy(false);}
   }
   async function removeCard(card:Card) {
