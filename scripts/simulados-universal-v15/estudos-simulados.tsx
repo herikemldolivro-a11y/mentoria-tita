@@ -122,6 +122,20 @@ export function TitaSimuladosSemanaUm() {
     return ()=>{alive=false};
   },[]);
 
+  async function startNotebook(sim:Simulado,requestedRoundId:string) {
+    if(!userId||working)return;
+    setWorking("notebook");setError("");setMessage("");
+    try {
+      const {data,error:e}=await createClient().from("mt_simulado_review_rounds")
+        .select("id,simulado_id,titulo,dia_origem,round_number,scheduled_for,completed_at")
+        .eq("user_id",userId).eq("simulado_id",sim.id).eq("id",requestedRoundId).maybeSingle();
+      if(e)throw e;
+      if(!data?.scheduled_for)throw Error("Esta rodada ainda não possui uma data de revisão.");
+      setRunningRound(data as Round);setRunningId(sim.id);setRunningNotebook(true);
+    }catch(e){setError(e instanceof Error?e.message:"Falha ao abrir o caderno.");}
+    finally{setWorking("");}
+  }
+
   async function startRun(sim:Simulado,mode:"full"|"saved",requestedRoundId?:string) {
     if(!userId||working)return;
     setWorking("start");setError("");setMessage("");
@@ -157,7 +171,7 @@ export function TitaSimuladosSemanaUm() {
         : [];
       setRunningScopeNumbers(scope.length?scope:legacyPool);
       setRunningSelectedNumbers((selectedRows.data??[]).map(row=>Number(row.numero)));
-      setRunningRound(round);setRunningMode(mode);setRunningId(sim.id);
+      setRunningNotebook(false);setRunningRound(round);setRunningMode(mode);setRunningId(sim.id);
       if(!requestedRoundId)await refresh(userId);
     } catch(e) {setError(e instanceof Error?e.message:"Falha ao iniciar a resolução.");}
     finally {setWorking("");}
@@ -179,6 +193,14 @@ export function TitaSimuladosSemanaUm() {
   }
 
   const pdfLink=(file:string,page?:number)=>api+"/pdf/"+encodeURIComponent(file)+(page?"#page="+page:"");
+
+  if(running && runningRound && runningNotebook && runningRound.scheduled_for)
+    return <div className="mx-auto max-w-[1420px] px-4 pb-24 pt-6 sm:px-7">
+      <SimuladoFlashcardReview userId={userId} simuladoId={running.id} roundId={runningRound.id}
+        titulo={running.titulo} scheduledFor={runningRound.scheduled_for}
+        onExit={()=>{setRunningId(null);setRunningRound(null);setRunningNotebook(false);void refresh(userId);}}
+        onCompleted={async()=>{await refresh(userId);}}/>
+    </div>;
 
   if(running && runningRound) return <div className="mx-auto max-w-[1420px] px-4 pb-24 pt-6 sm:px-7">
     <SimuladoExamRunner
