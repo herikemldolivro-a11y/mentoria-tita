@@ -316,12 +316,12 @@ export function SimuladoExamRunner({
               <p className="mt-3 max-h-[360px] overflow-auto whitespace-pre-wrap text-sm leading-7 text-white/85">{displayTextoBase}</p>
             </div>
           ) : null}
-          {pdf ? <p className="mt-4 text-xs leading-6 text-white/55">
+          {pdf ? <><p className="mt-4 text-xs leading-6 text-white/55">
             {prepared ? "Enunciado preparado para este simulado. O PDF original permanece ao lado para conferir a diagramação." :
               "Textos-base, figuras e fórmulas do PDF original continuam disponíveis ao lado. Consulte a página antes de responder."}
           </p>
           <button type="button" onClick={()=>setShowPdf(x=>!x)} className="mt-3 rounded-xl border border-white/20 px-3 py-2 text-xs text-amber-300">{showPdf?"Ocultar página original":"Mostrar página original completa"}</button>
-          : <div className="mt-4 space-y-2 text-xs leading-5 text-white/45">
+          </> : <div className="mt-4 space-y-2 text-xs leading-5 text-white/45">
               {q.banca ? <p>Banca declarada: {q.banca} {q.ano?"· Ano declarado: "+q.ano:""}</p> : null}
               {q.prova ? <p>Prova declarada: {q.prova}</p> : null}
               {q.gabaritoValidado===false ? <p className="text-amber-300/70">Gabarito transcrito do TXT enviado; validação independente pendente.</p> : null}
