@@ -1,9 +1,11 @@
 "use client";
 // MT_SIMULADO_UNIVERSAL_V15
 // MT_SIMULADO_MANUAL_SELECTION_V153
+// MT_SIMULADO_FLASHCARDS_V154
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { SimuladoFlashcardEditor } from "@/components/simulado-flashcards";
 import { ArrowLeft, ArrowRight, BookOpenCheck, CheckCircle2, ChevronLeft, ChevronRight, LoaderCircle, NotebookPen, Save, X } from "lucide-react";
 
 export type SimuladoQuestion = { numero: number; pagina: number; gabarito: string; trecho?: string };
@@ -301,6 +303,7 @@ export function SimuladoExamRunner({
           <textarea value={noteText} disabled={loading} onChange={e=>setNotes(cur=>({...cur,[q.numero]:e.target.value}))} rows={5} maxLength={10000} placeholder="Escreva aqui o erro, macete, fundamento, comentário ou ponto de atenção..." className="mt-3 w-full resize-y rounded-xl border border-white/15 bg-[#0e131e] p-3 text-sm leading-6 text-white outline-none focus:border-amber-300"/>
           <div className="mt-3 flex items-center justify-between gap-3"><span className="text-xs text-white/45">{dirty?"Alterações ainda não salvas":"Anotação sincronizada"}</span><button type="button" disabled={saving||loading||!dirty} onClick={saveCurrentNote} className="flex items-center gap-2 rounded-xl border border-amber-300/40 px-3 py-2 text-xs font-bold text-amber-300 disabled:opacity-50"><Save size={14}/>Salvar anotação</button></div>
         </div>
+        <SimuladoFlashcardEditor userId={userId} simuladoId={simulado.id} numero={q.numero} />
       </div>
       {showPdf && pdf?<div className="min-w-0 rounded-2xl border border-white/15 bg-white/[.025] p-3">
         <div className="mb-3 flex items-center justify-between gap-3"><strong className="text-sm">Questão completa e texto-base original</strong><span className="text-xs text-white/60">Página {q.pagina}</span></div>
