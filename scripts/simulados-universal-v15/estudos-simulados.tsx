@@ -1,9 +1,12 @@
 "use client";
 // MT_SIMULADO_UNIVERSAL_V15
 // MT_SIMULADO_MANUAL_SELECTION_V153
+// MT_SIMULADO_D1_FLASHCARDS_V16
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SimuladoExamRunner } from "@/components/simulado-exam-runner";
+import { SimuladoFlashcardReview } from "@/components/simulado-flashcards";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { CalendarDays, BookOpenCheck, Bookmark, CheckCircle2, ExternalLink, LoaderCircle, ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -22,6 +25,7 @@ const plusDays = (date:string, days:number) => {
 };
 
 export function TitaSimuladosSemanaUm() {
+  const router=useRouter();
   const [simulados,setSimulados]=useState<Simulado[]>([]);
   const [userId,setUserId]=useState("");
   const [dia,setDia]=useState(1);
@@ -41,6 +45,7 @@ export function TitaSimuladosSemanaUm() {
   const [runningId,setRunningId]=useState<string|null>(null);
   const [runningRound,setRunningRound]=useState<Round|null>(null);
   const [runningMode,setRunningMode]=useState<"full"|"saved">("saved");
+  const [runningNotebook,setRunningNotebook]=useState(false);
   const [runningScopeNumbers,setRunningScopeNumbers]=useState<number[]>([]);
   const [runningSelectedNumbers,setRunningSelectedNumbers]=useState<number[]>([]);
   const [scopeQuestions,setScopeQuestions]=useState<{round_id:string;numero:number}[]>([]);
@@ -64,7 +69,7 @@ export function TitaSimuladosSemanaUm() {
     setTab("calendario");
     if(url.get("data"))setSelectedDate(url.get("data")!);
     const target=requested?simulados.find(s=>s.id===requested):null;
-    if(target)void startRun(target,"saved",url.get("round")??undefined);
+    if(target)void startRun(target,"saved",url.get("round")??undefined,url.get("notebook")==="1");
   },[simulados,userId]);
 
 
@@ -102,7 +107,7 @@ export function TitaSimuladosSemanaUm() {
     return ()=>{alive=false};
   },[]);
 
-  async function startRun(sim:Simulado,mode:"full"|"saved",requestedRoundId?:string) {
+  async function startRun(sim:Simulado,mode:"full"|"saved",requestedRoundId?:string,asNotebook=false) {
     if(!userId||working)return;
     setWorking("start");setError("");setMessage("");
     try {
@@ -137,7 +142,7 @@ export function TitaSimuladosSemanaUm() {
         : [];
       setRunningScopeNumbers(scope.length?scope:legacyPool);
       setRunningSelectedNumbers((selectedRows.data??[]).map(row=>Number(row.numero)));
-      setRunningRound(round);setRunningMode(mode);setRunningId(sim.id);
+      setRunningNotebook(asNotebook);setRunningRound(round);setRunningMode(mode);setRunningId(sim.id);
       if(!requestedRoundId)await refresh(userId);
     } catch(e) {setError(e instanceof Error?e.message:"Falha ao iniciar a resolução.");}
     finally {setWorking("");}
@@ -160,6 +165,13 @@ export function TitaSimuladosSemanaUm() {
 
   const pdfLink=(file:string,page?:number)=>api+"/pdf/"+encodeURIComponent(file)+(page?"#page="+page:"");
 
+  if(running && runningRound && runningNotebook) return <div className="mx-auto max-w-[1420px] px-4 pb-24 pt-6 sm:px-7">
+    <SimuladoFlashcardReview key={runningRound.id} roundId={runningRound.id} simuladoId={running.id}
+      simuladoTitle={running.titulo} userId={userId} scheduledFor={runningRound.scheduled_for}
+      onExit={()=>{setRunningId(null);setRunningRound(null);setRunningNotebook(false);router.push("/calendario");}}
+      onCompleted={async()=>{await refresh(userId);}}/>
+  </div>;
+
   if(running && runningRound) return <div className="mx-auto max-w-[1420px] px-4 pb-24 pt-6 sm:px-7">
     <SimuladoExamRunner
       key={running.id+"-"+runningRound.id} simulado={running} questoes={runningQuestions} userId={userId}
@@ -172,7 +184,7 @@ export function TitaSimuladosSemanaUm() {
         if(e)throw e;
         setRunningSelectedNumbers((data??[]).map(x=>Number(x.numero)));
       }}
-      onExit={()=>{setRunningId(null);setRunningRound(null);setRunningSelectedNumbers([]);setRunningScopeNumbers([]);void refresh(userId);}}
+      onExit={()=>{setRunningId(null);setRunningRound(null);setRunningNotebook(false);setRunningSelectedNumbers([]);setRunningScopeNumbers([]);void refresh(userId);}}
       onCompleted={async(nextDate)=>{
         const {data,error:e}=await createClient().rpc("mt_finish_simulado_round",{
           p_round_id:runningRound.id,p_next_date:nextDate
@@ -180,9 +192,9 @@ export function TitaSimuladosSemanaUm() {
         if(e)throw e;
         if(!data || (data as {ok:boolean}).ok!==true)throw new Error("A conclusão não foi confirmada pelo banco.");
         await refresh(userId);
-        setRunningId(null);setRunningRound(null);setRunningSelectedNumbers([]);setRunningScopeNumbers([]);setTab("calendario");
+        setRunningId(null);setRunningRound(null);setRunningNotebook(false);setRunningSelectedNumbers([]);setRunningScopeNumbers([]);setTab("calendario");
         setSelectedDate(nextDate);
-        setMessage("✓ "+running.titulo+" concluído! Próxima revisão de questões em "+nextDate+". O calendário principal abrirá esta resolução diretamente.");
+        setMessage("✓ "+running.titulo+" concluído! Próxima revisão de questões em "+nextDate+". As questões ficam em ""+nextDate+" e o caderno aparecerá no dia anterior se houver flashcards.");
       }}
     />
   </div>;
