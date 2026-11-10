@@ -38,8 +38,11 @@ const required=[
  ["app/api/ingles/frases/route.ts","OPENAI_API_KEY"],
 ];
 for(const [rel,marker] of required)if(!updated[rel].includes(marker))throw Error("Falta componente da versão V16: "+rel);
-if(!updated["components/principal-calendar.tsx"].includes("simulado"))
-  throw Error("Proteção de compatibilidade: o calendário deve manter os simulados existentes.");
+// Preserve any local simulado integration, but do not REQUIRE that marker:
+const simMarker="MT_SIMULADO_UNIVERSAL_CALENDAR_V15";
+if(current["components/principal-calendar.tsx"].includes(simMarker) &&
+   !updated["components/principal-calendar.tsx"].includes(simMarker))
+  throw Error("Proteção de compatibilidade: o calendário perderia a integração existente dos simulados.");
 let ts;
 try{ts=require(pathIn("node_modules/typescript"));}
 catch{throw Error("TypeScript não encontrado; execute npm.cmd install antes. Nada alterado.");}
