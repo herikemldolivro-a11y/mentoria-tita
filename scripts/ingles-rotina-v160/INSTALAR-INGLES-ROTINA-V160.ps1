@@ -31,7 +31,7 @@ try{
   $wc=New-Object System.Net.WebClient
   $wc.Encoding=[System.Text.Encoding]::UTF8
   $wc.Headers.Add('Cache-Control','no-cache')
-  try{$body=$wc.DownloadString($root+$file.Remote+'?v=20261110-v160r1')}
+  try{$body=$wc.DownloadString($root+$file.Remote+'?v=20261110-v160r2')}
   finally{$wc.Dispose()}
   if(!$body.Contains($file.Marker) -or $body.Length -lt 100){throw ('Arquivo nao passou na verificacao: '+$file.Name)}
   [IO.File]::WriteAllText((Join-Path $assets $file.Name),$body,(New-Object System.Text.UTF8Encoding($false)))
