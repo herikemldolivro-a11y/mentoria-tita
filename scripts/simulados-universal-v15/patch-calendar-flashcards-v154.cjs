@@ -60,9 +60,22 @@ function patchCalendar(orig){
     '  if (activity.kind === "simulado-notebook") return <NotebookPen size={15} className={className} />;\n'+
     '  if (activity.kind === "simulado") return <BookOpenText size={15} className={className} />;',
     "ícone dos flashcards");
-  s=replaceOnce(s,'activity.kind === "simulado" ? "QUESTÕES" :',
-    'activity.kind === "simulado-notebook" ? "CADERNO" : activity.kind === "simulado" ? "QUESTÕES" :',
-    "rótulo caderno");
+  // The previous V15 installer treated the badge label as an optional cosmetic
+  // replacement. Different local builds can use either the 'simulado' label
+  // or the original 'revision' label. Never abort calendar integration for it.
+  const simuladoLabel=/activity\.kind\s*===\s*"simulado"\s*\?\s*"QUESTÕES"\s*:/g;
+  const revisionLabel=/activity\.kind\s*===\s*"revision"\s*\?\s*"REVISÃO"\s*:/g;
+  const simuladoMatches=[...s.matchAll(simuladoLabel)];
+  const revisionMatches=[...s.matchAll(revisionLabel)];
+  if(simuladoMatches.length===1){
+    s=s.replace(simuladoMatches[0][0],
+      'activity.kind === "simulado-notebook" ? "CADERNO" : '+simuladoMatches[0][0]);
+  }else if(simuladoMatches.length===0 && revisionMatches.length===1){
+    s=s.replace(revisionMatches[0][0],
+      'activity.kind === "simulado-notebook" ? "CADERNO" : activity.kind === "simulado" ? "QUESTÕES" : '+revisionMatches[0][0]);
+  }
+  // If the application's badge layout differs, the activity still carries
+  // CADERNO in its eyebrow/title. Do not alter unknown badge JSX.
   s=replaceOnce(s,'data-mt-universal-simulado="MT_SIMULADO_UNIVERSAL_CALENDAR_V15"',
     'data-mt-universal-simulado="MT_SIMULADO_UNIVERSAL_CALENDAR_V15" data-mt-simulado-flashcards="MT_SIMULADO_FLASHCARD_CALENDAR_V154"',
     "marcador de versão");
