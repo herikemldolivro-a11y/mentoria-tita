@@ -1,9 +1,11 @@
 "use client";
 // MT_SIMULADO_UNIVERSAL_V15
 // MT_SIMULADO_MANUAL_SELECTION_V153
+// MT_SIMULADO_D1_FLASHCARDS_V16
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { SimuladoFlashcardEditor } from "@/components/simulado-flashcards";
 import { ArrowLeft, ArrowRight, BookOpenCheck, CheckCircle2, ChevronLeft, ChevronRight, LoaderCircle, NotebookPen, Save, X } from "lucide-react";
 
 export type SimuladoQuestion = { numero: number; pagina: number; gabarito: string; trecho?: string };
@@ -61,6 +63,18 @@ export function SimuladoExamRunner({
   const [message,setMessage] = useState("");
   const [error,setError] = useState("");
   const [showPdf,setShowPdf] = useState(true);
+  const [notebookOpen,setNotebookOpen] = useState(false);
+  const [flashcardCount,setFlashcardCount] = useState(0);
+  const onFlashcardCountChange = useCallback((count:number)=>setFlashcardCount(count),[]);
+  useEffect(()=>{
+    let alive=true;
+    createClient().from("mt_simulado_flashcards").select("id",{head:true,count:"exact"})
+      .eq("user_id",userId).eq("simulado_id",simulado.id)
+      .then(({count,error})=>{
+        if(alive&&!error)setFlashcardCount(count??0);
+      });
+    return()=>{alive=false};
+  },[simulado.id,userId]);
   const isMultipleChoice = simulado.formato === "multipla-escolha" || simulado.questoes.some(item=>["A","B","D"].includes(item.gabarito));
   const answerOptions = isMultipleChoice ? ["A","B","C","D","E"] : ["C","E"];
   const q = ordered[index] ?? null;
@@ -241,8 +255,14 @@ export function SimuladoExamRunner({
         <h2 className="mt-2 font-serif text-3xl">Questão {String(q.numero).padStart(3,"0")}</h2>
         <p className="mt-1 text-sm text-white/60">Questão {index+1} de {ordered.length}, na ordem original da prova · {progress}% respondidas</p>
       </div>
-      <button type="button" onClick={async()=>{if(dirty)await saveCurrentNote();onExit();}} className="flex items-center gap-2 rounded-xl border border-white/20 px-4 py-2 text-sm"><X size={16}/> Sair da resolução</button>
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" onClick={()=>setNotebookOpen(true)} className="flex items-center gap-2 rounded-xl border border-violet-300/45 bg-violet-300/[.08] px-4 py-2 text-sm font-bold text-violet-200"><NotebookPen size={17}/> Caderno de anotações · {flashcardCount} flashcard(s)</button>
+        <button type="button" onClick={async()=>{if(dirty)await saveCurrentNote();onExit();}} className="flex items-center gap-2 rounded-xl border border-white/20 px-4 py-2 text-sm"><X size={16}/> Sair da resolução</button>
+      </div>
     </header>
+    <SimuladoFlashcardEditor open={notebookOpen} onClose={()=>setNotebookOpen(false)}
+      simuladoId={simulado.id} simuladoTitle={simulado.titulo} questionNumber={q.numero}
+      userId={userId} onChanged={onFlashcardCountChange}/>
     <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
       <span className="text-xs font-semibold text-white/60">Próxima revisão: {savedCount} questão(ões) marcadas por você · Rodada {roundNumber===0?"inicial":roundNumber}</span>
       <button type="button" disabled={saving||isRoundCompleted} onClick={saveForRevision} className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-bold ${savedNumbers.includes(q.numero)?"border-emerald-400/40 bg-emerald-400/10 text-emerald-300":"border-amber-300/50 bg-amber-300/10 text-amber-200"} disabled:opacity-70`}><Save size={14}/>{savedNumbers.includes(q.numero)?"✓ Salva · Retirar":"Salvar na revisão"}</button>
@@ -253,7 +273,7 @@ export function SimuladoExamRunner({
     {allResolved && !isRoundCompleted ? (
       <div className="mt-5 rounded-2xl border border-emerald-400/35 bg-emerald-400/[.07] p-5">
         <p className="font-bold text-emerald-300">Todas as {ordered.length} questões desta resolução foram respondidas.</p>
-        <p className="mt-1 text-sm text-white/65">Marque {simulado.titulo} como concluído e escolha a próxima revisão. Ela terá só as {savedCount} questões salvas e abrirá diretamente aqui pelo calendário.</p>
+        <p className="mt-1 text-sm text-white/65">Marque {simulado.titulo} como concluído e escolha a próxima revisão. O caderno de flashcards aparecerá um dia antes dessa data (se tiver flashcards), e as {savedCount} questões escolhidas serão revisadas na data selecionada.</p>
         {!showScheduling ? <button type="button" disabled={!savedCount||saving} onClick={()=>setShowScheduling(true)} className="mt-4 rounded-xl bg-emerald-400 px-5 py-3 font-black text-[#051a13] disabled:opacity-40"><CheckCircle2 className="mr-2 inline" size={17}/>Marcar assunto como concluído</button> : (
           <div className="mt-4 flex flex-wrap items-end gap-3">
             <label className="text-xs font-semibold text-white/80">Data da próxima revisão
