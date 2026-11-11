@@ -38,7 +38,7 @@ export function levelingAttemptDestination(attemptId: unknown, notice = "Tentati
   if (!id || !UUID.test(id)) {
     throw new Error("O servidor não devolveu um identificador válido da tentativa de nivelamento. Nenhuma outra tentativa foi solicitada.");
   }
-  return { attemptId: id, href: `/questoes/lista/${encodeURIComponent(id)}?mode=leveling`, notice };
+  return { attemptId: id, href: `/questoes/banco/nivelamento/${encodeURIComponent(id)}`, notice };
 }
 
 function unwrapResult(value: unknown): RpcResult {
