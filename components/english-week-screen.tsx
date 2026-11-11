@@ -44,6 +44,7 @@ export function EnglishWeekScreen({ weekNumber }: { weekNumber: number }) {
     return Array.from(map.entries()).sort((a, b) => a[0] - b[0]);
   }, [data]);
 
+  // MT_ENGLISH_COMPLETED_GREEN_V161 · leitura concluída recebe destaque verde sem alterar o progresso.
   const completed = data?.texts.filter((text) => text.status === "completed").length ?? 0;
   const target = data?.goal.target_texts ?? 12;
 
@@ -86,17 +87,17 @@ export function EnglishWeekScreen({ weekNumber }: { weekNumber: number }) {
       ) : grouped.length ? (
         <div className="mt-6 space-y-4">
           {grouped.map(([day, items]) => (
-            <section key={day} className="rounded-[24px] border border-[var(--border)] bg-[var(--surface)] p-5">
+            <section key={day} className={items.every((item) => item.status === "completed") ? "rounded-[24px] border border-emerald-400/35 bg-emerald-400/[.035] p-5" : "rounded-[24px] border border-[var(--border)] bg-[var(--surface)] p-5"}>
               <div className="mb-4">
                 <span className="text-[8px] font-black tracking-[.15em] text-[var(--gold-bright)]">DIA {day}</span>
-                <h2 className="mt-1 font-serif text-2xl text-[var(--ink)]">{items.length} {items.length === 1 ? "texto" : "textos"}</h2>
+                <h2 className="mt-1 font-serif text-2xl text-[var(--ink)]">{items.length} {items.length === 1 ? "texto" : "textos"} {items.every((item) => item.status === "completed") ? <span className="ml-2 align-middle text-xs font-black uppercase tracking-[.09em] text-emerald-500">✓ Dia concluído</span> : null}</h2>
               </div>
 
               <div className="grid gap-3 lg:grid-cols-2">
                 {items.map((text) => (
-                  <article key={text.id} className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
+                  <article key={text.id} className={text.status === "completed" ? "rounded-2xl border border-emerald-400/55 bg-emerald-400/[.075] p-4 shadow-[inset_0_0_0_1px_rgba(52,211,153,.09)]" : "rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4"}>
                     <div className="flex items-start gap-3">
-                      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[var(--border)] text-[var(--gold-bright)]">
+                      <div className={text.status === "completed" ? "grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-emerald-400/50 bg-emerald-400/15 text-emerald-500" : "grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[var(--border)] text-[var(--gold-bright)]"}>
                         {text.status === "completed" ? <CheckCircle2 size={17} /> : text.mode === "exam" ? <ClipboardCheck size={17} /> : <BookOpenText size={17} />}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -106,12 +107,13 @@ export function EnglishWeekScreen({ weekNumber }: { weekNumber: number }) {
                             {text.mode === "exam" ? "6 ITENS C/E" : "LEITURA"}
                           </span>
                         </div>
-                        <h3 className="mt-2 font-serif text-xl leading-tight text-[var(--ink)]">{text.title}</h3>
+                        {text.status === "completed" ? <span className="mt-2 inline-flex items-center gap-1 rounded-full border border-emerald-400/45 bg-emerald-400/15 px-2.5 py-1 text-[8px] font-black tracking-[.1em] text-emerald-500"><CheckCircle2 size={12} /> CONCLUÍDO</span> : null}
+                        <h3 className={text.status === "completed" ? "mt-2 font-serif text-xl leading-tight text-emerald-500" : "mt-2 font-serif text-xl leading-tight text-[var(--ink)]"}>{text.title}</h3>
                         <div className="mt-2 flex gap-3 text-[8px] font-bold text-[var(--muted)]">
                           <span>{text.vocab_count} palavras salvas</span>
                           {text.mode === "exam" ? <span>{text.correct_answers}/{text.question_count || 6} acertos</span> : null}
                         </div>
-                        <Link href={`/ingles/texto/${text.id}`} className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-xl border border-[var(--border-strong)] px-3 text-[8px] font-black text-[var(--gold-bright)]">
+                        <Link href={`/ingles/texto/${text.id}`} className={text.status === "completed" ? "mt-4 inline-flex min-h-10 items-center gap-2 rounded-xl border border-emerald-400/50 bg-emerald-400/10 px-3 text-[8px] font-black text-emerald-500 transition hover:bg-emerald-400/20" : "mt-4 inline-flex min-h-10 items-center gap-2 rounded-xl border border-[var(--border-strong)] px-3 text-[8px] font-black text-[var(--gold-bright)]"}>
                           {text.status === "completed" ? "RELER" : "INICIAR"} <ArrowRight size={14} />
                         </Link>
                       </div>
