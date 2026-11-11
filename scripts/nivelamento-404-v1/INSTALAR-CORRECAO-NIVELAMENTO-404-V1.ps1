@@ -21,8 +21,8 @@ $work=Join-Path $env:TEMP ('tita-fix-nivelamento-'+[guid]::NewGuid().ToString('N
 [IO.Directory]::CreateDirectory($work)|Out-Null
 $files=@(
  @('scripts/nivelamento-404-v1/install-leveling-404-v1.cjs','install-leveling-404-v1.cjs'),
- @('app/questoes/banco/nivelamento/%5BattemptId%5D/page.tsx','leveling-bank-page.tsx'),
- @('app/questoes/lista/%5BattemptId%5D/page.tsx','lesson-list-page.tsx'),
+ @('scripts/nivelamento-404-v1/leveling-bank-page.tsx','leveling-bank-page.tsx'),
+ @('scripts/nivelamento-404-v1/lesson-list-page.tsx','lesson-list-page.tsx'),
  @('app/nivelamentos/page.tsx','leveling-home-page.tsx'),
  @('components/leveling-question-bank.tsx','leveling-question-bank.tsx'),
  @('components/leveling-learning-center.tsx','leveling-learning-center.tsx'),
