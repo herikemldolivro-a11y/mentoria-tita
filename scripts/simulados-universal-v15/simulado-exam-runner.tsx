@@ -1,5 +1,6 @@
 "use client";
 // MT_SIMULADO_UNIVERSAL_V15
+// MT_SIMULADO_HIDE_ORIGINAL_PDF_PANEL_V156
 // MT_APOSTA_FINAL_RUNNER_V1
 // MT_SIMULADO_MANUAL_SELECTION_V153
 // MT_SIMULADO_FLASHCARDS_V154
@@ -64,7 +65,6 @@ export function SimuladoExamRunner({
   const [saving,setSaving] = useState(false);
   const [message,setMessage] = useState("");
   const [error,setError] = useState("");
-  const [showPdf,setShowPdf] = useState(true);
   const isMultipleChoice = simulado.formato === "multipla-escolha" || simulado.questoes.some(item=>["A","B","D"].includes(item.gabarito));
   const answerOptions = isMultipleChoice ? ["A","B","C","D","E"] : ["C","E"];
   const q = ordered[index] ?? null;
@@ -250,10 +250,6 @@ export function SimuladoExamRunner({
     finally{setSaving(false);}
   }
 
-  const pdf = simulado.arquivos.prova
-    ? "/api/estudos/simulados/pdf/"+encodeURIComponent(simulado.arquivos.prova)
-    : null;
-
   if(!q) return <div className="rounded-2xl border border-white/10 p-6">Nenhuma questão salva para resolver. <button onClick={onExit} className="underline">Voltar</button></div>;
 
   return <section className="mt-6 rounded-[28px] border border-white/10 bg-[#080b11] p-4 text-white sm:p-6" aria-label={"Resolução de "+simulado.titulo}>
@@ -302,30 +298,25 @@ export function SimuladoExamRunner({
       </div>
     ) : null}
     {isRoundCompleted ? <p className="mt-5 rounded-xl border border-emerald-400/30 bg-emerald-400/[.08] px-4 py-3 text-sm text-emerald-200">Rodada concluída. As respostas desta etapa permanecem salvas no histórico.</p> : null}
-    <div className={"mt-5 grid gap-5 "+(pdf?"xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]":"xl:grid-cols-1")}>
+    <div className="mt-5 grid grid-cols-1 gap-5">
       <div className="space-y-5">
         <div className="rounded-2xl border border-white/10 bg-white/[.025] p-5">
           <div className="flex flex-wrap items-center justify-between gap-3"><span className="text-xs font-black tracking-wider text-amber-300">ENUNCIADO DA QUESTÃO {String(q.numero).padStart(3,"0")}</span><span className="text-xs text-white/45">{q.assunto ? q.assunto : "Página original "+q.pagina}</span></div>
           {preparedError ? <p role="alert" className="mt-4 text-xs text-red-300">{preparedError}</p> : null}
           {displayEnunciado
             ? <p className="mt-4 whitespace-pre-wrap text-base leading-8 text-white/95">{displayEnunciado}</p>
-            : <p className="mt-4 text-sm text-white/70">Enunciado integral disponível no documento original exibido ao lado.</p>}
+            : <p className="mt-4 text-sm text-white/70">Enunciado não cadastrado para esta questão. Confira o caderno de prova original antes de responder.</p>}
           {displayTextoBase ? (
             <div className="mt-5 rounded-xl border border-amber-200/25 bg-amber-300/[.045] p-4">
               <h4 className="text-xs font-black tracking-wide text-amber-300">TEXTO-BASE ORIGINAL DA QUESTÃO</h4>
               <p className="mt-3 max-h-[360px] overflow-auto whitespace-pre-wrap text-sm leading-7 text-white/85">{displayTextoBase}</p>
             </div>
           ) : null}
-          {pdf ? <><p className="mt-4 text-xs leading-6 text-white/55">
-            {prepared ? "Enunciado preparado para este simulado. O PDF original permanece ao lado para conferir a diagramação." :
-              "Textos-base, figuras e fórmulas do PDF original continuam disponíveis ao lado. Consulte a página antes de responder."}
-          </p>
-          <button type="button" onClick={()=>setShowPdf(x=>!x)} className="mt-3 rounded-xl border border-white/20 px-3 py-2 text-xs text-amber-300">{showPdf?"Ocultar página original":"Mostrar página original completa"}</button>
-          </> : <div className="mt-4 space-y-2 text-xs leading-5 text-white/45">
+          {(q.banca || q.prova || q.gabaritoValidado === false) ? <div className="mt-4 space-y-2 text-xs leading-5 text-white/45">
               {q.banca ? <p>Banca declarada: {q.banca} {q.ano?"· Ano declarado: "+q.ano:""}</p> : null}
               {q.prova ? <p>Prova declarada: {q.prova}</p> : null}
               {q.gabaritoValidado===false ? <p className="text-amber-300/70">Gabarito transcrito do TXT enviado; validação independente pendente.</p> : null}
-            </div>}
+            </div> : null}
         </div>
         <div className="rounded-2xl border border-amber-300/25 bg-amber-300/[.035] p-5">
           <h3 className="text-base font-bold">Marque sua resposta</h3>
@@ -350,11 +341,7 @@ export function SimuladoExamRunner({
         </div>
         <SimuladoFlashcardEditor userId={userId} simuladoId={simulado.id} numero={q.numero} />
       </div>
-      {showPdf && pdf?<div className="min-w-0 rounded-2xl border border-white/15 bg-white/[.025] p-3">
-        <div className="mb-3 flex items-center justify-between gap-3"><strong className="text-sm">Questão completa e texto-base original</strong><span className="text-xs text-white/60">Página {q.pagina}</span></div>
-        <iframe key={simulado.id+"-"+q.pagina} src={pdf+"#page="+q.pagina+"&view=FitH&navpanes=0"} title={`Prova original - ${simulado.titulo} - página ${q.pagina}`} className="h-[68vh] min-h-[520px] w-full rounded-lg border border-white/10 bg-white" />
-        <p className="mt-2 text-xs leading-5 text-white/55">O PDF está incorporado nesta página da TITÃ. Desça ou amplie para ler todo o enunciado e os textos associados, sem sair do simulado.</p>
-      </div>:null}
+
     </div>
     <footer className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-5">
       <button type="button" onClick={()=>move(-1)} disabled={index===0||saving} className="flex items-center gap-2 rounded-xl border border-white/20 px-4 py-3 font-bold disabled:opacity-30"><ChevronLeft size={18}/>Questão anterior</button>
