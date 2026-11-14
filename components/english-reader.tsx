@@ -62,12 +62,12 @@ export function EnglishReader({ textId }: { textId: string }) {
   );
 
   async function toggleWord(word: string, translation: string, context: string) {
-    if (!data) return;
+    if (!data) return false;
     const supabase = createClient();
     const { data: result, error } = await supabase.rpc("toggle_english_vocab_word", {
       p_text_id: data.text.id, p_word: word, p_translation: translation, p_context: context,
     });
-    if (error) { setErrorMessage(error.message); return; }
+    if (error) { setErrorMessage(error.message); return false; }
 
     const response = result as { saved?: boolean; id?: string };
     const key = normalizeEnglishWord(word);
@@ -83,6 +83,7 @@ export function EnglishReader({ textId }: { textId: string }) {
       };
       return { ...current, vocabulary: [next, ...current.vocabulary.filter((item) => (item.word_key ?? normalizeEnglishWord(item.word)) !== key)] };
     });
+    return true;
   }
 
   function chooseQuestionWord(question: EnglishReaderQuestion, token: string) {
@@ -102,8 +103,8 @@ export function EnglishReader({ textId }: { textId: string }) {
   async function saveQuestionWordDraft() {
     if (!questionWordDraft || !questionWordDraft.translation.trim()) return;
     const draft=questionWordDraft;
-    await toggleWord(draft.word,draft.translation.trim(),draft.context);
-    setQuestionWordDraft(null);
+    const saved=await toggleWord(draft.word,draft.translation.trim(),draft.context);
+    if(saved) setQuestionWordDraft(null);
   }
 
   async function completeText() {
