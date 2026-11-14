@@ -36,6 +36,8 @@ export function EnglishReader({ textId }: { textId: string }) {
   const [revealTranslation, setRevealTranslation] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // MT_ENGLISH_QUESTION_VOCAB_V162 · palavras do enunciado também entram na revisão.
+  const [questionWordDraft, setQuestionWordDraft] = useState<{ questionId: string; word: string; context: string; translation: string } | null>(null);
 
   useEffect(() => {
     const run = async () => {
@@ -81,6 +83,27 @@ export function EnglishReader({ textId }: { textId: string }) {
       };
       return { ...current, vocabulary: [next, ...current.vocabulary.filter((item) => (item.word_key ?? normalizeEnglishWord(item.word)) !== key)] };
     });
+  }
+
+  function chooseQuestionWord(question: EnglishReaderQuestion, token: string) {
+    if (!data) return;
+    const word=normalizeEnglishWord(token);
+    if (!word) return;
+    const translation=getEnglishTranslation(token,data.text.word_map ?? {},"");
+    // Unknown words can be translated by the learner, rather than saving a false translation.
+    if (translation.startsWith("Contexto:") && !savedKeys.has(word)) {
+      setQuestionWordDraft({questionId:question.id,word:token,context:question.statement,translation:""});
+      return;
+    }
+    setQuestionWordDraft(null);
+    void toggleWord(token,translation.startsWith("Contexto:") ? "A confirmar" : translation,question.statement);
+  }
+
+  async function saveQuestionWordDraft() {
+    if (!questionWordDraft || !questionWordDraft.translation.trim()) return;
+    const draft=questionWordDraft;
+    await toggleWord(draft.word,draft.translation.trim(),draft.context);
+    setQuestionWordDraft(null);
   }
 
   async function completeText() {
@@ -243,7 +266,7 @@ export function EnglishReader({ textId }: { textId: string }) {
         <section className="mt-5 rounded-[30px] border border-[#d2a64e]/25 bg-[var(--surface)] p-5 sm:p-8">
           <span className="text-[9px] font-black text-[var(--gold-bright)]">CEBRASPE MODE · CERTO / ERRADO</span>
           <h2 className="mt-2 font-serif text-3xl text-[var(--ink)]">6 itens sobre o texto.</h2>
-          <p className="mt-2 text-xs leading-6 text-[var(--muted)]">Compreensão literal, inferência, referência, conectores e vocabulário em contexto.</p>
+          <p className="mt-2 text-xs leading-6 text-[var(--muted)]">Itens de nível elevado: inferência, referência, conectores e vocabulário em contexto. <span className="font-bold text-emerald-500">Clique em qualquer palavra dos enunciados para salvá-la na revisão de vocabulário.</span></p>
 
           <div className="mt-6 space-y-4">
             {data.questions.map((question) => {
@@ -251,7 +274,41 @@ export function EnglishReader({ textId }: { textId: string }) {
               return (
                 <article key={question.id} className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-5">
                   <span className="text-[8px] font-black text-[var(--muted)]">ITEM {question.position}</span>
-                  <p className="mt-2 text-sm font-semibold leading-7 text-[var(--ink)]">{question.statement}</p>
+                  <p className="mt-2 text-sm font-semibold leading-7 text-[var(--ink)]">
+                    {tokenize(question.statement).map((token, tokenIndex)=>{
+                      const key=normalizeEnglishWord(token);
+                      if(!key) return <span key={tokenIndex}>{token}</span>;
+                      const translation=getEnglishTranslation(token,data.text.word_map ?? {},"");
+                      const saved=savedKeys.has(key);
+                      return <span key={tokenIndex} className="relative inline">
+                        <button type="button" onClick={()=>chooseQuestionWord(question,token)}
+                          title={saved ? "Salva no vocabulário · clique para remover" : (translation.startsWith("Contexto:") ? "Clique para informar a tradução e salvar" : translation+" · clique para salvar")}
+                          aria-label={(saved ? "Remover " : "Salvar ")+token+" no vocabulário"}
+                          className={saved ?
+                            "rounded px-[2px] bg-emerald-400/20 text-emerald-500 ring-1 ring-emerald-400/40 transition hover:bg-emerald-400/30" :
+                            "rounded px-[2px] decoration-dotted underline-offset-4 transition hover:bg-amber-300/15 hover:text-amber-400 hover:underline"}>
+                          {token}
+                        </button>
+                      </span>;
+                    })}
+                  </p>
+                  {questionWordDraft?.questionId===question.id ? <div className="mt-3 rounded-xl border border-emerald-400/30 bg-emerald-400/[.06] p-3">
+                    <p className="text-[10px] font-black tracking-widest text-emerald-500">SALVAR PALAVRA DA QUESTÃO · {questionWordDraft.word}</p>
+                    <label className="mt-3 block text-xs text-[var(--muted)]" htmlFor={"english-translation-"+question.id}>Tradução em português</label>
+                    <input id={"english-translation-"+question.id} value={questionWordDraft.translation}
+                      onChange={e=>setQuestionWordDraft(v=>v?{...v,translation:e.target.value}:v)}
+                      placeholder="Digite o significado para salvar na revisão"
+                      maxLength={220}
+                      onKeyDown={e=>{if(e.key==="Enter"&&questionWordDraft.translation.trim()){e.preventDefault();void saveQuestionWordDraft();}}}
+                      className="mt-2 block min-h-11 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 text-sm text-[var(--ink)]"/>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button type="button" onClick={()=>void saveQuestionWordDraft()}
+                        disabled={!questionWordDraft.translation.trim()}
+                        className="min-h-10 rounded-lg bg-emerald-500 px-4 text-[10px] font-black text-[#07110b] disabled:opacity-40">SALVAR NA REVISÃO</button>
+                      <button type="button" onClick={()=>setQuestionWordDraft(null)}
+                        className="min-h-10 rounded-lg border border-[var(--border)] px-3 text-[10px] font-black text-[var(--muted)]">CANCELAR</button>
+                    </div>
+                  </div> : null}
                   <div className="mt-4 flex gap-2">
                     <Answer label="C" active={question.answer === true} disabled={hasAnswer} onClick={() => void answerQuestion(question, true)} />
                     <Answer label="E" active={question.answer === false} disabled={hasAnswer} onClick={() => void answerQuestion(question, false)} />
