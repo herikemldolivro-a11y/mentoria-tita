@@ -1,5 +1,6 @@
 "use client";
 // MT_APOSTA_FINAL_CFO_PMAL_V1 · 210 questões · Semana 1
+// MT_APOSTA_FINAL_MANUAL_COMPLETE_V163 · conclusão manual independente do agendamento de revisões
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -85,6 +86,53 @@ export function ApostaFinalExperience(){
       .finally(()=>{if(alive)setLoading(false);});
     return ()=>{alive=false;};
   },[]);
+
+  async function markDayCompleted(day:number,answered:number,totalQuestions:number){
+    if(working||loading||!userId)return;
+    if(!window.confirm(
+      "Marcar o Dia "+String(day).padStart(2,"0")+" como concluído? "+
+      answered+" de "+totalQuestions+" questões estão respondidas. "+
+      "As demais continuarão sem resposta. Isso NÃO agenda revisão nem altera suas anotações ou flashcards."
+    ))return;
+    setWorking(true);setError("");setNotice("");
+    try{
+      const db=createClient();
+      const sid=simId(day);
+      let initial=rounds.find(r=>r.simulado_id===sid&&r.round_number===0);
+      if(!initial){
+        const {data:created,error:beginError}=await db.rpc("mt_begin_simulado_round",{
+          p_simulado_id:sid,
+          p_titulo:"APOSTA FINAL · Direito Penal · Dia "+String(day).padStart(2,"0"),
+          p_dia_origem:day
+        });
+        if(beginError)throw beginError;
+        if(!created?.id||Number(created.round_number)!==0)
+          throw Error("Não foi possível iniciar a rodada inicial deste dia com segurança.");
+        initial={
+          id:String(created.id),simulado_id:sid,titulo:String(created.titulo),
+          dia_origem:day,round_number:0,scheduled_for:created.scheduled_for??null,
+          completed_at:created.completed_at??null
+        };
+      }
+      if(initial.completed_at){
+        await reload(userId);
+        setNotice("O Dia "+String(day).padStart(2,"0")+" já está concluído.");
+        return;
+      }
+      const now=new Date().toISOString();
+      const {data:updated,error:updateError}=await db.from("mt_simulado_review_rounds")
+        .update({completed_at:now,updated_at:now})
+        .eq("id",initial.id).eq("user_id",userId).eq("simulado_id",sid)
+        .eq("round_number",0).is("completed_at",null)
+        .select("id").maybeSingle();
+      if(updateError)throw updateError;
+      if(!updated)throw Error("A conclusão não foi gravada. Atualize a página e tente novamente.");
+      await reload(userId);
+      setNotice("Dia "+String(day).padStart(2,"0")+" marcado como concluído por você. "+
+        "Suas "+answered+" respostas permanecem salvas; nenhuma revisão foi agendada.");
+    }catch(e){setError(newError(e));}
+    finally{setWorking(false);}
+  }
 
   async function openDay(day:number,requestedRoundId?:string,openNotebook=false){
     if(working||!userId)return;
@@ -239,7 +287,15 @@ export function ApostaFinalExperience(){
           return <article key={d.dia} className={"group relative overflow-hidden rounded-[27px] border p-5 transition-all duration-200 hover:-translate-y-0.5 sm:p-6 "+(d.dia===7?"border-amber-300/40 bg-[radial-gradient(ellipse_at_top_right,rgba(245,158,11,.12),transparent_50%),#11151e] shadow-[0_20px_70px_rgba(0,0,0,.20)]":"border-white/[.09] bg-[#0e1522] hover:border-amber-300/25")}>
             <div className="flex items-start justify-between gap-3">
               <span className={"grid h-14 w-14 place-items-center rounded-2xl border font-serif text-3xl "+(d.dia===7?"border-amber-300/35 bg-amber-300/10 text-amber-200":"border-white/10 bg-white/5 text-white")}>{String(d.dia).padStart(2,"0")}</span>
-              <span className={"rounded-full border px-3 py-1.5 text-[9px] font-black uppercase tracking-widest "+(finished?"border-emerald-300/25 bg-emerald-300/10 text-emerald-300":p?"border-sky-300/25 bg-sky-300/10 text-sky-200":"border-white/10 bg-white/5 text-white/50")}>{finished?"Concluído":p?"Em andamento":"Disponível"}</span>
+              <div className="flex shrink-0 flex-col items-end gap-2">
+                <span className={"rounded-full border px-3 py-1.5 text-[9px] font-black uppercase tracking-widest "+(finished?"border-emerald-300/25 bg-emerald-300/10 text-emerald-300":p?"border-sky-300/25 bg-sky-300/10 text-sky-200":"border-white/10 bg-white/5 text-white/50")}>{finished?"Concluído":p?"Em andamento":"Disponível"}</span>
+                {!finished ? <button type="button" disabled={loading||working||!userId}
+                  title="Marcar este dia como concluído sem precisar responder tudo e sem agendar revisão"
+                  onClick={()=>void markDayCompleted(d.dia,answered,d.questoes.length)}
+                  className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-emerald-400/45 bg-emerald-400/10 px-2.5 py-1.5 text-[10px] font-black text-emerald-300 transition hover:border-emerald-300 hover:bg-emerald-400/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-300 disabled:cursor-not-allowed disabled:opacity-40">
+                  <CheckCircle2 size={14}/> Marcar concluído
+                </button> : null}
+              </div>
             </div>
             <p className="mt-6 text-[10px] font-black uppercase tracking-[.16em] text-amber-300/70">{d.dia===7?"DESAFIO · APOSTA FINAL":"MISSÃO DO DIA"} · {d.questoes.length} questões</p>
             <h4 className="mt-2 min-h-[58px] font-serif text-[23px] leading-[1.12] text-white">{d.titulo}</h4>
@@ -247,7 +303,7 @@ export function ApostaFinalExperience(){
             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-amber-300 transition-all" style={{width:p+"%"}}/></div>
             {pending?.scheduled_for?<p className="mt-3 flex items-center gap-2 text-xs text-sky-200/75"><CalendarDays size={14}/>{due?"Revisão disponível: ":"Próxima revisão: "}{toDate(pending.scheduled_for)}</p>:<p className="mt-3 text-xs text-white/40">Revisão agendada somente por sua escolha</p>}
             <div className="mt-5 flex flex-wrap gap-2">
-              <button type="button" disabled={working||loading||!userId} onClick={()=>void openDay(d.dia)} className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-amber-300 px-3 text-xs font-black text-[#111827] transition hover:bg-amber-200 disabled:opacity-40">{working?"Aguarde":finished?"Abrir revisão":"Resolver dia"}<ArrowRight size={16}/></button>
+              <button type="button" disabled={working||loading||!userId} onClick={()=>void openDay(d.dia,finished?initial?.id:undefined)} className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-amber-300 px-3 text-xs font-black text-[#111827] transition hover:bg-amber-200 disabled:opacity-40">{working?"Aguarde":finished?"Ver questões":"Resolver dia"}<ArrowRight size={16}/></button>
               {pending?<button type="button" disabled={working||loading} title="Abrir rodada de revisão agendada" onClick={()=>void openDay(d.dia,pending.id)} className="min-h-11 rounded-xl border border-sky-300/25 bg-sky-300/10 px-3 text-xs font-bold text-sky-200">R{pending.round_number}</button>:null}
               {pending?.scheduled_for?<button type="button" disabled={working||loading} title="Revisar flashcards do caderno na véspera da revisão" onClick={()=>void openDay(d.dia,pending.id,true)} className="min-h-11 rounded-xl border border-cyan-300/25 bg-cyan-300/10 px-3 text-xs font-bold text-cyan-200"><NotebookPen size={17}/></button>:null}
             </div>
