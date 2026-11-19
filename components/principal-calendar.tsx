@@ -32,6 +32,7 @@ import {
   type PrincipalRevision,
 } from "@/lib/principal-calendar-system";
 import { listenStudyUpdated } from "@/lib/study-database";
+import { createClient } from "@/lib/supabase/client";
 
 const WEEKDAYS = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
 
@@ -81,6 +82,26 @@ export function PrincipalCalendar({ compact = false }: { compact?: boolean }) {
   const [edit, setEdit] = useState<PrincipalRevision | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  // Marcação somente visual: não altera revisões, cadernos ou nivelamentos.
+  const [manualCompletedDates, setManualCompletedDates] = useState<Set<string>>(() => new Set());
+  const [manualStorageKey, setManualStorageKey] = useState<string | null>(null);
+
+  function toggleManualDayCompletion(date: string) {
+    if (!manualStorageKey) {
+      setMessage("Aguarde o carregamento da marcação do calendário.");
+      return;
+    }
+    const next = new Set(manualCompletedDates);
+    if (next.has(date)) next.delete(date);
+    else next.add(date);
+    try {
+      window.localStorage.setItem(manualStorageKey, JSON.stringify([...next]));
+      setManualCompletedDates(next);
+      setMessage(null);
+    } catch {
+      setMessage("Não foi possível salvar a marcação neste navegador.");
+    }
+  }
 
   async function refresh() {
     const data = await loadPrincipalCalendarHub();
@@ -104,6 +125,35 @@ export function PrincipalCalendar({ compact = false }: { compact?: boolean }) {
       alive = false;
       unlisten();
     };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    void createClient().auth.getUser()
+      .then(({ data, error }) => {
+        if (!mounted) return;
+        if (error || !data.user) {
+          setMessage("Não foi possível identificar sua conta para salvar a marcação do calendário.");
+          return;
+        }
+        const key = `tita-principal-calendar-visual-days-v1:${data.user.id}`;
+        let saved: unknown = [];
+        try {
+          saved = JSON.parse(window.localStorage.getItem(key) ?? "[]") as unknown;
+        } catch {
+          saved = [];
+        }
+        const dates = Array.isArray(saved)
+          ? saved.filter((value): value is string =>
+              typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value))
+          : [];
+        setManualCompletedDates(new Set(dates));
+        setManualStorageKey(key);
+      })
+      .catch(() => {
+        if (mounted) setMessage("Não foi possível carregar a marcação manual do calendário.");
+      });
+    return () => { mounted = false; };
   }, []);
 
   useEffect(() => {
@@ -358,7 +408,8 @@ export function PrincipalCalendar({ compact = false }: { compact?: boolean }) {
                 const dayActivities = activitiesByDate.get(key) ?? [];
                 const hasActivities = dayActivities.length > 0;
                 const dayCompleted =
-                  hasActivities && dayActivities.every((item) => item.completed);
+                  (hasActivities && dayActivities.every((item) => item.completed)) ||
+                  (hasActivities && manualCompletedDates.has(key));
                 const primary = dayActivities[0] ?? null;
                 const extra = Math.max(0, dayActivities.length - 1);
                 const isToday = key === dateKey(new Date());
@@ -474,6 +525,11 @@ export function PrincipalCalendar({ compact = false }: { compact?: boolean }) {
         <DayActivitiesModal
           date={selectedDate}
           activities={selectedActivities}
+          manuallyCompleted={manualCompletedDates.has(selectedDate)}
+          manualCompletionReady={manualStorageKey !== null}
+          onToggleManualCompletion={() => {
+            if (selectedDate) toggleManualDayCompletion(selectedDate);
+          }}
           onClose={() => setSelectedDate(null)}
           onOpenActivity={openActivity}
           onAddRevision={() => {
@@ -622,12 +678,18 @@ function HeroStat({
 function DayActivitiesModal({
   date,
   activities,
+  manuallyCompleted,
+  manualCompletionReady,
+  onToggleManualCompletion,
   onClose,
   onOpenActivity,
   onAddRevision,
 }: {
   date: string;
   activities: CalendarActivity[];
+  manuallyCompleted: boolean;
+  manualCompletionReady: boolean;
+  onToggleManualCompletion: () => void;
   onClose: () => void;
   onOpenActivity: (activity: CalendarActivity) => void;
   onAddRevision: () => void;
@@ -703,6 +765,34 @@ function DayActivitiesModal({
               label={revisions === 1 ? "revisão" : "revisões"}
               detail="programadas"
             />
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-emerald-300/20 bg-emerald-300/[.045] px-4 py-3">
+            <div className="min-w-0">
+              <p className="text-sm font-black text-white">Marcação visual do dia</p>
+              <p className="mt-1 text-[11px] text-white/60">
+                Apenas deixa o dia verde no calendário. As atividades pendentes continuam pendentes.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onToggleManualCompletion}
+              disabled={!manualCompletionReady || (!manuallyCompleted && completed === activities.length)}
+              className={`inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border px-4 py-2 text-[11px] font-black tracking-[.02em] transition disabled:cursor-default disabled:opacity-60 ${
+                manuallyCompleted
+                  ? "border-emerald-300/40 bg-emerald-300/10 text-emerald-100 hover:bg-emerald-300/20"
+                  : "border-emerald-300/50 bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/30"
+              }`}
+            >
+              <CheckCircle2 size={16} />
+              {!manualCompletionReady
+                ? "CARREGANDO..."
+                : manuallyCompleted
+                  ? "DESMARCAR DIA"
+                  : completed === activities.length
+                    ? "DIA JÁ CONCLUÍDO"
+                    : "MARCAR DIA COMO CONCLUÍDO"}
+            </button>
           </div>
 
           <div className="mt-5 flex items-center justify-between gap-3">
