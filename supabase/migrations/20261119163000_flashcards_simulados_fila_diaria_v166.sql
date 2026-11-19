@@ -125,7 +125,7 @@ begin
   );
 end;
 $function$
-
+;
 
 CREATE OR REPLACE FUNCTION public.complete_daily_notebook_error_review(p_results jsonb)
  RETURNS jsonb
@@ -274,5 +274,4 @@ begin
     'tomorrow', v_today + 1
   );
 end;
-$function$
-
+$function$;
