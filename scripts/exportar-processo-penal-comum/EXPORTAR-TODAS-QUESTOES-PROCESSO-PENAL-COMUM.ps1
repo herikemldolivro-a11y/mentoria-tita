@@ -114,6 +114,14 @@ try{
     & node $scriptFile $project
     if($LASTEXITCODE -ne 0){throw ('O exportador terminou com erro. Código: '+$LASTEXITCODE)}
   }finally{Pop-Location}
+  $zip=Join-Path $project 'EXPORTACOES\PROCESSO_PENAL_COMUM_CFO_PMAL_PARA_SPRINTS.zip'
+  try {
+    Info 'Criando ZIP para você enviar no ChatGPT e montar os sprints...'
+    Compress-Archive -Path (Join-Path $output '*') -DestinationPath $zip -CompressionLevel Optimal -Force
+    Info ('ZIP PARA OS SPRINTS: '+$zip)
+  } catch {
+    Write-Warning ('Os arquivos foram exportados, mas o ZIP não foi concluído: '+$_.Exception.Message)
+  }
   Write-Host ('[TITA EXPORTAR] CONCLUÍDO! Arquivos em: '+$output) -ForegroundColor Green
   Info 'Para abrir a pasta: explorer.exe "'+$output+'"'
   try{Start-Process explorer.exe -ArgumentList ('"'+$output+'"')}catch{Info 'Se o Explorer não abrir, use o caminho da exportação mostrado acima.'}
