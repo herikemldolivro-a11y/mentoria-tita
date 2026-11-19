@@ -89,6 +89,7 @@ async function getAll(){
      id:q.id,assunto:lessons.get(q.lesson_id)||"Sem assunto",
      enunciado:safe(q.statement),alternativas:getChoices(q.choices),
      gabarito:key?safe(key.correct_answer):"",
+     gabarito_ce:(key&&q.question_type==="true_false")?(safe(key.correct_answer).toUpperCase()==="TRUE"?"C":safe(key.correct_answer).toUpperCase()==="FALSE"?"E":""):"",
      comentario:key?safe(key.explanation):"",
      banca:safe(q.banca),ano:q.ano??"",prova:safe(q.exam_name),
      codigo_fonte:safe(q.source_code),
@@ -108,7 +109,7 @@ async function getAll(){
 function writeFiles(d){
  fs.mkdirSync(output,{recursive:true});
  const prefix="DIREITO_PROCESSUAL_PENAL_COMUM_CFO_PMAL_2026_"+d.rows.length+"_QUESTOES";
- const keys=["numero","id","assunto","tipo","enunciado","alternativas","gabarito","comentario","banca","ano","prova","codigo_fonte","origem","nivel","situacao"];
+ const keys=["numero","id","assunto","tipo","enunciado","alternativas","gabarito","gabarito_ce","comentario","banca","ano","prova","codigo_fonte","origem","nivel","situacao"];
  const header=keys.join(";");
  const contents=[header,...d.rows.map(row=>keys.map(key=>{
    const val=key==="alternativas"?row.alternativas.map(x=>(x.letter?x.letter+") ":"")+x.text).join("\n"):row[key];
@@ -122,7 +123,7 @@ function writeFiles(d){
    "QUESTÃO "+r.numero+" · "+r.assunto+" · "+r.situacao,
    r.enunciado,
    ...r.alternativas.map(x=>x.letter+") "+x.text),
-   "GABARITO: "+(r.gabarito||"Não disponível com este acesso"),
+   "GABARITO: "+(r.gabarito_ce||r.gabarito||"Não disponível com este acesso"),
    "COMENTÁRIO: "+(r.comentario||"Não disponível"),
    "BANCA: "+r.banca+" · ANO: "+r.ano,
  ].join("\n")).join("\n\n"+"-".repeat(70)+"\n\n");
@@ -172,7 +173,8 @@ function writeFiles(d){
    "BANCA: "+r.banca+" | ANO: "+r.ano+" | PROVA: "+r.prova,
    "FONTE: "+r.codigo_fonte+" | ORIGEM CADASTRADA: "+r.origem,
    "ENUNCIADO: "+r.enunciado,
-   "GABARITO: "+(r.gabarito||"NÃO DISPONÍVEL COM ESTE ACESSO"),
+   "GABARITO C/E: "+(r.gabarito_ce||"NÃO DISPONÍVEL COM ESTE ACESSO"),
+   "GABARITO ORIGINAL: "+(r.gabarito||"NÃO DISPONÍVEL COM ESTE ACESSO"),
    "COMENTÁRIO: "+(r.comentario||"NÃO DISPONÍVEL COM ESTE ACESSO"),
  ].join("\n");
  const sprintPrefix="SPRINT_CEBRASPE_REAL_CERTO_ERRADO_"+sprint.length+"_QUESTOES";
@@ -185,7 +187,7 @@ function writeFiles(d){
   "TOTAL: "+sprint.length+" questões\n\n";
  fs.writeFileSync(sprintTxt,"\ufeff"+sprintHeader+sprint.map(fmt).join("\n\n"+"=".repeat(70)+"\n\n"),"utf8");
  fs.writeFileSync(sprintJson,JSON.stringify({tipo:"CEBRASPE real Certo/Errado",concurso:d.plan,materia:d.subject,total:sprint.length,questoes:sprint},null,2),"utf8");
- const sprintKeys=["numero","id","assunto","tipo","enunciado","gabarito","comentario","banca","ano","prova","codigo_fonte","origem","nivel","situacao"];
+ const sprintKeys=["numero","id","assunto","tipo","enunciado","gabarito","gabarito_ce","comentario","banca","ano","prova","codigo_fonte","origem","nivel","situacao"];
  fs.writeFileSync(sprintCsv,"\ufeff"+[sprintKeys.join(";"),...sprint.map(r=>sprintKeys.map(k=>csv(r[k])).join(";"))].join("\r\n"),"utf8");
  const lessons=[...new Set(d.rows.map(r=>r.assunto))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
  const lessonFiles=[];
