@@ -1,0 +1,138 @@
+# MT_TITA_EXPORTAR_PROCESSO_PENAL_CERTO_ERRADO_V3
+# Apenas leitura no Supabase. Salva tudo localmente, sem exportar senhas.
+$ErrorActionPreference='Stop'
+$ProgressPreference='SilentlyContinue'
+try{[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12}catch{}
+function Info([string]$message){ Write-Host ('[TITA EXPORTAR] '+$message) -ForegroundColor Cyan }
+function IsProject([string]$dir){
+  return ($dir -and (Test-Path -LiteralPath (Join-Path $dir 'package.json')) -and
+    (Test-Path -LiteralPath (Join-Path $dir 'lib\supabase\env.ts')))
+}
+$project=(Get-Location).Path
+if(!(IsProject $project)){
+  $known=Join-Path $HOME 'Documents\Codex\2026-08-31\omo-conecto-meu-githuba-aq-x20\mentoria-tita'
+  if(IsProject $known){$project=$known}
+  else{throw 'Pasta da TITÃ não encontrada. Execute na pasta mentoria-tita.'}
+}
+if(!(Get-Command node -ErrorAction SilentlyContinue)){throw 'Node.js não encontrado no computador.'}
+if(!(Test-Path -LiteralPath (Join-Path $project 'node_modules\@supabase\supabase-js'))){
+  throw 'As dependências da TITÃ não estão instaladas. Entre na pasta e execute npm.cmd install.'
+}
+Info ('Projeto: '+$project)
+$settings=@{}
+foreach($file in @('.env','.env.local')){
+  $full=Join-Path $project $file
+  if(!(Test-Path -LiteralPath $full)){continue}
+  foreach($line in [IO.File]::ReadAllLines($full)){
+    if($line -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$'){
+      $key=$Matches[1];$value=$Matches[2].Trim()
+      if(($value.StartsWith('"') -and $value.EndsWith('"')) -or
+         ($value.StartsWith("'") -and $value.EndsWith("'"))){
+        if($value.Length -ge 2){$value=$value.Substring(1,$value.Length-2)}
+      }
+      $settings[$key]=$value
+    }
+  }
+}
+function ValueOf([string[]]$keys){
+  foreach($key in $keys){
+    if($settings.ContainsKey($key) -and ![string]::IsNullOrWhiteSpace($settings[$key])){return $settings[$key]}
+    $envVal=[Environment]::GetEnvironmentVariable($key,'Process')
+    if(![string]::IsNullOrWhiteSpace($envVal)){return $envVal}
+  }
+  return ''
+}
+$url=ValueOf @('NEXT_PUBLIC_SUPABASE_URL','SUPABASE_URL')
+$public=ValueOf @('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY','NEXT_PUBLIC_SUPABASE_ANON_KEY','SUPABASE_ANON_KEY')
+$service=ValueOf @('SUPABASE_SERVICE_ROLE_KEY','SUPABASE_SECRET_KEY','SUPABASE_SERVICE_KEY')
+if(!$url){throw 'NEXT_PUBLIC_SUPABASE_URL ausente do .env.local. Sem essa configuração a exportação não pode acessar seu projeto.'}
+if(!$public -and !$service){throw 'Chave publicável do Supabase não encontrada no .env.local.'}
+if(!$url.StartsWith('https://')){throw 'URL do Supabase inválida. Nenhuma credencial foi enviada.'}
+$token=''
+if(!$service){
+  Info 'Você precisa autenticar um perfil ADMIN da TITÃ para exportar gabaritos e questões inativas.'
+  $method=Read-Host 'Digite 1 para login com e-mail/senha da TITÃ ou 2 para informar a chave service_role'
+  if($method -eq '2'){
+    $secure=Read-Host 'Cole a chave service_role/secret do SEU projeto Supabase (não será exibida)' -AsSecureString
+    $ptr=[IntPtr]::Zero
+    try{
+      $ptr=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+      $service=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)
+    }finally{
+      if($ptr -ne [IntPtr]::Zero){[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)}
+      Remove-Variable secure -ErrorAction SilentlyContinue
+    }
+    if([string]::IsNullOrWhiteSpace($service)){throw 'Nenhuma chave informada. Exportação cancelada.'}
+  }else{
+    if(!$public){throw 'Para login por senha é necessária a chave pública NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.'}
+    $email=Read-Host 'E-mail do administrador usado no login da TITÃ'
+    if([string]::IsNullOrWhiteSpace($email)){throw 'E-mail não informado. Exportação cancelada.'}
+    $secure=Read-Host 'Senha da TITÃ (digitação oculta)' -AsSecureString
+    $ptr=[IntPtr]::Zero
+    try{
+      $ptr=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+      $password=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)
+      $body=@{email=$email;password=$password} | ConvertTo-Json -Compress
+      try{
+        $resp=Invoke-RestMethod -Method Post -Uri ($url.TrimEnd('/')+'/auth/v1/token?grant_type=password') -Headers @{'apikey'=$public;'Content-Type'='application/json'} -Body $body -TimeoutSec 30
+        $token=$resp.access_token
+      }catch{
+        throw 'Não foi possível autenticar por e-mail/senha na TITÃ. Se você usa login Google, reinicie o comando e escolha 2 (chave service_role).'
+      }
+    }finally{
+      if($ptr -ne [IntPtr]::Zero){[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)}
+      Remove-Variable password -ErrorAction SilentlyContinue
+      Remove-Variable secure -ErrorAction SilentlyContinue
+      Remove-Variable body -ErrorAction SilentlyContinue
+    }
+    if(!$token){throw 'Autenticação não retornou token. Exportação cancelada.'}
+    Info 'Sessão autenticada. O arquivo será produzido inteiramente no seu computador.'
+  }
+}else{Info 'Acesso de serviço já configurado na pasta da TITÃ; nenhuma senha será solicitada.'}
+$work=Join-Path $env:TEMP ('tita-exportar-processo-penal-ce-v3-'+[guid]::NewGuid().ToString('N'))
+[IO.Directory]::CreateDirectory($work)|Out-Null
+$scriptFile=Join-Path $work 'exportar-processo-penal-ce-v3.cjs'
+$output=Join-Path $project 'EXPORTACOES\PROCESSO_PENAL_COMUM_SOMENTE_CERTO_ERRADO_V3'
+$src='https://raw.githubusercontent.com/herikemldolivro-a11y/mentoria-tita/tita-ingles-rotina-v160-20261110/scripts/exportar-processo-penal-ce-v3/exportar-processo-penal-ce-v3.cjs?v=20261119-processo-penal-ce-v3r1'
+try{
+  $wc=New-Object System.Net.WebClient
+  $wc.Encoding=[System.Text.Encoding]::UTF8
+  $wc.Headers.Add('Cache-Control','no-cache')
+  try{$code=$wc.DownloadString($src)}finally{$wc.Dispose()}
+  if(!$code.Contains('MT_TITA_EXPORT_PROCESSO_PENAL_EXCLUSIVO_CERTO_ERRADO_V3') -or $code.Length -lt 5000){
+    throw 'Arquivo de exportação não passou na verificação. Nada foi baixado da base.'
+  }
+  [IO.File]::WriteAllText($scriptFile,$code,(New-Object System.Text.UTF8Encoding($false)))
+  Info 'Exportando SOMENTE CERTO/ERRADO do Processo Penal Comum; enunciados e comentários completos do banco.'
+  $env:TITA_EXPORT_URL=$url
+  $env:TITA_EXPORT_API_KEY=$public
+  $env:TITA_EXPORT_SECRET_KEY=$service
+  $env:TITA_EXPORT_JWT=$token
+  $env:TITA_EXPORT_OUTPUT_DIR=$output
+  Push-Location $project
+  try{
+    & node $scriptFile $project
+    if($LASTEXITCODE -ne 0){throw ('O exportador terminou com erro. Código: '+$LASTEXITCODE)}
+  }finally{Pop-Location}
+  $zip=Join-Path $project 'EXPORTACOES\PROCESSO_PENAL_COMUM_SOMENTE_CERTO_ERRADO_V3.zip'
+  try {
+    Info 'Criando ZIP para você enviar no ChatGPT e montar os sprints...'
+    Compress-Archive -Path (Join-Path $output '*') -DestinationPath $zip -CompressionLevel Optimal -Force
+    Info ('ZIP PARA OS SPRINTS: '+$zip)
+  } catch {
+    Write-Warning ('Os arquivos foram exportados, mas o ZIP não foi concluído: '+$_.Exception.Message)
+  }
+  $master=Join-Path $output '00_LEIA_PRIMEIRO_AUDITORIA_V3.txt'
+  if(!(Test-Path -LiteralPath $master)){throw 'O relatório de auditoria não foi criado. A exportação não pode ser considerada completa.'}
+  Info 'Arquivos disponíveis: somente questões de Certo/Errado.'
+  Write-Host ('[TITA EXPORTAR] CONCLUÍDO! Arquivos em: '+$output) -ForegroundColor Green
+  Info 'Para abrir a pasta: explorer.exe "'+$output+'"'
+  try{Start-Process explorer.exe -ArgumentList ('"'+$output+'"')}catch{Info 'Se o Explorer não abrir, use o caminho da exportação mostrado acima.'}
+}finally{
+  foreach($name in @('TITA_EXPORT_URL','TITA_EXPORT_API_KEY','TITA_EXPORT_SECRET_KEY','TITA_EXPORT_JWT','TITA_EXPORT_OUTPUT_DIR')){
+    Remove-Item -Path ('Env:\'+$name) -ErrorAction SilentlyContinue
+  }
+  Remove-Variable service -ErrorAction SilentlyContinue
+  Remove-Variable token -ErrorAction SilentlyContinue
+  try{Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue}catch{}
+}
