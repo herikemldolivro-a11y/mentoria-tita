@@ -106,6 +106,23 @@ async function getAll(){
    return t||a.data_cadastro.localeCompare(b.data_cadastro)||a.id.localeCompare(b.id);
  });
  rows.forEach((r,i)=>r.numero=i+1);
+  const canon=t=>safe(t).normalize("NFKC").toLocaleLowerCase("pt-BR").replace(/\s+/g," ").trim();
+  const index=new Map();
+  for(const r of rows){
+    const c=canon(r.enunciado),duplicate=index.get(c);
+    if(duplicate&&duplicate.gabarito_ce!==r.gabarito_ce)throw Error("Enunciados iguais com gabaritos diferentes: "+duplicate.id+" / "+r.id);
+    if(duplicate)r.duplicada_de=duplicate.numero;else index.set(c,r);
+    const comment=canon(r.comentario),alerts=[];
+    if(comment.includes("na ação penal pública condicionada, a representação do legitimado funciona"))
+      alerts.push("COMENTÁRIO PADRÃO REPETIDO — conferir se corresponde ao enunciado");
+    if(comment.includes("a alternativa assinalada corresponde ao gabarito oficial do caderno-fonte"))
+      alerts.push("COMENTÁRIO GENÉRICO — verificar fundamento na fonte");
+    if(/texto (?:acima|abaixo|anterior|precedente)|figura (?:abaixo|acima)|gráfico (?:abaixo|a seguir)/i.test(r.enunciado))
+      alerts.push("POSSÍVEL TEXTO-BASE OU FIGURA EXTERNA — consultar prova original");
+    if(canon(r.banca)==="simulado cebraspe")
+      alerts.push("BANCA SIMULADO CEBRASPE — não usar como prova real");
+    r.alertas=alerts;
+  }
  return {rows,questionsCount:rows.length,keysCount:keys.size,plan:p.name,subject:s.name,restricted};
 }
 function writeFiles(d){
@@ -126,7 +143,9 @@ function writeFiles(d){
    "ENUNCIADO COMPLETO (DO BANCO):",r.enunciado,
    "GABARITO: "+(r.gabarito_ce==="C"?"CERTO (C)":"ERRADO (E)")+" · ORIGINAL: "+r.gabarito,
    "COMENTÁRIO INTEGRAL (DO BANCO):",r.comentario,
-   "BANCA: "+r.banca+" · ANO: "+r.ano,
+   "BANCA: "+r.banca+" · ANO: "+r.ano+" · PROVA: "+r.prova,
+    "CÓDIGO DA FONTE: "+r.codigo_fonte+" · ORIGEM: "+r.origem,
+    ...(r.alertas||[]).map(a=>"ALERTA: "+a),
  ].join("\n")).join("\n\n"+"-".repeat(70)+"\n\n");
  fs.writeFileSync(csvFile,"\ufeff"+contents,"utf8");
  fs.writeFileSync(jsonFile,JSON.stringify({concurso:d.plan,materia:d.subject,total:d.questionsCount,
@@ -177,6 +196,7 @@ function writeFiles(d){
    "GABARITO C/E: "+(r.gabarito_ce||"NÃO DISPONÍVEL COM ESTE ACESSO"),
    "GABARITO ORIGINAL: "+(r.gabarito||"NÃO DISPONÍVEL COM ESTE ACESSO"),
    "COMENTÁRIO INTEGRAL (DO BANCO): "+r.comentario,
+    ...(r.alertas||[]).map(a=>"ALERTA: "+a),
  ].join("\n");
  const sprintPrefix="SPRINT_CEBRASPE_REAL_CERTO_ERRADO_"+sprint.length+"_QUESTOES";
  const sprintTxt=path.join(output,sprintPrefix+".txt");
@@ -219,7 +239,49 @@ function writeFiles(d){
  const reportFile=path.join(output,"LEIA_PRIMEIRO_RESUMO_E_FILTROS.txt");
  fs.writeFileSync(reportFile,"\ufeff"+report+"\n","utf8");
 
- return {csvFile,jsonFile,htmlFile,txtFile,prefix,sprintTxt,sprintCsv,sprintJson,lessonFiles,reportFile,sprintCount:sprint.length};
+ 
+  // Versão CEBRASPE sem duplicatas, exclusivamente Certo/Errado.
+  const normalized=t=>safe(t).normalize("NFKC").toLocaleLowerCase("pt-BR").replace(/\s+/g," ").trim();
+  const marked=new Set();
+  const unique=sprint.filter(r=>{
+    const key=normalized(r.enunciado);
+    if(marked.has(key))return false;
+    marked.add(key);return true;
+  });
+  const prefixUnique="CEBRASPE_CE_"+unique.length+"_QUESTOES_UNICAS_PARA_SPRINT";
+  const uniqueTxt=path.join(output,prefixUnique+".txt");
+  const uniqueJson=path.join(output,prefixUnique+".json");
+  fs.writeFileSync(uniqueTxt,"\ufeffCEBRASPE REAL C/E · "+unique.length+" QUESTÕES SEM DUPLICATAS\n"+
+    "Gabaritos e comentários retirados da TITÃ; a fonte original ainda deve ser conferida.\n\n"+
+    unique.map(fmt).join("\n\n"+"=".repeat(74)+"\n\n"),"utf8");
+  fs.writeFileSync(uniqueJson,JSON.stringify({tipo:"true_false",total:unique.length,questoes:unique},null,2),"utf8");
+  const flagged=d.rows.filter(r=>(r.alertas||[]).length>0);
+  const auditTxt=path.join(output,"AUDITORIA_"+flagged.length+"_ITENS_COM_ALERTAS.txt");
+  fs.writeFileSync(auditTxt,"\ufeffITENS QUE PRECISAM DE CONFERÊNCIA COM A PROVA. Não significa que os gabaritos estejam errados.\n\n"+
+    flagged.map(r=>"ALERTAS: "+r.alertas.join(" | ")+"\n"+fmt(r)).join("\n\n"+"-".repeat(74)+"\n\n"),"utf8");
+  const distinct=new Set(d.rows.map(r=>normalized(r.enunciado))).size;
+  const repetitive=d.rows.filter(r=>r.alertas.some(a=>a.includes("COMENTÁRIO PADRÃO"))).length;
+  const vague=d.rows.filter(r=>r.alertas.some(a=>a.includes("COMENTÁRIO GENÉRICO"))).length;
+  const reportV3=[
+    "AUDITORIA V3 · PROCESSO PENAL COMUM · SOMENTE CERTO/ERRADO",
+    "Questões C/E exportadas: "+d.questionsCount,
+    "Questões de múltipla escolha exportadas: ZERO",
+    "Enunciados distintos no banco: "+distinct,
+    "CEBRASPE real C/E com duplicatas: "+sprint.length,
+    "CEBRASPE real C/E sem duplicatas: "+unique.length,
+    "Banca Simulado Cebraspe fora da lista de provas reais: "+d.rows.filter(r=>normalized(r.banca)==="simulado cebraspe").length,
+    "Comentários padrão repetidos: "+repetitive,
+    "Comentários genéricos: "+vague,
+    "Registros com qualquer alerta: "+flagged.length,
+    "Todos os itens deste pacote têm enunciado, gabarito TRUE/FALSE e comentário não vazio no banco.",
+    "IMPORTANTE: existir gabarito e comentário não é prova de conferência independente.",
+    "A versão integral mantém duplicatas. Somente a versão para sprints remove enunciados repetidos.",
+    "Nenhuma questão, resposta, gabarito ou revisão da TITÃ foi alterada."
+  ].join("\n");
+  const auditReport=path.join(output,"00_LEIA_PRIMEIRO_AUDITORIA_V3.txt");
+  fs.writeFileSync(auditReport,"\ufeff"+reportV3+"\n","utf8");
+
+ return {csvFile,jsonFile,htmlFile,txtFile,prefix,sprintTxt,sprintCsv,sprintJson,lessonFiles,reportFile,sprintCount:sprint.length,uniqueTxt,uniqueJson,auditTxt,auditReport,uniqueCount:unique.length,auditCount:flagged.length};
 }
 function tryPdf(htmlFile,prefix){
  const programFiles=[
@@ -255,6 +317,9 @@ async function main(){
  info("Gabaritos encontrados: "+d.keysCount);
  info("CEBRASPE REAL C/E para os sprints: "+f.sprintCount);
  info("TXT específico de sprints: "+f.sprintTxt);
+ info("CEBRASPE SEM DUPLICATAS: "+f.uniqueTxt);
+ info("RELATÓRIO DE ALERTAS: "+f.auditReport);
+ info("ITENS PARA AUDITORIA: "+f.auditCount);
  for(const name of f.lessonFiles)info("TXT por assunto: "+name);
  info("Leia o resumo: "+f.reportFile);
  info("Ativas: "+d.rows.filter(x=>x.situacao==="Ativa").length);
