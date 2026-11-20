@@ -85,21 +85,35 @@ export function PrincipalCalendar({ compact = false }: { compact?: boolean }) {
   // Marcação somente visual: não altera revisões, cadernos ou nivelamentos.
   const [manualCompletedDates, setManualCompletedDates] = useState<Set<string>>(() => new Set());
   const [manualStorageKey, setManualStorageKey] = useState<string | null>(null);
+  const [manualUserId, setManualUserId] = useState<string | null>(null);
+  const [manualSaveBusy, setManualSaveBusy] = useState(false);
 
-  function toggleManualDayCompletion(date: string) {
-    if (!manualStorageKey) {
+  async function toggleManualDayCompletion(date: string) {
+    if (!manualStorageKey || !manualUserId || manualSaveBusy) {
       setMessage("Aguarde o carregamento da marcação do calendário.");
       return;
     }
+    const wasMarked = manualCompletedDates.has(date);
     const next = new Set(manualCompletedDates);
-    if (next.has(date)) next.delete(date);
+    if (wasMarked) next.delete(date);
     else next.add(date);
+    setManualSaveBusy(true);
+    setManualCompletedDates(next);
     try {
+      const db = createClient();
+      const { error } = wasMarked
+        ? await db.from("mt_calendar_visual_day_completions")
+            .delete().eq("user_id", manualUserId).eq("day_date", date)
+        : await db.from("mt_calendar_visual_day_completions")
+            .insert({ user_id: manualUserId, day_date: date });
+      if (error) throw error;
       window.localStorage.setItem(manualStorageKey, JSON.stringify([...next]));
-      setManualCompletedDates(next);
       setMessage(null);
     } catch {
-      setMessage("Não foi possível salvar a marcação neste navegador.");
+      setManualCompletedDates(new Set(manualCompletedDates));
+      setMessage("Não foi possível sincronizar a marcação visual deste dia. Tente novamente.");
+    } finally {
+      setManualSaveBusy(false);
     }
   }
 
@@ -129,30 +143,43 @@ export function PrincipalCalendar({ compact = false }: { compact?: boolean }) {
 
   useEffect(() => {
     let mounted = true;
-    void createClient().auth.getUser()
-      .then(({ data, error }) => {
-        if (!mounted) return;
-        if (error || !data.user) {
-          setMessage("Não foi possível identificar sua conta para salvar a marcação do calendário.");
-          return;
-        }
-        const key = `tita-principal-calendar-visual-days-v1:${data.user.id}`;
-        let saved: unknown = [];
-        try {
-          saved = JSON.parse(window.localStorage.getItem(key) ?? "[]") as unknown;
-        } catch {
-          saved = [];
-        }
-        const dates = Array.isArray(saved)
-          ? saved.filter((value): value is string =>
-              typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value))
-          : [];
-        setManualCompletedDates(new Set(dates));
-        setManualStorageKey(key);
-      })
-      .catch(() => {
-        if (mounted) setMessage("Não foi possível carregar a marcação manual do calendário.");
-      });
+    void (async () => {
+      const db = createClient();
+      const { data, error } = await db.auth.getUser();
+      if (!mounted) return;
+      if (error || !data.user) {
+        setMessage("Não foi possível identificar sua conta para carregar a marcação do calendário.");
+        return;
+      }
+      const userId = data.user.id;
+      const key = `tita-principal-calendar-visual-days-v1:${userId}`;
+      let saved: unknown = [];
+      try {
+        saved = JSON.parse(window.localStorage.getItem(key) ?? "[]") as unknown;
+      } catch {
+        saved = [];
+      }
+      const localDates = Array.isArray(saved)
+        ? saved.filter((value): value is string =>
+            typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value))
+        : [];
+      const { data: cloudDates, error: cloudError } = await db
+        .from("mt_calendar_visual_day_completions")
+        .select("day_date")
+        .eq("user_id", userId);
+      if (!mounted) return;
+      const dates = new Set(localDates);
+      if (!cloudError) {
+        for (const item of cloudDates ?? []) dates.add(item.day_date);
+      } else {
+        setMessage("Não foi possível sincronizar os dias concluídos. Mostrando suas marcações deste navegador.");
+      }
+      setManualCompletedDates(dates);
+      setManualStorageKey(key);
+      setManualUserId(userId);
+    })().catch(() => {
+      if (mounted) setMessage("Não foi possível carregar a marcação manual do calendário.");
+    });
     return () => { mounted = false; };
   }, []);
 
@@ -514,7 +541,7 @@ export function PrincipalCalendar({ compact = false }: { compact?: boolean }) {
           date={selectedDate}
           activities={selectedActivities}
           manuallyCompleted={manualCompletedDates.has(selectedDate)}
-          manualCompletionReady={manualStorageKey !== null}
+          manualCompletionReady={manualStorageKey !== null && !manualSaveBusy}
           onToggleManualCompletion={() => {
             if (selectedDate) toggleManualDayCompletion(selectedDate);
           }}
