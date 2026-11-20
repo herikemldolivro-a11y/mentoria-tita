@@ -145,3 +145,12 @@ export async function startPrincipalLeveling(levelingId: string, signal?: AbortS
     available_count?: number;
   };
 }
+
+export async function startPrincipalLevelingFromCalendar(levelingId: string, signal?: AbortSignal) {
+  const supabase = createClient();
+  let request = supabase.rpc("start_leveling_calendar_attempt_unlocked", { p_leveling_id: levelingId });
+  if (signal) request = request.abortSignal(signal);
+  const { data, error } = await request;
+  if (error) throw error;
+  return data as Awaited<ReturnType<typeof startPrincipalLeveling>>;
+}
