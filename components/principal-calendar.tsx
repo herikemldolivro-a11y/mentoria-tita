@@ -225,12 +225,6 @@ export function PrincipalCalendar({ compact = false }: { compact?: boolean }) {
         return;
       }
 
-      if (result.reason === "revision_required") {
-        throw new Error(
-          `Conclua a Revisão ${result.required_revision ?? leveling.leveling_number} desta aula primeiro.`,
-        );
-      }
-
       if (result.reason === "no_questions" || result.reason === "insufficient_questions") {
         throw new Error("Ainda não há 10 questões disponíveis neste nível.");
       }
