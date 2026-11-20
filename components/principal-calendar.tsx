@@ -25,7 +25,7 @@ import {
   createPrincipalRevision,
   loadPrincipalCalendarHub,
   reschedulePrincipalRevision,
-  startPrincipalLeveling,
+  startPrincipalLevelingFromCalendar,
   type PrincipalCalendarHub,
   type PrincipalLeveling,
   type PrincipalNotebookReview,
@@ -207,12 +207,6 @@ export function PrincipalCalendar({ compact = false }: { compact?: boolean }) {
 
   async function openLeveling(leveling: PrincipalLeveling) {
     if (busy) return;
-    if (!leveling.source_completed) {
-      setMessage(
-        `O Nivelamento ${leveling.leveling_number} libera depois que a Revisão ${leveling.leveling_number} desta aula for concluída.`,
-      );
-      return;
-    }
     if (leveling.status === "completed" && leveling.attempt_id) {
       router.push(`/questoes/banco/nivelamento/${leveling.attempt_id}`);
       return;
@@ -224,7 +218,7 @@ export function PrincipalCalendar({ compact = false }: { compact?: boolean }) {
         router.push(`/questoes/banco/nivelamento/${leveling.attempt_id}`);
         return;
       }
-      const result = await startPrincipalLeveling(leveling.id);
+      const result = await startPrincipalLevelingFromCalendar(leveling.id);
 
       if (result.attempt_id) {
         router.push(`/questoes/banco/nivelamento/${result.attempt_id}`);
@@ -882,14 +876,9 @@ function DayActivityRow({
   onClick: () => void;
 }) {
   const completed = activity.completed;
-  const locked =
-    activity.kind === "leveling" && !activity.leveling.source_completed;
-
   const rowStyle = completed
     ? "border-emerald-300/24 bg-[linear-gradient(90deg,rgba(16,185,129,.11),rgba(7,16,28,.82))]"
-    : locked
-      ? "border-white/10 bg-white/[.025] opacity-65"
-      : "border-violet-300/26 bg-[linear-gradient(90deg,rgba(124,58,237,.13),rgba(7,16,28,.82))]";
+    : "border-violet-300/26 bg-[linear-gradient(90deg,rgba(124,58,237,.13),rgba(7,16,28,.82))]";
 
   return (
     <button
@@ -901,9 +890,7 @@ function DayActivityRow({
         className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl border ${
           completed
             ? "border-emerald-300/25 bg-emerald-300/[.08] text-emerald-300"
-            : locked
-              ? "border-white/10 bg-white/[.025] text-white/35"
-              : "border-violet-300/25 bg-violet-300/[.08] text-violet-200"
+            : "border-violet-300/25 bg-violet-300/[.08] text-violet-200"
         }`}
       >
         <ActivityIcon activity={activity} />
@@ -918,12 +905,10 @@ function DayActivityRow({
             className={`rounded-full border px-2 py-0.5 text-[8px] font-black ${
               completed
                 ? "border-emerald-300/25 bg-emerald-300/[.08] text-emerald-300"
-                : locked
-                  ? "border-white/10 bg-white/[.025] text-white/35"
-                  : "border-violet-300/25 bg-violet-300/[.08] text-violet-200"
+                : "border-violet-300/25 bg-violet-300/[.08] text-violet-200"
             }`}
           >
-            {completed ? "CONCLUÍDA" : locked ? "BLOQUEADA" : activity.kind === "revision" ? "REVISÃO" : "PENDENTE"}
+            {completed ? "CONCLUÍDA" : activity.kind === "revision" ? "REVISÃO" : "PENDENTE"}
           </span>
         </div>
         <span className="mt-1 block truncate text-[11px] text-white/62">
